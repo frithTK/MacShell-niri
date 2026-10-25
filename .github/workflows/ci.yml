@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    name: Python regressions and source checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      MACSHELL_TEST_PYTHON: /usr/bin/python3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            python3-gi python3-pil python3-gst-1.0 \
+            gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            dbus-daemon ffmpeg desktop-file-utils
+      - name: Run portable checks
+        run: bash scripts/check-portable.sh
+
+  qml:
+    name: QML interactions (Qt 6.9.3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Qt
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.9.3'
+          arch: linux_gcc_64
+          cache: true
+      - name: Run QML interaction tests
+        run: bash scripts/check-qml.sh
+
+  airdrop:
+    name: Owly bridge and native file transfer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MACSHELL_OWLY_BUILD_DIR: ${{ github.workspace }}/build/owly
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - name: Build pinned Owly bridge
+        env:
+          RUSTUP_TOOLCHAIN: '1.98.0'
+        run: bash scripts/build-airdrop-backend.sh
+      - name: Allow isolated user network namespaces on this runner
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Check Wi-Fi protection before radio acquisition
+        env:
+          RUSTUP_TOOLCHAIN: '1.98.0'
+        run: |
+          export CARGO_HOME=${CARGO_HOME:-$MACSHELL_OWLY_BUILD_DIR/cargo-home}
+          cargo test --release --locked --manifest-path build/owly/source/Cargo.toml -p owly-cli ms_policy_tests
+      - name: Check actual file transfers without Wi-Fi hardware
+        run: python3 scripts/check-airdrop-native.py --binary build/owly/source/target/release/owly

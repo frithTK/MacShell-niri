@@ -1,0 +1,13 @@
+post_install() {
+    systemctl daemon-reload
+    if systemctl is-active --quiet NetworkManager; then
+        nmcli general reload conf
+    fi
+    printf '%s\n' 'AirDrop radio stays off until enabled in MacShell. The backend can start on D-Bus activation.'
+}
+post_upgrade() {
+    post_install
+}
+pre_remove() {
+    systemctl stop owlyd.service || true
+}

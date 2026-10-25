@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Niri (MacShell)
+Comment=MacShell profile; original Niri session remains available
+Exec=/usr/local/bin/niri-macshell-session
+TryExec=/usr/local/bin/niri-macshell-session
+Type=Application

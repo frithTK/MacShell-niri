@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "fields": [
+        {"key": "cpuWarning", "label": "CPU warning", "description": "Load at which the CPU icon turns amber", "keywords": "cpu processor warning amber threshold цп процессор нагрузка порог желтый", "type": "integer", "default": 65, "minimum": 0, "maximum": 99, "lessThan": "cpuCritical", "unit": "%", "advanced": true},
+        {"key": "cpuCritical", "label": "CPU critical", "description": "Load at which the CPU icon turns red", "keywords": "cpu processor critical red threshold цп процессор красный нагрузка порог", "type": "integer", "default": 90, "minimum": 1, "maximum": 100, "unit": "%", "advanced": true},
+        {"key": "memoryWarning", "label": "Memory warning", "description": "Used memory at which the memory icon turns amber", "keywords": "ram memory warning amber threshold озу память желтый нагрузка порог", "type": "integer", "default": 65, "minimum": 0, "maximum": 99, "lessThan": "memoryCritical", "unit": "%", "advanced": true},
+        {"key": "memoryCritical", "label": "Memory critical", "description": "Used memory at which the memory icon turns red", "keywords": "ram memory critical red threshold озу память красный нагрузка порог", "type": "integer", "default": 90, "minimum": 1, "maximum": 100, "unit": "%", "advanced": true},
+        {"key": "palette", "label": "Icon colors", "description": "Use load colors or the menu bar foreground", "keywords": "color palette monochrome theme цвет цвета палитра монохром тема", "type": "choice", "default": "system", "choices": [{"value": "system", "label": "Load colors"}, {"value": "monochrome", "label": "Monochrome"}]},
+        {"key": "speedUnit", "label": "Speed units", "description": "Format network and disk rates in decimal or binary units", "keywords": "speed network disk units binary decimal скорость сеть диск единицы двоичные десятичные", "type": "choice", "default": "decimal", "choices": [{"value": "decimal", "label": "Decimal · kB, MB"}, {"value": "binary", "label": "Binary · KiB, MiB"}]},
+        {"key": "order", "label": "Metric order", "description": "Order the selected resource icons in the menu bar", "keywords": "order sort metrics cpu ram network disk порядок сортировка показатели сеть диск память", "type": "order", "default": ["cpu", "memory", "network", "disk"], "choices": [{"value": "cpu", "label": "CPU"}, {"value": "memory", "label": "Memory"}, {"value": "network", "label": "Network"}, {"value": "disk", "label": "Disk"}]}
+    ]
+}

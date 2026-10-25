@@ -1,0 +1,21 @@
+{
+    "version": 1,
+    "blocks": [
+        {"type":"appleMenu","label":"Apple menu","zone":"left","priority":95,"width":30},
+        {"type":"appMenus","label":"Application menus","zone":"left","priority":35,"width":360,"compact":100},
+        {"type":"workspaces","label":"Workspaces","zone":"center","priority":80,"width":110,"compact":22},
+        {"type":"monitoring","label":"Activity Monitor","zone":"right","priority":65,"width":120,"compact":26},
+        {"type":"tray","label":"System tray","zone":"right","priority":30,"width":78},
+        {"type":"bluetooth","label":"Bluetooth","zone":"right","priority":40,"width":26},
+        {"type":"volume","label":"Volume","zone":"right","priority":75,"width":28},
+        {"type":"keyboard","label":"Keyboard layout","zone":"right","priority":45,"width":34},
+        {"type":"battery","label":"Battery","zone":"right","priority":85,"width":62},
+        {"type":"notifications","label":"Notifications","zone":"right","priority":50,"width":28},
+        {"type":"wifi","label":"Wi-Fi and network","zone":"right","priority":60,"width":28},
+        {"type":"search","label":"Spotlight search","zone":"right","priority":25,"width":28},
+        {"type":"controlCenter","label":"Control Center","zone":"right","priority":100,"width":30},
+        {"type":"privacy","label":"Privacy indicators","zone":"right","priority":100,"width":20},
+        {"type":"clock","label":"Clock and calendar","zone":"right","priority":90,"width":150,"compact":72},
+        {"type":"spacer","label":"Spacer","zone":"right","priority":0,"width":16,"repeatable":true}
+    ]
+}

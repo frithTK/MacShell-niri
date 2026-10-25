@@ -1,0 +1,13 @@
+diff --git a/lib/raop_handlers.h b/lib/raop_handlers.h
+index 5037e68..796124c 100644
+--- a/lib/raop_handlers.h
++++ b/lib/raop_handlers.h
+@@ -352,7 +352,7 @@ raop_handler_pairsetup_pin(raop_conn_t *conn,
+         /* this is the second part of pair-setup-pin request */
+         char *client_pk = NULL;
+         char *client_proof = NULL;
+-        unsigned char proof[64] = { '\0' };
++        unsigned char proof[20] = { '\0' };
+         memset(proof, 0, sizeof(proof));
+         uint64_t client_pk_len = 0;
+         uint64_t client_proof_len = 0;

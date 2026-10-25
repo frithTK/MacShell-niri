@@ -1,0 +1,28 @@
+name: Bug report / Ошибка
+description: Report a desktop, control, installation or recovery problem.
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce / Как воспроизвести
+      description: Include the affected component and repository commit.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior / Ожидаемое и фактическое поведение
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / Окружение
+      description: Distribution, niri version, Quickshell version, Qt version and relevant hardware. Mention a separate runtime if used.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or logs / Снимки экрана или журнал
+      description: Share only relevant output. Remove passwords, tokens, notifications and other personal data.

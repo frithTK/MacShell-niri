@@ -1,0 +1,16 @@
+name: Feature request / Предложение
+description: Suggest a focused desktop or development improvement.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case / Задача
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior / Предлагаемое поведение
+      description: Include alternatives or visual examples if useful.
+    validations:
+      required: true

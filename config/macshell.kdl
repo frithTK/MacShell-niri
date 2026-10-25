@@ -1,0 +1,26 @@
+// Include the generated copy via install.sh --session (or --activate).
+// Only MacShell's own application windows are affected.
+window-rule {
+    match app-id=r#"^(org\.quickshell|dev\.noctalia\.noctalia-qs)$"# title=r#"^(macshell Settings|Clock)$"#
+    open-floating true
+}
+layer-rule {
+    match namespace="^macshell-wallpaper$"
+    place-within-backdrop true
+}
+// ext-background-effect supplies live window pixels where IPC geometry is absent.
+// Xray would blur only the wallpaper, even above an application window.
+layer-rule {
+    match namespace="^mac(bar|barbg|dock|spot|switch|wall|osd)$"
+    background-effect { xray false; }
+}
+binds {
+    Mod+Space { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "spotlight" "toggle"; }
+    Mod+V { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "spotlight" "clipboard"; }
+    Mod+Period { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "spotlight" "emoji"; }
+    Mod+Shift+C { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "controlcenter" "toggle"; }
+    Alt+Tab { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "switcher" "next"; }
+    Alt+Shift+Tab { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "switcher" "prev"; }
+    Print { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "screenshot" "region"; }
+    Mod+Ctrl+W { spawn "qs" "-c" "MacShell-niri" "ipc" "call" "wallpapers" "toggle"; }
+}

@@ -1,0 +1,76 @@
+import QtQuick
+import QtTest
+import "../../MacShell" as Port
+import "../../MacShell/BatteryState.js" as State
+
+TestCase {
+    id: test
+    name: "Battery"
+    when: windowShown
+    width: 450; height: 650; visible: true
+    QtObject {
+        id: battery
+        property bool present: true
+        property int percentage: 72
+        property bool charging: false
+        property bool full: false
+        property bool onBattery: true
+        property string remaining: "About 3 h remaining"
+        property string source: "Power Source: Battery"
+    }
+    QtObject {
+        id: power
+        property string profile: "balanced"
+        property var profiles: ["power-saver", "balanced", "performance"]
+        property bool available: true
+        property bool busy: false
+        property bool gameHold: false
+        property string inhibited: ""
+        property string degraded: ""
+        property string error: ""
+        property string requested: ""
+        function label(v) { return ({"power-saver": "Low Power", balanced: "Balanced", performance: "Performance"})[v]; }
+        function supported(v) { return available && profiles.indexOf(v) >= 0 && (v !== "performance" || !inhibited); }
+        function select(v) { requested = v; }
+    }
+    Component { id: menu; Port.BatteryMenu {} }
+    function init() {
+        power.profile = "balanced"; power.profiles = ["power-saver", "balanced", "performance"];
+        power.available = true; power.busy = false; power.inhibited = ""; power.requested = "";
+    }
+    function test_duration_boundaries() {
+        compare(State.duration(0), ""); compare(State.duration(-1), ""); compare(State.duration(NaN), "");
+        compare(State.duration(1), "1 min"); compare(State.duration(3599), "1 h");
+        compare(State.duration(3601), "1 h 1 min");
+    }
+    function test_battery_states_and_unknown_estimates() {
+        compare(State.remaining(true, 2, 5400, 0, true), "About 1 h 30 min remaining");
+        compare(State.remaining(true, 1, 0, 1800, false), "About 30 min until full");
+        compare(State.remaining(true, 4, 0, 0, false), "Fully Charged");
+        verify(State.remaining(true, 2, 0, 0, true).indexOf("Calculating") >= 0);
+        compare(State.remaining(true, 3, 0, 0, false), "Power Adapter · Not Charging");
+        compare(State.remaining(false, 0, 0, 0, false), "No battery");
+    }
+    function test_profile_selection_waits_for_system_confirmation() {
+        var item = createTemporaryObject(menu, test, {battery: battery, power: power, width: 350});
+        var performance = findChild(item, "power_performance");
+        tryVerify(() => item.implicitHeight > 200);
+        waitForRendering(item);
+        mouseClick(performance);
+        compare(power.requested, "performance"); compare(power.profile, "balanced");
+        compare(performance.selected, false);
+        power.profile = "performance"; compare(performance.selected, true);
+        power.busy = true; compare(performance.enabled, false);
+    }
+    function test_missing_and_inhibited_profiles_in_both_themes() {
+        for (var foreground of ["white", "#1d1d1f"]) {
+            var item = createTemporaryObject(menu, test, {battery: battery, power: power, width: 350, foreground: foreground});
+            tryVerify(() => item.implicitHeight > 200 && item.implicitHeight < 600);
+            compare(findChild(item, "batteryRemaining").text, battery.remaining);
+            power.inhibited = "lap-detected"; compare(findChild(item, "power_performance").enabled, false);
+            power.inhibited = ""; power.profiles = ["power-saver", "balanced"];
+            compare(findChild(item, "power_performance").enabled, false);
+            item.destroy(); wait(1);
+        }
+    }
+}

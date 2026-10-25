@@ -1,0 +1,27 @@
+# Package an already built, pinned MacShell Owly tree. No network or radio use.
+pkgname=macshell-airdrop-backend
+pkgver=0.4.0
+pkgrel=2
+pkgdesc='Owly AirDrop backend with the MacShell JSON interface'
+arch=('x86_64' 'aarch64')
+url='https://github.com/t4t5/owly'
+license=('MIT')
+depends=('glibc' 'gcc-libs' 'dbus' 'systemd' 'polkit' 'networkmanager' 'iproute2' 'iputils' 'util-linux')
+optdepends=('hostapd: exclusive mode on cards without ad-hoc mode' 'bluez: wake nearby Apple receivers')
+provides=('owly=0.4.0')
+conflicts=('owly')
+options=('!lto' '!debug')
+install='macshell-airdrop-backend.install'
+source=()
+sha256sums=()
+
+package() {
+    : "${MACSHELL_OWLY_TREE:?Set MACSHELL_OWLY_TREE to the reviewed, built Owly tree}"
+    [[ $(git -C "$MACSHELL_OWLY_TREE" rev-parse HEAD) == 2e9b2b0228432d5e402a9c90a031b419960d0bd1 ]] || return 1
+    [[ $("$MACSHELL_OWLY_TREE/target/release/owly" macshell capabilities) == '{"event":"capabilities","protocol":1}' ]] || return 1
+    cd "$MACSHELL_OWLY_TREE"
+    DESTDIR="$pkgdir" packaging/install.sh owly
+    install -Dm644 "$startdir/macshell.rs" "$pkgdir/usr/share/doc/owly/macshell.rs"
+    install -Dm644 "$startdir/macshell-cli.patch" "$pkgdir/usr/share/doc/owly/macshell-cli.patch"
+    printf '%s\n' '2e9b2b0228432d5e402a9c90a031b419960d0bd1' > "$pkgdir/usr/share/doc/owly/macshell-source-revision"
+}

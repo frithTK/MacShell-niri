@@ -1,0 +1,31 @@
+diff --git a/crates/owly-cli/src/airdrop.rs b/crates/owly-cli/src/airdrop.rs
+index 47f982a..3bf6f6c 100644
+--- a/crates/owly-cli/src/airdrop.rs
++++ b/crates/owly-cli/src/airdrop.rs
+@@ -662,3 +662,5 @@ async fn run_receiver(
+         }
+     }
+ }
++
++include!("macshell.rs");
+diff --git a/crates/owly-cli/src/main.rs b/crates/owly-cli/src/main.rs
+index 34014df..983c9d5 100644
+--- a/crates/owly-cli/src/main.rs
++++ b/crates/owly-cli/src/main.rs
+@@ -39,6 +39,8 @@ struct Cli {
+ 
+ #[derive(Subcommand)]
+ enum Command {
++    #[command(hide = true, subcommand)]
++    Macshell(airdrop::MacshellCommand),
+     /// What the Wi-Fi card can do here, and what stands in the way.
+     Doctor {
+         #[arg(long)]
+@@ -88,6 +90,7 @@ fn main() -> ExitCode {
+     let bus = cli.bus.as_deref();
+     let result = rt.block_on(async {
+         match cli.command {
++            Command::Macshell(command) => airdrop::macshell(bus, command).await,
+             Command::Doctor { json } | Command::Radio(Radio::Probe { json }) => {
+                 doctor::run(bus, json).await
+             }

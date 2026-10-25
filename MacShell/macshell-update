@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-status}" in
+    check|status) printf '%s\n' 'MacShell niri port: local installation. Review changes in your port checkout before reinstalling.' ;;
+    *) printf '%s\n' 'Use install.sh from your niri port checkout to update or roll back. Automatic upstream replacement is disabled.' >&2; exit 1 ;;
+esac

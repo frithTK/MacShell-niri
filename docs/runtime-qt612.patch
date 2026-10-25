@@ -1,0 +1,33 @@
+diff --git a/src/services/pipewire/peak.hpp b/src/services/pipewire/peak.hpp
+index a66b908..cd4da49 100644
+--- a/src/services/pipewire/peak.hpp
++++ b/src/services/pipewire/peak.hpp
+@@ -9,6 +9,7 @@
+ #include <qvector.h>
+ 
+ #include "node.hpp"
++#include "qml.hpp"
+ 
+ namespace qs::service::pipewire {
+ 
+@@ -17,8 +18,6 @@ class PwPeakStream;
+ 
+ } // namespace qs::service::pipewire
+ 
+-Q_DECLARE_OPAQUE_POINTER(qs::service::pipewire::PwNodeIface*);
+-
+ namespace qs::service::pipewire {
+ 
+ ///! Monitors peak levels of an audio node.
+diff --git a/src/services/pipewire/spectrum.hpp b/src/services/pipewire/spectrum.hpp
+index ca5e35a..868c64b 100644
+--- a/src/services/pipewire/spectrum.hpp
++++ b/src/services/pipewire/spectrum.hpp
+@@ -13,6 +13,7 @@
+ #include <qtypes.h>
+ 
+ #include "node.hpp"
++#include "qml.hpp"
+ 
+ namespace qs::service::pipewire {
+ 

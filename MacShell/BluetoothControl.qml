@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 
 Scope {
@@ -14,6 +15,7 @@ Scope {
     property bool discovering: false
     property int connected: 0
     property bool loading: true
+    property bool stateReady: false
     property string statusError: ""
     property string error: ""
     property string busyPath: ""
@@ -56,9 +58,10 @@ Scope {
     JsonService {
         id: service; script: "bluetooth_service.py"; enabled: root.active
         onConnected: root.refresh()
-        onReadyChanged: if (!ready) { root.busy = false; root.request = -1; root.prompt = null; root.statusError = error; }
+        onReadyChanged: if (!ready) { root.stateReady = false; root.busy = false; root.request = -1; root.prompt = null; root.statusError = error; }
         onReceived: m => {
             if (m.type === "state") {
+                root.stateReady = true;
                 root.loading = false; root.statusError = ""; root.available = !!m.available; root.enabled = !!m.enabled;
                 root.adapters = m.adapters || []; root.connected = m.connected || 0; root.discovering = !!m.discovering; root.pairingAvailable = !!m.pairingAvailable;
                 if (JSON.stringify(root.devices) !== JSON.stringify(m.devices)) root.devices = m.devices || [];
@@ -66,8 +69,8 @@ Scope {
             } else if (m.type === "result" && m.id === root.request) {
                 root.busy = false; root.busyPath = ""; root.busyAction = ""; root.request = -1; root.error = m.error || "";
             } else if (m.type === "prompt") { root.prompt = m.prompt; if (root.prompt) root.promptRequested(); }
-            else if (m.type === "error") { root.error = m.error || "Bluetooth request failed."; if (m.id === root.request) { root.busy = false; root.busyPath = ""; root.request = -1; } }
-            else if (m.type === "unavailable") { root.loading = false; root.available = false; root.enabled = false; root.devices = []; root.others = []; root.error = m.error; }
+            else if (m.type === "error") { if (m.id === undefined) root.stateReady = false; root.error = m.error || Language.I18n.text("ui.t_e23e473ce43c"); if (m.id === root.request) { root.busy = false; root.busyPath = ""; root.request = -1; } }
+            else if (m.type === "unavailable") { root.stateReady = false; root.loading = false; root.available = false; root.enabled = false; root.devices = []; root.others = []; root.error = m.error; }
         }
     }
 }

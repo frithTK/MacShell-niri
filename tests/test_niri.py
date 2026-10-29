@@ -1,6 +1,7 @@
 import io
 import json
 import copy
+from contextlib import nullcontext
 import os
 import queue
 import select
@@ -190,9 +191,16 @@ class InstallerTests(unittest.TestCase):
         self.patch = patch.multiple(installer, CONFIG=config, DATA=self.base / "data", BIN=self.base / "bin",
                                     PROFILE=config / "macshell-niri", SHELL=config / "quickshell/MacShell-niri",
                                     LOCK=config / "quickshell/MacLock-niri", NIRI=config / "niri/config.kdl",
-                                    SESSION_UNIT=config / "systemd/user/niri-macshell.service")
+                                    SESSION_UNIT=config / "systemd/user/niri-macshell.service",
+                                    SHELL_UNIT=config / "systemd/user/macshell-niri-shell.service")
         self.patch.start()
         self.addCleanup(self.patch.stop)
+        self.guard_patch = patch.object(installer, "install_guard", side_effect=nullcontext)
+        self.guard_patch.start()
+        self.addCleanup(self.guard_patch.stop)
+        self.session_patch = patch.object(installer, "session_active", return_value=False)
+        self.session_patch.start()
+        self.addCleanup(self.session_patch.stop)
         installer.NIRI.parent.mkdir(parents=True)
         installer.NIRI.write_text('include "./keys.kdl"\nspawn-sh-at-startup "qs -c noctalia-shell"\n')
         (installer.NIRI.parent / "keys.kdl").write_text('binds {\n Mod+Space { spawn "qs -c noctalia-shell ipc call launcher toggle"; }\n}\n')
@@ -246,9 +254,20 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('--config "' + str(installer.PROFILE / "niri/config.kdl") + '"', installer.SESSION_UNIT.read_text())
         self.assertIn("TimeoutStartSec=30", installer.SESSION_UNIT.read_text())
         self.assertIn("ExecStartPost=/usr/bin/python3", installer.SESSION_UNIT.read_text())
+        self.assertIn("ExecStopPost=-/usr/bin/systemctl --user stop macshell-niri-shell.service", installer.SESSION_UNIT.read_text())
+        shell_unit = installer.SHELL_UNIT.read_text()
+        self.assertIn("PartOf=niri-macshell.service", shell_unit)
+        self.assertIn("Restart=on-failure", shell_unit)
+        self.assertIn("StartLimitBurst=5", shell_unit)
+        self.assertIn("KillMode=control-group", shell_unit)
+        self.assertNotIn("After=niri-macshell.service", shell_unit)
         self.assertTrue((installer.PROFILE / "session-ready.py").is_file())
+        self.assertTrue((installer.PROFILE / "shell-supervisor.py").is_file())
+        self.assertTrue((installer.PROFILE / "session-locale.py").is_file())
+        self.assertTrue((installer.PROFILE / "locale_preferences.py").is_file())
         session = (installer.BIN / "niri-macshell-session").read_text()
         self.assertNotIn("@PROFILE_CONFIG@", session)
+        self.assertNotIn("@LOCALE_HELPER@", session)
         self.assertNotIn("NIRI_CONFIG=", session)
         self.assertIn("/usr/bin/niri-session", session)
         self.assertTrue((installer.DATA / "session/register-session.sh").is_file())
@@ -259,6 +278,7 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(manifest["session_only"])
         installer.restore(directory, manifest)
         self.assertFalse(installer.SESSION_UNIT.exists())
+        self.assertFalse(installer.SHELL_UNIT.exists())
         self.assertFalse((installer.BIN / "niri-macshell-session").exists())
         self.assertTrue(all(path.read_bytes() == content for path, content in original.items()))
 
@@ -276,13 +296,44 @@ class InstallerTests(unittest.TestCase):
     def test_failed_activation_restores_original_configuration(self):
         original = installer.NIRI.read_bytes()
         result = subprocess.CompletedProcess([], 0, stdout="", stderr="")
-        with patch.object(installer, "runtime_check"), patch.object(installer, "validate"), patch.object(installer.subprocess, "run", return_value=result), patch.object(installer.subprocess, "Popen") as popen:
+        with patch.object(installer, "runtime_check"), patch.object(installer, "validate"), patch.object(installer, "stop_shell", return_value=True), patch.object(installer.subprocess, "run", return_value=result), patch.object(installer.subprocess, "Popen") as popen:
             popen.return_value.poll.return_value = 1
             with self.assertRaisesRegex(RuntimeError, "did not become ready"):
                 installer.install(True)
         self.assertEqual(installer.NIRI.read_bytes(), original)
         self.assertFalse(installer.SHELL.exists())
         self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_active_session_rejects_install_before_modifying_files(self):
+        self.session_patch.stop()
+        with patch.object(installer, "session_active", return_value=True):
+            with self.assertRaisesRegex(RuntimeError, "Log out"):
+                installer.install(session=True)
+        self.assertFalse(installer.SHELL.exists())
+
+    def test_stop_waits_for_instance_to_exit(self):
+        with patch.object(installer, "instances", side_effect=[[{}], [{}], []]), patch.object(installer.subprocess, "run") as run, patch.object(installer.time, "sleep"):
+            self.assertTrue(installer.stop_shell("MacShell-niri"))
+        self.assertEqual(run.call_args.args[0][-1], "kill")
+
+    def test_instances_accepts_quickshell_empty_message(self):
+        result = subprocess.CompletedProcess([], 0, stdout='No running instances for "/tmp/shell.qml"\nUse --all to list all instances.\n')
+        with patch.object(installer.subprocess, "run", return_value=result):
+            self.assertEqual(installer.instances("MacLock-niri"), [])
+
+
+class InstallationGuardTests(unittest.TestCase):
+    def test_locked_or_unknown_locker_blocks_installation(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"XDG_RUNTIME_DIR": directory}), \
+             patch.object(installer, "instances", return_value=[{"pid": 123}]):
+            for state, code in (("busy", 0), ("stopping", 0), ("", 1)):
+                with self.subTest(state=state), patch.object(installer.subprocess, "run", return_value=subprocess.CompletedProcess([], code, state, "")):
+                    with self.assertRaisesRegex(RuntimeError, "unlock"):
+                        with installer.install_guard():
+                            self.fail("guard must not admit changes")
+            with patch.object(installer.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "ready", "")):
+                with installer.install_guard():
+                    pass
 
 
 class InputTests(unittest.TestCase):

@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 
 Scope {
@@ -25,10 +26,10 @@ Scope {
     readonly property bool connecting: ["starting", "connecting", "pin_required"].indexOf(senderState) >= 0
     readonly property bool receiving: ["starting", "waiting", "streaming"].indexOf(receiverState) >= 0
     readonly property bool quiet: sending || connecting
-    readonly property string label: sending ? (streams[0].device || "Mirroring")
-                                   : connecting ? (pending ? "Enter code" : "Connecting…")
-                                   : receiverState === "streaming" ? "Receiving"
-                                   : receiving ? "Ready to receive" : "AirPlay"
+    readonly property string label: sending ? (streams[0].device || Language.I18n.text("ui.t_12514ad4f7ac"))
+                                   : connecting ? (pending ? Language.I18n.text("ui.t_ad56c87ece8f") : Language.I18n.text("ui.t_72021eb70e91"))
+                                   : receiverState === "streaming" ? Language.I18n.text("ui.t_fa8162869da5")
+                                   : receiving ? Language.I18n.text("ui.t_3c95a1ae6eda") : Language.I18n.text("ui.t_5d9bbb593f62")
     signal hideRequested()
     signal showRequested()
     function observe() { service.send("watch", {enabled: watching}); }
@@ -47,7 +48,7 @@ Scope {
             root.receiverPin = ""; root.receiverClient = ""; root.error = error;
         }
         onReceived: m => {
-            if (m.type === "error") { root.error = m.error || "AirPlay operation failed."; root.showRequested(); return; }
+            if (m.type === "error") { root.error = m.error || Language.I18n.text("ui.t_201d3e7d7c3c"); root.showRequested(); return; }
             if (m.type !== "state") return;
             var wasPending = root.pending !== null;
             var previousPin = root.receiverPin;

@@ -11,11 +11,16 @@ ShellRoot {
     id: root
     property int behindClicks: 0
     property int focusRestores: 0
+    property int activityOpens: 0
+    property string activityOutput: ""
     property bool behindPainted: false
     property bool frontPainted: false
     property string outputName: Quickshell.env("MACSHELL_INPUT_PROBE_OUTPUT")
     readonly property var output: Quickshell.screens.find(screen => screen.name === outputName) || null
-    QtObject { id: fakeBar; property bool settingsReady: true; property bool barEnabled: true; property int barHeight: 0 }
+    QtObject {
+        id: fakeBar; property bool settingsReady: true; property bool barEnabled: true; property int barHeight: 0
+        function showMonitoring(output) { root.activityOpens++; root.activityOutput = output; }
+    }
     QtObject {
         id: fakeHub
         property var dock: null
@@ -67,7 +72,10 @@ ShellRoot {
         target: widgets.desktopWindow ? widgets.desktopWindow.contentItem.Window.window : null
         function onFrameSwapped() { root.frontPainted = true; }
     }
-    TestEvent { id: events }
+    Item {
+        parent: widgets.desktopWindow ? widgets.desktopWindow.contentItem : null
+        TestEvent { id: events }
+    }
     function find(item, name) {
         if (!item) return null;
         if (item.objectName === name) return item;
@@ -79,7 +87,7 @@ ShellRoot {
         var surface = widgets.desktopWindow ? widgets.desktopWindow.contentItem : null;
         var registry = find(surface, "widgetInputs"), points = {};
         for (var row of widgets.renderedRows) {
-            var item = card(row.wid), button = find(item, "playerButton_play");
+            var item = card(row.wid), button = find(item, "playerButton_play") || find(item, "activityOpen");
             if (button) { var p = button.mapToItem(surface, button.width / 2, button.height / 2); points[row.wid] = {x: p.x, y: p.y}; }
         }
         return {ready: widgets.ready && root.behindPainted && root.frontPainted, pending: widgets.pending,
@@ -93,6 +101,9 @@ ShellRoot {
     IpcHandler {
         target: "probe"
         function state(): string { return JSON.stringify(root.state()); }
+        function activity(): string { return JSON.stringify({opens: root.activityOpens, output: root.activityOutput}); }
+        function addActivity(): void { widgets.addWidget("activity", "normal", "small", root.outputName); }
+        function addBatteries(): void { widgets.addWidget("batteries", "normal", "small", root.outputName); }
         function focus(): void { prior.requestActivate(); }
         function reserve(top: int): void { fakeBar.barHeight = top; }
         function media(on: bool): void { widgets.testPlayerAvailable = on; }
@@ -112,7 +123,9 @@ ShellRoot {
         }
         function remove(id: string): void { widgets.removeWidget(id); }
         function action(name: string): void {
-            var button = root.find(widgets.editControls.contentItem, name);
+            var bar = widgets.editControls.contentItem;
+            if (bar) bar.openActions();
+            var button = root.find(bar, name) || (bar ? bar.actionButton(name) : null);
             if (widgets.editControls.active && button && button.enabled) events.mouseClick(button, button.width / 2, button.height / 2, Qt.LeftButton, Qt.NoModifier, 0);
         }
         function clearPlayers(): void {

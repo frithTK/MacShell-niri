@@ -1,11 +1,13 @@
 // Independent session lock for niri; preview before configuring a PAM service.
 import QtQuick
+import "Locale" as Language
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
 
 ShellRoot {
+    Language.LocaleRuntime {}
     // never hot-reload while holding the session lock: a half-edited config must not touch a live lock
     settings.watchFiles: false
     id: root
@@ -78,7 +80,7 @@ ShellRoot {
             if (busy || unlocking || pass.length === 0) return;
             busy = true;
             message = "";
-            if (!pam.start()) { busy = false; fail("Couldn't start authentication"); }
+            if (!pam.start()) { busy = false; fail(Language.I18n.text("ui.t_5766f52bf9ab")); }
         }
         function fail(msg) {
             pass = "";
@@ -135,11 +137,11 @@ ShellRoot {
         onCompleted: result => {
             lockState.busy = false;
             if (result === PamResult.Success) lockState.unlock();
-            else lockState.fail(result === PamResult.MaxTries ? "Too many attempts, try again shortly" : "Incorrect password");
+            else lockState.fail(result === PamResult.MaxTries ? Language.I18n.text("ui.t_46517f2ed9bc") : Language.I18n.text("auth.incorrect_password"));
         }
         onError: err => {
             lockState.busy = false;
-            lockState.fail("Authentication error");
+            lockState.fail(Language.I18n.text("ui.t_be6e6b8db7e6"));
         }
     }
 

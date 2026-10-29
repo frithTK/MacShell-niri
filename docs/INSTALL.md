@@ -57,7 +57,7 @@ Running `bash install.sh` without flags only installs files. `--activate` switch
 
 ## Updating an existing installation
 
-From the checkout:
+Log out of Niri (MacShell), select another session, and run from the checkout:
 
 ```bash
 git pull --ff-only
@@ -65,7 +65,7 @@ bash install.sh --check
 bash install.sh
 ```
 
-This updates the installed shell, locker and launchers, preserving settings and the existing niri profile. Each installation creates a rollback backup. The running shell deliberately does not reload installed files; the update takes effect when MacShell next starts. Session registration and `--activate` are not needed for a regular update. Separately installed runtime programs, including `wlsunset`, remain outside the Git checkout.
+This updates the installed shell, locker and launchers, preserving settings and the existing niri profile. Each installation creates a rollback backup. Installation and rollback refuse to run while the MacShell session is active or MacLock is busy or cannot be checked. To install changes to the separate session's systemd units and login launcher, use `bash install.sh --session` instead; it regenerates the separate niri profile from the existing niri configuration. Session registration and `--activate` are not needed for a regular update. Separately installed runtime programs, including `wlsunset`, remain outside the Git checkout.
 
 ## Recovery
 

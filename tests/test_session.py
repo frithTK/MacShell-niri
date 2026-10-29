@@ -35,6 +35,33 @@ class PreflightTests(unittest.TestCase):
 
 
 class ReadinessTests(unittest.TestCase):
+    def test_graphical_agent_discovery_ignores_terminal_agent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            (proc / "1").mkdir(); (proc / "1/exe").symlink_to('/usr/bin/pkttyagent')
+            self.assertFalse(session_ready.graphical_polkit_agent_running(proc))
+            (proc / "2").mkdir(); (proc / "2/exe").symlink_to('/usr/lib/polkit-kde-authentication-agent-1')
+            self.assertTrue(session_ready.graphical_polkit_agent_running(proc))
+            (proc / "2/exe").unlink()
+            (proc / "2/cmdline").write_bytes(b'/usr/lib/polkit-kde-authentication-agent-1\0')
+            self.assertTrue(session_ready.graphical_polkit_agent_running(proc))
+
+    def test_agent_bootstrap_reuses_existing_and_reports_unavailable(self):
+        with patch.object(session_ready, 'graphical_polkit_agent_running', return_value=True), patch.object(session_ready.subprocess, 'run') as run:
+            self.assertEqual(session_ready.ensure_polkit_agent(), 'already_running')
+            run.assert_not_called()
+        with patch.object(session_ready, 'graphical_polkit_agent_running', return_value=False), patch.object(session_ready.os.path, 'isfile', return_value=False), patch.object(session_ready.subprocess, 'run') as run:
+            self.assertEqual(session_ready.ensure_polkit_agent(), 'unavailable')
+            run.assert_not_called()
+
+    def test_agent_bootstrap_starts_session_scoped_service(self):
+        result = subprocess.CompletedProcess([], 0, '', '')
+        with patch.object(session_ready, 'graphical_polkit_agent_running', return_value=False), patch.object(session_ready.os.path, 'isfile', return_value=True), patch.object(session_ready.os, 'access', return_value=True), patch.object(session_ready.subprocess, 'run', return_value=result) as run:
+            self.assertEqual(session_ready.ensure_polkit_agent(), 'started')
+        command = run.call_args.args[0]
+        self.assertIn('--property=PartOf=niri-macshell.service', command)
+        self.assertEqual(command[-1], '/usr/lib/polkit-kde-authentication-agent-1')
+
     def test_retries_until_shell_connects(self):
         responses = [subprocess.CompletedProcess([], 1, "", "No instance"),
                      subprocess.CompletedProcess([], 0, '{"connected":false}', ""),
@@ -66,6 +93,9 @@ class SessionLauncherTests(unittest.TestCase):
             mocks.write_text('''
 systemctl() {
     printf '%s\\n' "$*" >> "$CALLS"
+    if [[ $* == '--user import-environment' ]]; then
+        printf 'locale %s %s %s %s\\n' "${LANG:-}" "${LANGUAGE:-}" "${LC_MESSAGES:-}" "${LC_TIME:-}" >> "$CALLS"
+    fi
     if [[ $* == "${FAIL_SYSTEMCTL:-}" ]]; then
         return 1
     fi
@@ -77,7 +107,13 @@ systemctl() {
     esac
     return 0
 }
-python3() { return "${PREFLIGHT_EXIT:-0}"; }
+python3() {
+    if [[ ${1:-} == locale-helper ]]; then
+        printf '%s\\n' "${LOCALE_VALUES:-}"
+        return "${LOCALE_EXIT:-0}"
+    fi
+    return "${PREFLIGHT_EXIT:-0}"
+}
 logger() { return "${LOGGER_EXIT:-0}"; }
 dbus-update-activation-environment() { return "${DBUS_EXIT:-0}"; }
 ''')
@@ -85,7 +121,7 @@ dbus-update-activation-environment() { return "${DBUS_EXIT:-0}"; }
             fallback.write_text('#!/bin/sh\nprintf "fallback %s\\n" "$XDG_CURRENT_DESKTOP" >> "$CALLS"\n')
             fallback.chmod(0o755)
             script = root / "session.sh"
-            script.write_text(self.source.read_text().replace("@PROFILE_CONFIG@", "config").replace("@PREFLIGHT@", "preflight").replace("@QS_BINARY@", "qs").replace("/usr/bin/niri-session", str(fallback)))
+            script.write_text(self.source.read_text().replace("@PROFILE_CONFIG@", "config").replace("@PREFLIGHT@", "preflight").replace("@QS_BINARY@", "qs").replace("@LOCALE_HELPER@", "locale-helper").replace("/usr/bin/niri-session", str(fallback)))
             env = dict(os.environ, BASH_ENV=str(mocks), CALLS=str(calls), SHELL="",
                        XDG_STATE_HOME=str(root / "state"), XDG_CURRENT_DESKTOP="wrong", **overrides)
             result = subprocess.run(["bash", str(script)], env=env, capture_output=True, timeout=5)
@@ -106,7 +142,7 @@ dbus-update-activation-environment() { return "${DBUS_EXIT:-0}"; }
         self.assertEqual(code, 0, log)
         self.assertEqual(lines.count(self.cleanup), 1)
         self.assertLess(lines.index(self.cleanup), lines.index("fallback niri"))
-        self.assertIn("--user unset-environment WAYLAND_DISPLAY DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP NIRI_SOCKET MACSHELL_SESSION_TOKEN", lines)
+        self.assertIn("--user unset-environment WAYLAND_DISPLAY DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP NIRI_SOCKET MACSHELL_SESSION_TOKEN MACSHELL_MANAGED_SHELL", lines)
         self.assertIn("MacShell session failed", log)
 
     def test_setup_errors_fall_back_before_starting_session(self):
@@ -128,6 +164,18 @@ dbus-update-activation-environment() { return "${DBUS_EXIT:-0}"; }
         self.assertNotIn(self.cleanup, lines)
         self.assertNotIn("fallback niri", lines)
         self.assertIn("A niri session is already running", log)
+
+    def test_locale_is_exported_before_user_manager_and_compositor_start(self):
+        code, lines, log = self.run_launcher(LOCALE_VALUES="LANG=ru_RU.utf8\nLANGUAGE=ru:en\nLC_MESSAGES=ru_RU.utf8", LC_TIME="en_GB.UTF-8")
+        self.assertEqual(code, 0, log)
+        self.assertIn("locale ru_RU.utf8 ru:en ru_RU.utf8 en_GB.UTF-8", lines)
+        self.assertLess(lines.index("locale ru_RU.utf8 ru:en ru_RU.utf8 en_GB.UTF-8"), lines.index(self.start))
+
+    def test_locale_failure_does_not_deny_login_or_export_partial_output(self):
+        code, lines, log = self.run_launcher(LOCALE_EXIT="1", LOCALE_VALUES="LANG=ru_RU.utf8", LANG="en_US.utf8")
+        self.assertEqual(code, 0, log)
+        self.assertIn(self.start, lines)
+        self.assertFalse(any(line.startswith("locale ru_RU") for line in lines))
 
 
 class NoctaliaRepairTests(unittest.TestCase):

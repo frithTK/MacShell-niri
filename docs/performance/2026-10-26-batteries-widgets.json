@@ -1,0 +1,49 @@
+{
+  "backend": "offscreen/software",
+  "inputIntervalSeconds": 2,
+  "warmupSeconds": 2,
+  "baseline": "Static Normal Calendar in every phase; shared synthetic device inputs, four Large Batteries, six devices; laptop charge changes every two seconds.",
+  "budgets": {
+    "cpuOneCoreDelta": 2.0,
+    "meanRssDeltaMiB": 25.0
+  },
+  "scenarios": {
+    "none": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 90.25,
+      "maxRssMiB": 90.25,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "widgets": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.9,
+      "meanRssMiB": 113.39,
+      "maxRssMiB": 114.04,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "hidden": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 90.8,
+      "maxRssMiB": 90.8,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "removed": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.1,
+      "meanRssMiB": 109.16,
+      "maxRssMiB": 109.16,
+      "maxProcesses": 1,
+      "samples": 10
+    }
+  },
+  "delta": {
+    "cpuOneCorePercent": 0.9,
+    "meanRssMiB": 23.14
+  },
+  "withinBudgets": true
+}

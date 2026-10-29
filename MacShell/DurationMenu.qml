@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 
 ControlMenu {
@@ -7,10 +8,10 @@ ControlMenu {
     property string kind: "focus"
     contentItem: Column {
         spacing: 8
-        ControlHeader { width: parent.width; title: root.kind === "focus" ? "Focus" : "Keep Awake"; foreground: root.foreground; family: root.font.family; onBackRequested: root.backRequested() }
+        ControlHeader { width: parent.width; title: root.kind === "focus" ? Language.I18n.text("ui.t_9d3cab2b5efe") : Language.I18n.text("ui.t_7ace19020244"); foreground: root.foreground; family: root.font.family; onBackRequested: root.backRequested() }
         Text { font.family: root.font.family; width: parent.width; text: root.controller.label(root.kind); color: root.foreground; opacity: .6; wrapMode: Text.Wrap }
         Repeater {
-            model: [{mode: "15", label: "For 15 minutes"}, {mode: "30", label: "For 30 minutes"}, {mode: "60", label: "For one hour"}, {mode: "evening", label: new Date().getHours() >= 20 ? "Until tomorrow at 20:00" : "Until today at 20:00"}, {mode: "manual", label: "Until turned off"}, {mode: "off", label: "Turn off"}]
+            model: [{mode: "15", label: Language.I18n.text("ui.t_a5db9207d504")}, {mode: "30", label: Language.I18n.text("ui.t_3a96d51f16ad")}, {mode: "60", label: Language.I18n.text("ui.t_2f175d587b4b")}, {mode: "evening", label: new Date().getHours() >= 20 ? Language.I18n.text("ui.t_2fdb56fa27fb") : Language.I18n.text("ui.t_af39ae50d787")}, {mode: "manual", label: Language.I18n.text("ui.t_53e7119012bc")}, {mode: "off", label: Language.I18n.text("ui.t_06f0e210b27d")}]
             delegate: ControlChoice {
                 required property var modelData
                 width: root.width; text: modelData.label
@@ -18,6 +19,6 @@ ControlMenu {
                 onClicked: root.controller.set(root.kind, modelData.mode)
             }
         }
-        Text { font.family: root.font.family; visible: root.kind === "awake"; width: parent.width; wrapMode: Text.Wrap; text: "Prevents automatic idle while this session is running. Lock and Suspend remain available."; color: root.foreground; opacity: .6; font.pixelSize: 11 }
+        Text { font.family: root.font.family; visible: root.kind === "awake"; width: parent.width; wrapMode: Text.Wrap; text: Language.I18n.text("ui.t_59ffdebafce3"); color: root.foreground; opacity: .6; font.pixelSize: 11 }
     }
 }

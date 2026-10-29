@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import "BarLayout.js" as Layout
 
 Item {
@@ -29,5 +30,5 @@ Item {
         }
         Text { visible: root.plan.overflow.length > 0; x: root.plan.overflowX / root.budgetWidth * parent.width; text: "•••"; color: root.foreground; font.pixelSize: 9; y: 10 }
     }
-    Text { x: 10; y: 48; text: Math.round(root.logicalWidth) + " logical px · " + Math.round(root.widgetScale * 100) + "% bar scale · " + root.plan.overflow.length + " in overflow · sample widths"; color: root.foreground; opacity: .55; font.pixelSize: 10 }
+    Text { x: 10; y: 48; text: Math.round(root.logicalWidth) + Language.I18n.text("ui.t_8014082a43bd") + Math.round(root.widgetScale * 100) + Language.I18n.text("ui.t_85c808050c68") + root.plan.overflow.length + Language.I18n.text("ui.t_87ded0210136"); color: root.foreground; opacity: .55; font.pixelSize: 10 }
 }

@@ -1,10 +1,12 @@
 import QtQuick
+import "Locale" as Language
 import "GlassPolicy.js" as GlassPolicy
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 
 ShellRoot {
+    Language.LocaleRuntime {}
     // Installations are transactional; reload only after a deliberate restart.
     settings.watchFiles: false
     Scope {
@@ -17,6 +19,9 @@ ShellRoot {
         property var dock: macDock
         property var widgets: macWidgets
         property var clock: clockApp
+        property var calculator: calculatorApp
+        readonly property var translations: Language.I18n
+        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); }
         function openSettings(pane) { macDock.openPrefs(pane); }
         property bool barWantsGeo: false
         property bool dockWantsGeo: false
@@ -80,6 +85,7 @@ ShellRoot {
     MacDock { id: macDock; hub: sharedHub }
     MacWidgets { id: macWidgets; hub: sharedHub }
     ClockApp { id: clockApp; hub: sharedHub }
+    CalculatorApp { id: calculatorApp; hub: sharedHub }
     ThemeCoordinator { bar: macBar; dock: macDock }
 
     IpcHandler {
@@ -154,6 +160,15 @@ ShellRoot {
         function tab(name: string): void { clockApp.open(name); }
         function stop(): void { clockApp.stopRing(); }
         function snooze(): void { clockApp.snooze(); }
+    }
+    IpcHandler {
+        target: "calculator"
+        function open(): void { calculatorApp.open(); }
+        function expression(value: string): void { calculatorApp.open(value); }
+    }
+    IpcHandler {
+        target: "utilities"
+        function open(name: string): void { sharedHub.openUtility(name); }
     }
     IpcHandler {
         target: "notifications"

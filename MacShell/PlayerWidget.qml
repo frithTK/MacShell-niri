@@ -13,6 +13,7 @@
 // This file only draws. MacWidgets.qml owns the MPRIS player and feeds the data properties; the buttons emit
 // togglePlaying() / nextTrack() / previousTrack().
 import QtQuick
+import "Locale" as Language
 import QtQuick.Effects
 
 Item {
@@ -350,9 +351,9 @@ Item {
     readonly property real shownFrac: seekShown ? seekFrac : progress
     readonly property real shownPos: seekShown ? seekFrac * length : position
     Timer { id: seekHoldTimer; interval: 900; onTriggered: w.seekHold = false }
-    readonly property string shownTitle: hasPlayer ? (title !== "" ? title : "Unknown Title") : "Not Playing"
+    readonly property string shownTitle: hasPlayer ? (title !== "" ? title : Language.I18n.text("ui.t_9a4f24006813")) : Language.I18n.text("ui.t_fd423dcbe4cb")
     readonly property string shownSub: hasPlayer ? (artist !== "" ? (album !== "" ? artist + " \u2014 " + album : artist) : album)
-                                                 : "Open a music app"
+                                                 : Language.I18n.text("ui.t_a7bd77502b4f")
 
 
 
@@ -552,7 +553,7 @@ Item {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 visible: w.lyrics.length === 0
-                text: w.lyricsState === "none" ? "No lyrics found" : "Searching for lyrics\u2026"
+                text: w.lyricsState === "none" ? Language.I18n.text("ui.t_bd98648adccb") : Language.I18n.text("ui.t_eea7a3cfc6f9")
                 color: w.fg2
                 font.family: w.fam
                 font.pixelSize: 20 * w.k * w.textScale

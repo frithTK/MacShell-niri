@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 
 Column {
     id: menu
@@ -20,7 +21,7 @@ Column {
         }
         Text {
             x: 32; anchors.verticalCenter: parent.verticalCenter
-            text: "Bluetooth"
+            text: Language.I18n.text("ui.t_8bb29098b369")
             color: menu.t.fg; font.family: menu.t.fam; font.pixelSize: 15; font.weight: Font.DemiBold
         }
         Rectangle {
@@ -45,7 +46,7 @@ Column {
     Rectangle { width: parent.width; height: 1; color: menu.t.sep }
     Text {
         visible: menu.controller.enabled && menu.controller.devices.length > 0
-        x: 6; text: "My Devices"
+        x: 6; text: Language.I18n.text("ui.t_b3a77477986c")
         color: menu.t.fg2; font.family: menu.t.fam; font.pixelSize: 11; font.weight: Font.DemiBold
         topPadding: 3
     }
@@ -55,9 +56,9 @@ Column {
         topPadding: 16; bottomPadding: 16; leftPadding: 6; rightPadding: 6
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
-        text: menu.controller.loading ? "Loading devices…"
-              : (!menu.controller.available ? "No Bluetooth adapter available"
-              : (!menu.controller.enabled ? "Bluetooth is turned off" : "No paired devices"))
+        text: menu.controller.loading ? Language.I18n.text("ui.t_b3f4c73bd205")
+              : (!menu.controller.available ? Language.I18n.text("ui.t_282ff3956953")
+              : (!menu.controller.enabled ? Language.I18n.text("ui.t_ec245d91ef26") : Language.I18n.text("ui.t_b2680ed17eca")))
         color: menu.t.fg2; font.family: menu.t.fam; font.pixelSize: 13
     }
     Flickable {
@@ -117,7 +118,7 @@ Column {
                         anchors.right: parent.right; anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
                         visible: rowMouse.containsMouse && row.canPick
-                        text: row.modelData.connected ? "Disconnect" : "Connect"
+                        text: row.modelData.connected ? Language.I18n.text("ui.t_acfc5be785a9") : Language.I18n.text("ui.t_1a2303ede074")
                         color: menu.t.fg2; font.family: menu.t.fam; font.pixelSize: 11
                     }
                     MouseArea {
@@ -132,10 +133,10 @@ Column {
     Rectangle {
         width: parent.width; height: 32; radius: 8; color: scanMouse.containsMouse ? menu.t.hover : "transparent"
         visible: menu.controller.enabled && menu.controller.pairingAvailable === true
-        Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: menu.controller.discovering ? "Stop searching" : "Find new devices…"; color: menu.t.fg; font.pixelSize: 12 }
+        Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: menu.controller.discovering ? Language.I18n.text("ui.t_c48cf724a3f1") : Language.I18n.text("ui.t_dfbd0aad9fac"); color: menu.t.fg; font.pixelSize: 12 }
         MouseArea { id: scanMouse; anchors.fill: parent; enabled: !menu.controller.busy; hoverEnabled: true; onClicked: menu.controller.discover() }
     }
-    Text { visible: menu.controller.discovering === true; text: "Other Devices · searching for 30 seconds"; color: menu.t.fg2; font.pixelSize: 11 }
+    Text { visible: menu.controller.discovering === true; text: Language.I18n.text("ui.t_2d7bd0c2b84a"); color: menu.t.fg2; font.pixelSize: 11 }
     Flickable {
         width: parent.width; height: Math.min(150, otherList.height); contentHeight: otherList.height; clip: true
         Column {
@@ -146,7 +147,7 @@ Column {
                     required property var modelData
                     width: otherList.width; height: 42; radius: 8; color: otherMouse.containsMouse ? menu.t.hover : "transparent"
                     Text { x: 8; width: parent.width - 55; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; text: modelData.name; color: menu.t.fg; font.pixelSize: 12 }
-                    Text { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Pair"; color: menu.t.accent; font.pixelSize: 11 }
+                    Text { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_989da04b0aaa"); color: menu.t.accent; font.pixelSize: 11 }
                     MouseArea { id: otherMouse; anchors.fill: parent; hoverEnabled: true; enabled: !menu.controller.busy; onClicked: menu.controller.pair(modelData) }
                 }
             }
@@ -154,7 +155,7 @@ Column {
     }
     Rectangle {
         width: parent.width; height: 28; color: "transparent"; visible: menu.controller.busy
-        Text { anchors.centerIn: parent; text: "Cancel request"; color: menu.t.fg2; font.pixelSize: 12 }
+        Text { anchors.centerIn: parent; text: Language.I18n.text("ui.t_56196683592d"); color: menu.t.fg2; font.pixelSize: 12 }
         MouseArea { anchors.fill: parent; onClicked: menu.controller.cancel() }
     }
     Text {
@@ -172,7 +173,7 @@ Column {
             color: settingsMouse.containsMouse ? menu.t.hover : "transparent"
             Text {
                 x: 8; anchors.verticalCenter: parent.verticalCenter
-                text: "Bluetooth Settings…"
+                text: Language.I18n.text("ui.t_449de564aaf3")
                 color: menu.t.fg; font.family: menu.t.fam; font.pixelSize: 12
             }
             MouseArea { id: settingsMouse; anchors.fill: parent; hoverEnabled: true; onClicked: menu.settingsRequested() }
@@ -183,7 +184,7 @@ Column {
             color: refreshMouse.containsMouse ? menu.t.hover : "transparent"
             Text {
                 anchors.centerIn: parent
-                text: menu.controller.refreshing ? "Updating…" : "Refresh"
+                text: menu.controller.refreshing ? Language.I18n.text("ui.t_dfe40efe921f") : Language.I18n.text("ui.t_0e9161011702")
                 color: menu.t.fg2; font.family: menu.t.fam; font.pixelSize: 11
             }
             MouseArea {

@@ -1,5 +1,7 @@
 // macOS-style Dock for niri; retain the original component and animation layout.
 import QtQuick
+import "Locale" as Language
+import "Utilities.js" as Utilities
 import "GlassTheme.js" as GlassTheme
 import "PreferenceFields.js" as PreferenceFields
 import QtQuick.Effects
@@ -111,20 +113,20 @@ Scope {
             && !!(hub && prefsWindow.screen && hub.glassReady(prefsWindow.screen.name));
     }
     function lensDescription(style, shader) {
-        if (style !== "liquid") return "Select Apple Liquid Glass to enable lens refraction.";
-        if (bar && bar.gaming) return "Effects are paused in Game Mode.";
-        if (bar && (bar.recording || bar.recRun)) return "Lens refraction is paused while recording. Live blur is active.";
-        if (shader !== "ready") return shader === "failed" ? "The glass shader could not start." : "Preparing the glass shader…";
-        if (lensReady(style, shader)) return "Lens refraction is active on this display.";
-        return "Lens refraction is unavailable with tiled or overlapping windows on this display. Live blur is active.";
+        if (style !== "liquid") return Language.I18n.text("ui.t_705d37e3db58");
+        if (bar && bar.gaming) return Language.I18n.text("ui.t_444b08a712f3");
+        if (bar && (bar.recording || bar.recRun)) return Language.I18n.text("ui.t_2a353ee7c1f3");
+        if (shader !== "ready") return shader === "failed" ? Language.I18n.text("ui.t_ec3efd0238da") : Language.I18n.text("ui.t_8cfb0bd1e0ae");
+        if (lensReady(style, shader)) return Language.I18n.text("ui.t_d87962dfbcba");
+        return Language.I18n.text("ui.t_9854bbd19520");
     }
     function blurReady(style, shader) {
         return !(bar && bar.gaming) && (nativeBlurControl.available || lensReady(style, shader));
     }
-    readonly property string blurDescription: bar && bar.gaming ? "Effects are paused in Game Mode."
+    readonly property string blurDescription: bar && bar.gaming ? Language.I18n.text("ui.t_444b08a712f3")
         : nativeBlurControl.error || (nativeBlurControl.available
-            ? "Also changes niri background blur in other apps. Zero removes blur from MacShell."
-            : "Native blur adjustment needs the active MacShell niri profile.")
+            ? Language.I18n.text("ui.t_ce6eb7b190d9")
+            : Language.I18n.text("ui.t_1162e7b7bf4b"))
 
     // ───────────── CONFIG ───────────── Lachowski
     property string monitor: ""          // "" = every monitor, or e.g. "DP-1"
@@ -616,7 +618,7 @@ Scope {
         property int activityFocusSerial: 0
         property string widgetTarget: ""
         property int widgetFocusSerial: 0
-        readonly property var activityMatches: root.bar ? PreferenceFields.search(root.bar.activityPreferences.fields, query) : []
+        readonly property var activityMatches: root.bar ? PreferenceFields.search(root.bar.activityPreferences.fields, query, value => Language.I18n.legacy(value)) : []
         function openActivitySetting(key) {
             activityTarget = key || "";
             activityFocusSerial++;
@@ -626,36 +628,38 @@ Scope {
         // grouped like macOS System Settings (sec = sidebar section; a gap is drawn between sections)
         readonly property var panes: [
             { id: "wifi",       sec: 1, name: "Wi-Fi",           wg: "wifi",       c1: "#3D9BFF", c2: "#0A6CFF", keys: "wireless network internet ssid join" },
-            { id: "bluetooth",  sec: 1, name: "Bluetooth",       wg: "bluetooth",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "devices pair headphones mouse keyboard" },
-            { id: "network",    sec: 1, name: "Network",         wg: "ethernet",   c1: "#3D9BFF", c2: "#0A6CFF", keys: "ethernet ip address vpn tailscale connection" },
-            { id: "battery",    sec: 1, name: "Battery",         wg: "bolt",       c1: "#4CD964", c2: "#28A745", keys: "power energy charge profile performance game mode" },
-            { id: "general",    sec: 2, name: "General",         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
-            { id: "appearance", sec: 2, name: "Appearance",      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font" },
-            { id: "controlcenter", sec: 2, name: "Control Center", wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
-            { id: "dock",       sec: 2, name: "Desktop & Dock",  glyph: "dock",     c1: "#2C2C2E", c2: "#1C1C1E", keys: "size icon magnification zoom spacing margin distance edge hide auto labels indicators bounce trash monitor preview" },
-            { id: "widgets", sec: 2, name: "Widgets", glyph: "apps", c1: "#9A7BF8", c2: "#6B48C8", keys: "desktop widgets gallery weather calendar clock player size style forecast temperature city виджеты галерея погода календарь часы плеер размер стиль город" },
-            { id: "displays",   sec: 2, name: "Displays",        wg: "sun",        c1: "#3D9BFF", c2: "#0A6CFF", keys: "brightness night shift monitor resolution refresh scale" },
-            { id: "menubar",    sec: 2, name: "Menu Bar",        glyph: "menubar",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "panel bar height clock date seconds 24 hour battery tray search spotlight week monday style liquid bluetooth widget" },
-            { id: "barlayout", sec: 2, name: "Menu Bar Items", glyph: "menubar", c1: "#9A7BF8", c2: "#6B48C8", keys: "bar layout zones blocks priority overflow spacer monitor display items arrange раскладка зоны блоки приоритет монитор экран элементы порядок" },
-            { id: "activity",   sec: 2, name: "Activity Monitor", glyph: "menubar", c1: "#50C49A", c2: "#238963", keys: "cpu memory network disk monitoring appearance activity мониторинг процессор память сеть диск оформление" },
-            { id: "wallpaper",  sec: 2, name: "Wallpaper",       glyph: "wallpaper", c1: "#5AC8FA", c2: "#007AFF", keys: "wallpaper background picture image video animated live motion desktop dynamic" },
-            { id: "notifications", sec: 3, name: "Notifications", wg: "bell",      c1: "#FF5E57", c2: "#E8342A", keys: "alerts banners popups do not disturb" },
-            { id: "sound",      sec: 3, name: "Sound",           wg: "speaker",    c1: "#FF5E7E", c2: "#E8344F", keys: "volume output input microphone speakers headphones effects" },
-            { id: "focus",      sec: 3, name: "Focus",           wg: "moon",       c1: "#7D7AFF", c2: "#5856D6", keys: "do not disturb keep awake sleep" },
-            { id: "lockscreen", sec: 4, name: "Lock Screen",     wg: "lock",       c1: "#3A3A3C", c2: "#1C1C1E", keys: "lock password album lyrics media clock" },
-            { id: "users",      sec: 4, name: "Users & Groups",  wg: "smile",      c1: "#3D9BFF", c2: "#0A6CFF", keys: "account user name picture avatar" },
-            { id: "keyboard",   sec: 5, name: "Keyboard",        wg: "keyboard",   c1: "#A7A7AD", c2: "#7C7C82", keys: "repeat rate delay layout typing" },
-            { id: "mouse",      sec: 5, name: "Mouse",           wg: "mouse",      c1: "#A7A7AD", c2: "#7C7C82", keys: "tracking speed scroll natural" },
-            { id: "trackpad",   sec: 5, name: "Trackpad",        wg: "trackpad",   c1: "#A7A7AD", c2: "#7C7C82", keys: "tap click natural scroll touchpad gestures" },
-            { id: "apps",       sec: 6, name: "Applications",    glyph: "apps",     c1: "#FFB340", c2: "#FF9500", keys: "pinned apps keep remove reset dock" },
-            { id: "about",      sec: 6, name: "About",           glyph: "about",    c1: "#A7A7AD", c2: "#7C7C82", keys: "version reset config folder macdock macbar macshell" }
+            { id: "bluetooth",  sec: 1, name: Language.I18n.text("ui.t_8bb29098b369"), searchName: Language.I18n.english("ui.t_8bb29098b369"),       wg: "bluetooth",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "devices pair headphones mouse keyboard" },
+            { id: "network",    sec: 1, name: Language.I18n.text("ui.t_1744b96470b5"), searchName: Language.I18n.english("ui.t_1744b96470b5"),         wg: "ethernet",   c1: "#3D9BFF", c2: "#0A6CFF", keys: "ethernet ip address vpn tailscale connection" },
+            { id: "battery",    sec: 1, name: Language.I18n.text("ui.t_dfcb7c1619d5"), searchName: Language.I18n.english("ui.t_dfcb7c1619d5"),         wg: "bolt",       c1: "#4CD964", c2: "#28A745", keys: "power energy charge profile performance game mode" },
+            { id: "general",    sec: 2, name: Language.I18n.text("ui.t_c910d474dcd7"), searchName: Language.I18n.english("ui.t_c910d474dcd7"),         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
+            { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
+            { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font" },
+            { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
+            { id: "dock",       sec: 2, name: Language.I18n.text("ui.t_7517ffc8943c"), searchName: Language.I18n.english("ui.t_7517ffc8943c"),  glyph: "dock",     c1: "#2C2C2E", c2: "#1C1C1E", keys: "size icon magnification zoom spacing margin distance edge hide auto labels indicators bounce trash monitor preview" },
+            { id: "widgets", sec: 2, name: Language.I18n.text("ui.t_1fda79ffb659"), searchName: Language.I18n.english("ui.t_1fda79ffb659"), glyph: "apps", c1: "#9A7BF8", c2: "#6B48C8", keys: "desktop widgets gallery weather calendar clock player activity batteries charge cpu memory network disk size style forecast temperature city виджеты галерея погода календарь часы плеер батареи заряд устройства нагрузка процессор память сеть диск размер стиль город" },
+            { id: "displays",   sec: 2, name: Language.I18n.text("ui.t_5a3452eb50bc"), searchName: Language.I18n.english("ui.t_5a3452eb50bc"),        wg: "sun",        c1: "#3D9BFF", c2: "#0A6CFF", keys: "brightness night shift monitor resolution refresh scale" },
+            { id: "menubar",    sec: 2, name: Language.I18n.text("ui.t_0db85de8b72f"), searchName: Language.I18n.english("ui.t_0db85de8b72f"),        glyph: "menubar",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "panel bar height clock date seconds 24 hour battery tray search spotlight week monday style liquid bluetooth widget" },
+            { id: "barlayout", sec: 2, name: Language.I18n.text("ui.t_a73484fbbf67"), searchName: Language.I18n.english("ui.t_a73484fbbf67"), glyph: "menubar", c1: "#9A7BF8", c2: "#6B48C8", keys: "bar layout zones blocks priority overflow spacer monitor display items arrange раскладка зоны блоки приоритет монитор экран элементы порядок" },
+            { id: "activity",   sec: 2, name: Language.I18n.text("ui.t_0efe6bd6e0b2"), searchName: Language.I18n.english("ui.t_0efe6bd6e0b2"), glyph: "menubar", c1: "#50C49A", c2: "#238963", keys: "cpu memory network disk monitoring appearance activity мониторинг процессор память сеть диск оформление" },
+            { id: "wallpaper",  sec: 2, name: Language.I18n.text("ui.t_a7f173cdaae4"), searchName: Language.I18n.english("ui.t_a7f173cdaae4"),       glyph: "wallpaper", c1: "#5AC8FA", c2: "#007AFF", keys: "wallpaper background picture image video animated live motion desktop dynamic" },
+            { id: "notifications", sec: 3, name: Language.I18n.text("ui.t_788011833a5a"), searchName: Language.I18n.english("ui.t_788011833a5a"), wg: "bell",      c1: "#FF5E57", c2: "#E8342A", keys: "alerts banners popups do not disturb" },
+            { id: "sound",      sec: 3, name: Language.I18n.text("ui.t_46124e023603"), searchName: Language.I18n.english("ui.t_46124e023603"),           wg: "speaker",    c1: "#FF5E7E", c2: "#E8344F", keys: "volume output input microphone speakers headphones effects" },
+            { id: "focus",      sec: 3, name: Language.I18n.text("ui.t_9d3cab2b5efe"), searchName: Language.I18n.english("ui.t_9d3cab2b5efe"),           wg: "moon",       c1: "#7D7AFF", c2: "#5856D6", keys: "do not disturb keep awake sleep" },
+            { id: "security", sec: 4, name: Language.I18n.text("security.title"), searchName: Language.I18n.english("security.title"), wg: "lock", c1: "#3A3A3C", c2: "#1C1C1E", keys: "security unlock fingerprint biometric face безопасность разблокировка отпечаток палец лицо биометрия" },
+            { id: "lockscreen", sec: 4, name: Language.I18n.text("ui.t_91a007b58b9d"), searchName: Language.I18n.english("ui.t_91a007b58b9d"),     wg: "lock",       c1: "#3A3A3C", c2: "#1C1C1E", keys: "lock password album lyrics media clock" },
+            { id: "users",      sec: 4, name: Language.I18n.text("ui.t_81847824f6de"), searchName: Language.I18n.english("ui.t_81847824f6de"),  wg: "smile",      c1: "#3D9BFF", c2: "#0A6CFF", keys: "account user name picture avatar" },
+            { id: "keyboard",   sec: 5, name: Language.I18n.text("ui.t_2316810a5de3"), searchName: Language.I18n.english("ui.t_2316810a5de3"),        wg: "keyboard",   c1: "#A7A7AD", c2: "#7C7C82", keys: "repeat rate delay layout typing" },
+            { id: "mouse",      sec: 5, name: Language.I18n.text("ui.t_55c1520824a8"), searchName: Language.I18n.english("ui.t_55c1520824a8"),           wg: "mouse",      c1: "#A7A7AD", c2: "#7C7C82", keys: "tracking speed scroll natural" },
+            { id: "trackpad",   sec: 5, name: Language.I18n.text("ui.t_2fb10776286d"), searchName: Language.I18n.english("ui.t_2fb10776286d"),        wg: "trackpad",   c1: "#A7A7AD", c2: "#7C7C82", keys: "tap click natural scroll touchpad gestures" },
+            { id: "apps",       sec: 6, name: Language.I18n.text("ui.t_98e33b0f3104"), searchName: Language.I18n.english("ui.t_98e33b0f3104"),    glyph: "apps",     c1: "#FFB340", c2: "#FF9500", keys: "pinned apps keep remove reset dock" },
+            { id: "about",      sec: 6, name: Language.I18n.text("ui.t_4efca0d10c5f"), searchName: Language.I18n.english("ui.t_4efca0d10c5f"),           glyph: "about",    c1: "#A7A7AD", c2: "#7C7C82", keys: "version reset config folder macdock macbar macshell" }
         ]
 
         readonly property var filtered: {
             var q = query.trim().toLowerCase();
             var out = [];
             for (var i = 0; i < panes.length; i++) {
-                var hay = (panes[i].name + " " + panes[i].keys).toLowerCase();
+                var hay = (panes[i].name + " " + (panes[i].searchName || "") + " " + panes[i].keys).toLowerCase();
                 if (q === "" || hay.indexOf(q) >= 0 || panes[i].id === "activity" && activityMatches.length > 0) out.push(i);
             }
             return out;
@@ -870,7 +874,7 @@ Scope {
                         x: 30
                         anchors.verticalCenter: parent.verticalCenter
                         visible: searchInput.text === ""
-                        text: "Search"
+                        text: Language.I18n.text("common.search")
                         color: pal.text3
                         font.family: pal.fam
                         font.pixelSize: 13
@@ -915,7 +919,7 @@ Scope {
                     Column {
                         x: 52; anchors.verticalCenter: parent.verticalCenter
                         Text { text: root.userName; color: prefsWindow.cur === acct.idx && prefsWindow.active ? "white" : pal.text; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
-                        Text { text: "Local Account"; color: prefsWindow.cur === acct.idx && prefsWindow.active ? Qt.rgba(1, 1, 1, 0.8) : pal.text2; font.family: pal.fam; font.pixelSize: 11 }
+                        Text { text: Language.I18n.text("ui.t_6860830de953"); color: prefsWindow.cur === acct.idx && prefsWindow.active ? Qt.rgba(1, 1, 1, 0.8) : pal.text2; font.family: pal.fam; font.pixelSize: 11 }
                     }
                     MouseArea { id: acctMa; anchors.fill: parent; hoverEnabled: true; onClicked: prefsWindow.go(acct.idx) }
                 }
@@ -944,7 +948,7 @@ Scope {
                             Accessible.description: modelData.description
                             contentItem: Column {
                                 Text { width: parent.width; text: settingResult.text; elide: Text.ElideRight; color: pal.text; font.family: pal.fam; font.pixelSize: 12 }
-                                Text { text: "Activity Monitor"; color: pal.text2; font.family: pal.fam; font.pixelSize: 10 }
+                                Text { text: Language.I18n.text("ui.t_0efe6bd6e0b2"); color: pal.text2; font.family: pal.fam; font.pixelSize: 10 }
                             }
                             background: Rectangle { radius: 7; color: parent.hovered || parent.activeFocus ? pal.hover : "transparent" }
                             onClicked: prefsWindow.openActivitySetting(modelData.key)
@@ -1003,7 +1007,7 @@ Scope {
                         width: parent.width
                         topPadding: 14
                         horizontalAlignment: Text.AlignHCenter
-                        text: "No Results"
+                        text: Language.I18n.text("ui.t_ed805f62bdbf")
                         color: pal.text2
                         font.family: pal.fam
                         font.pixelSize: 12
@@ -1091,10 +1095,10 @@ Scope {
                     width: flick.width - 44
                     sourceComponent: ({
                         wifi: paneWifi, bluetooth: paneBt, network: paneNetwork, battery: paneBattery,
-                        general: paneGeneral, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, dock: paneDesktopDock,
+                        general: paneGeneral, language: paneLanguage, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, dock: paneDesktopDock,
                         displays: paneDisplays, menubar: paneMenuBar, wallpaper: paneWallpaper,
                         notifications: paneNotif, sound: paneSound, focus: paneFocus,
-                        lockscreen: paneLock, users: paneUsers, keyboard: paneKeyboard, mouse: paneMouse, trackpad: paneTrackpad,
+                        security: paneSecurity, lockscreen: paneLock, users: paneUsers, keyboard: paneKeyboard, mouse: paneMouse, trackpad: paneTrackpad,
                         apps: paneApps, about: paneAbout
                     })[prefsWindow.panes[prefsWindow.cur].id]
                     onLoaded: fadeIn.restart()
@@ -1115,7 +1119,22 @@ Scope {
 
         // ═════════════ PANES ═════════════
 
+        Component {
+            id: paneSecurity
+            BiometricSettings { width: parent.width; foreground: pal.text; font.family: pal.fam }
+        }
+
         // ── General ──
+        Component {
+            id: paneLanguage
+            Column {
+                LocaleControl { id: localeControl }
+                LanguageSettings {
+                    width: parent.width; controller: localeControl
+                    foreground: pal.text; font.family: pal.fam
+                }
+            }
+        }
         Component {
             id: paneBarLayout
             BarLayoutEditor {
@@ -1161,19 +1180,27 @@ Scope {
             Column {
                 spacing: 10
 
-                SLabel { t: pal; header: true; text: "Shell" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_a733285486d5") }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal; title: Language.I18n.text("language.title")
+                        subtitle: Language.I18n.text("language.scope")
+                        SButton { t: pal; text: Language.I18n.text("language.title"); onClicked: root.openPrefs("language") }
+                    }
+                }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Dock"
-                        subtitle: "Show the Dock at the bottom of the screen"
+                        title: Language.I18n.text("ui.t_49c1e208c54a")
+                        subtitle: Language.I18n.text("ui.t_fd7f1d6334a5")
                         SSwitch { t: pal; checked: root.dockEnabled; onToggled: v => root.dockEnabled = v }
                     }
                     SRow {
                         t: pal
-                        title: "Menu Bar"
-                        subtitle: "Show the panel at the top of the screen. Spotlight, Control Center and the calendar belong to it."
+                        title: Language.I18n.text("ui.t_0db85de8b72f")
+                        subtitle: Language.I18n.text("ui.t_41497d985ed0")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.barEnabled : true
@@ -1183,56 +1210,56 @@ Scope {
                 }
                 SLabel {
                     t: pal
-                    text: "If you turn both off, reopen this window with:  ~/.local/bin/macshell-niri ipc call settings open"
+                    text: Language.I18n.text("ui.t_d9b76b9db1f4")
                 }
 
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Desktop widgets"
-                        subtitle: "Choose a widget, preview its size and add it to your desktop"
+                        t: pal; title: Language.I18n.text("ui.t_7ea4f0f4af9f")
+                        subtitle: Language.I18n.text("ui.t_6b7c86a28adf")
                         SButton {
-                            t: pal; text: "Open gallery…"
+                            t: pal; text: Language.I18n.text("ui.t_530a849a5475")
                             onClicked: { for (var i = 0; i < prefsWindow.panes.length; i++) if (prefsWindow.panes[i].id === "widgets") { prefsWindow.go(i); break; } }
                         }
                     }
                 }
 
-                SLabel { t: pal; header: true; text: "Sound" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_46124e023603") }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Play user interface sound effects"
-                        subtitle: "Volume pop, notifications, screenshots, charger, emptying the Trash and the lock screen"
+                        title: Language.I18n.text("ui.t_7783e704ea11")
+                        subtitle: Language.I18n.text("ui.t_6df4a25cd12a")
                         SSwitch { t: pal; checked: root.bar ? root.bar.uiSounds : true; onToggled: v => { if (root.bar) root.bar.uiSounds = v; } }
                     }
                 }
 
-                SLabel { t: pal; header: true; text: "Lock Screen" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_91a007b58b9d") }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Album background when the cover is enlarged"
-                        subtitle: "Tap the album cover on the lock screen: the background turns into a blurred version of the artwork"
+                        title: Language.I18n.text("ui.t_b87058fe430e")
+                        subtitle: Language.I18n.text("ui.t_4ddee6809fc1")
                         SSwitch { t: pal; checked: root.bar ? root.bar.lockArtBackground : true; onToggled: v => { if (root.bar) root.bar.lockArtBackground = v; } }
                     }
                 }
 
-                SLabel { t: pal; header: true; text: "Game Mode" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_1311d7944778") }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Game Mode"
-                        subtitle: "Turns off blur, shadows, animations and Liquid Glass, pauses an animated wallpaper and uses the performance power profile. Everything comes back when it turns off."
+                        title: Language.I18n.text("ui.t_1311d7944778")
+                        subtitle: Language.I18n.text("ui.t_cccce91dc5d8")
                         SSwitch { t: pal; checked: root.bar ? root.bar.gamingMode : false; onToggled: v => { if (root.bar) root.bar.gamingMode = v; } }
                     }
                     SRow {
                         t: pal
-                        title: "Turn on automatically for fullscreen games"
-                        subtitle: root.bar && root.bar.gamingAutoActive ? "On now: a game is fullscreen" : "Steam, Sober (Roblox), Minecraft, Lutris, Heroic and Windows games"
+                        title: Language.I18n.text("ui.t_426f5e8ed5ee")
+                        subtitle: root.bar && root.bar.gamingAutoActive ? Language.I18n.text("ui.t_32af3efbd6b4") : Language.I18n.text("ui.t_667358355c4b")
                         SSwitch { t: pal; checked: root.bar ? root.bar.gamingAuto : true; onToggled: v => { if (root.bar) root.bar.gamingAuto = v; } }
                     }
                 }
@@ -1250,13 +1277,13 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Menu Bar style"
+                        title: Language.I18n.text("ui.t_a4e20effd27f")
                         subtitle: (root.bar && root.bar.barStyle === "liquid" && root.bar.glassState === "failed")
-                                  ? "Liquid Glass couldn't start (install qt6-shadertools)"
-                                  : "Style of the menus and popovers"
+                                  ? Language.I18n.text("ui.t_ec37543bcfd2")
+                                  : Language.I18n.text("ui.t_f0ad7fef4b83")
                         SSegmented {
                             t: pal
-                            model: ["Normal Blur", "Apple Liquid Glass"]
+                            model: [Language.I18n.text("ui.t_4fd27086d9ad"), Language.I18n.text("ui.t_6ba6253e385a")]
                             segWidth: 128
                             current: (root.bar && root.bar.barStyle === "liquid") ? 1 : 0
                             onPicked: i => { if (root.bar) root.bar.barStyle = (i === 1 ? "liquid" : "blur"); }
@@ -1264,8 +1291,8 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Liquid Glass bar"
-                        subtitle: "Glass follows the desktop and windows behind the menu bar"
+                        title: Language.I18n.text("ui.t_083f44fa73c1")
+                        subtitle: Language.I18n.text("ui.t_f6e5c33f6504")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.barGlass : true
@@ -1278,7 +1305,7 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Refraction"
+                        title: Language.I18n.text("ui.t_1707f1c01954")
                         subtitle: root.lensDescription(root.bar ? root.bar.barStyle : "blur", root.bar ? root.bar.glassState : "")
                         SSlider {
                             objectName: "menuGlassIntensity"
@@ -1291,7 +1318,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Blur"
+                        title: Language.I18n.text("ui.t_cd83e6731d2b")
                         subtitle: root.blurDescription
                         SSlider {
                             objectName: "menuGlassBlur"
@@ -1304,8 +1331,8 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Glass frosting"
-                        subtitle: "Add more tint when windows behind the glass make text harder to read"
+                        title: Language.I18n.text("ui.t_e5eb30cec45d")
+                        subtitle: Language.I18n.text("ui.t_1d08265744a5")
                         SSlider {
                             objectName: "menuGlassFrosting"
                             t: pal; from: .1; to: .85; stepSize: .01
@@ -1319,8 +1346,8 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Menu Bar and widget size"
-                        subtitle: "Scales bar blocks; compact forms and overflow keep the configured zones apart"
+                        title: Language.I18n.text("ui.t_846fbac56a9b")
+                        subtitle: Language.I18n.text("ui.t_ac059883493d")
                         SSlider {
                             t: pal; from: 22; to: 48; stepSize: 1
                             value: root.bar ? root.bar.barHeight : 28
@@ -1333,11 +1360,11 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Menu Bar logo"
-                        subtitle: "Choose the Arch mark, Apple logo, or a custom image"
+                        title: Language.I18n.text("ui.t_190ff04ef74e")
+                        subtitle: Language.I18n.text("ui.t_bb193dfe81f2")
                         SSegmented {
                             t: pal
-                            model: ["Arch", "Apple", "Custom"]
+                            model: [Language.I18n.text("ui.t_73571e71ba30"), Language.I18n.text("ui.t_f223faa96f22"), Language.I18n.text("ui.t_494ca78f7374")]
                             segWidth: 68
                             current: !root.bar || root.bar.barLogoMode === "arch" ? 0 : (root.bar.barLogoMode === "apple" ? 1 : 2)
                             onPicked: i => {
@@ -1348,8 +1375,8 @@ Scope {
                     SRow {
                         t: pal
                         visible: root.bar && root.bar.barLogoMode === "custom"
-                        title: "Custom image path"
-                        subtitle: "Enter a local image path (PNG, SVG, or other supported format)"
+                        title: Language.I18n.text("ui.t_7e202dc32ab6")
+                        subtitle: Language.I18n.text("ui.t_359ad61a659a")
                         Row {
                             spacing: 8
                             Rectangle {
@@ -1389,7 +1416,7 @@ Scope {
                                 }
                             }
                             SButton {
-                                t: pal; text: "Clear"
+                                t: pal; text: Language.I18n.text("ui.t_83b12c2216ef")
                                 onClicked: { if (root.bar) root.bar.barCustomLogoPath = ""; }
                             }
                         }
@@ -1400,8 +1427,8 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Bar background"
-                        subtitle: "A separate background layer. Liquid Glass supplies its own blur on niri."
+                        title: Language.I18n.text("ui.t_b4efb545a734")
+                        subtitle: Language.I18n.text("ui.t_839a32645baa")
                         SSlider {
                             t: pal
                             from: 0; to: 0.6; stepSize: 0.01
@@ -1416,7 +1443,7 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "24-hour clock"
+                        title: Language.I18n.text("ui.t_2d26371afbeb")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.use24h : false
@@ -1425,7 +1452,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Show date"
+                        title: Language.I18n.text("ui.t_d877bdbfeef2")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.showDate : false
@@ -1434,7 +1461,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Show seconds"
+                        title: Language.I18n.text("ui.t_f516b99a77ac")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.showSeconds : false
@@ -1443,7 +1470,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Week starts on Monday"
+                        title: Language.I18n.text("ui.t_1e6c3ee34caf")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.weekStartsMonday : false
@@ -1456,7 +1483,7 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Battery percentage"
+                        title: Language.I18n.text("ui.t_5274957eb41c")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.showBatteryPercent : false
@@ -1465,8 +1492,8 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Real-time glass"
-                        subtitle: "Keep Dock captures ready between openings. Turn off to save resources; live window blur stays enabled."
+                        title: Language.I18n.text("ui.t_3b5d4faf02c2")
+                        subtitle: Language.I18n.text("ui.t_c8b6d1962d86")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.glassRealtime : true
@@ -1475,22 +1502,22 @@ Scope {
                     }
                 }
 
-                SLabel { t: pal; header: true; text: "Activity Monitor" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_0efe6bd6e0b2") }
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Appearance"; subtitle: "Colors, thresholds, speed units and metric order"
-                        SButton { t: pal; text: "Customize…"; onClicked: prefsWindow.openActivitySetting("") }
+                        t: pal; title: Language.I18n.text("ui.t_3907fa7f8072"); subtitle: Language.I18n.text("ui.t_10de7f2c5abb")
+                        SButton { t: pal; text: Language.I18n.text("ui.t_ef636a82020f"); onClicked: prefsWindow.openActivitySetting("") }
                     }
                     SRow {
-                        t: pal; title: "Show in menu bar"; subtitle: "Colored resource icons · hover for values, click for graphs"
+                        t: pal; title: Language.I18n.text("ui.t_d24a581a1ed9"); subtitle: Language.I18n.text("ui.t_bd03ad051b78")
                         SSwitch { t: pal; enabled: root.bar && root.bar.barLayout.ready && !root.bar.barLayout.pending && !root.bar.barLayout.readOnly; checked: root.bar ? root.bar.barWidgetEnabled("monitoring") : true; onToggled: v => { if (root.bar) root.bar.setBarWidget("monitoring", v); } }
                     }
                     Repeater {
                         model: ["cpu", "memory", "network", "disk"]
                         delegate: SRow {
                             required property string modelData
-                            t: pal; title: ({cpu: "CPU", memory: "Memory", network: "Network traffic", disk: "Disk activity"})[modelData]
+                            t: pal; title: ({cpu: "CPU", memory: "Memory", network: Language.I18n.text("ui.t_09dd03f13877"), disk: Language.I18n.text("ui.t_24c36879cbe9")})[modelData]
                             SSwitch {
                                 t: pal; checked: root.bar ? root.bar.statsMetrics.indexOf(modelData) >= 0 : true
                                 onToggled: v => { if (root.bar) { var next = root.bar.statsMetrics.filter(k => k !== modelData); if (v) next.push(modelData); root.bar.statsMetrics = next; } }
@@ -1498,48 +1525,48 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Memory as percentage"; subtitle: "Format used in the menu bar tooltip"
+                        t: pal; title: Language.I18n.text("ui.t_198eed5d435e"); subtitle: Language.I18n.text("ui.t_3624bd1bf731")
                         SSwitch { t: pal; checked: root.bar ? root.bar.statsMemoryPercent : false; onToggled: v => { if (root.bar) root.bar.statsMemoryPercent = v; } }
                     }
                     SRow {
-                        t: pal; title: "Update interval"
+                        t: pal; title: Language.I18n.text("ui.t_87441a4c567b")
                         SSegmented { t: pal; model: ["1 s", "2 s", "5 s"]; segWidth: 48; current: root.bar ? [1,2,5].indexOf(root.bar.statsInterval) : 0; onPicked: i => { if (root.bar) root.bar.statsInterval = [1,2,5][i]; } }
                     }
                     SRow {
-                        t: pal; title: "Open monitoring"; subtitle: "Also available when the bar is full or the widget is hidden"
-                        SButton { t: pal; text: "Open…"; onClicked: { prefsWindow.visible = false; if (root.bar) root.bar.showMonitoring(); } }
+                        t: pal; title: Language.I18n.text("ui.t_db77ffdbbe85"); subtitle: Language.I18n.text("ui.t_5647da7ea3fc")
+                        SButton { t: pal; text: Language.I18n.text("ui.t_1f1d592bdd1a"); onClicked: { prefsWindow.visible = false; if (root.bar) root.bar.showMonitoring(); } }
                     }
                     SRow {
-                        t: pal; title: "Network interface"; subtitle: root.bar ? (root.bar.statsInterface || "Automatic physical uplink") : "Automatic"
+                        t: pal; title: Language.I18n.text("ui.t_b55b195120ed"); subtitle: root.bar ? (root.bar.statsInterface || Language.I18n.text("ui.t_bf7e5488e725")) : Language.I18n.text("ui.t_d461a493a375")
                         ControlComboBox {
                             width: 200
-                            palette.buttonText: pal.text; palette.text: pal.text; palette.base: pal.dark ? "#303035" : "#ffffff"; palette.window: palette.base
-                            model: ["Automatic"].concat(root.bar ? root.bar.stats.sample.interfaces || [] : [])
+                            palette.buttonText: pal.text; palette.text: pal.text; palette.base: pal.dark ? "#303035" : "#ffffff"; palette.window: pal.dark ? "#303035" : "#ffffff"
+                            model: [Language.I18n.text("ui.t_d461a493a375")].concat(root.bar ? root.bar.stats.sample.interfaces || [] : [])
                             currentIndex: !root.bar || root.bar.statsInterface === "" ? 0 : model.indexOf(root.bar.statsInterface)
-                            displayText: currentIndex < 0 ? "Missing: " + root.bar.statsInterface : currentText
+                            displayText: currentIndex < 0 ? Language.I18n.text("ui.t_859bb20bb8d5") + root.bar.statsInterface : currentText
                             onActivated: i => { if (root.bar) root.bar.statsInterface = i === 0 ? "" : model[i]; }
                         }
                     }
                     SRow {
-                        t: pal; title: "Block device"; subtitle: root.bar ? (root.bar.statsDevice || "Root filesystem block layer (automatic)") : "Automatic"
+                        t: pal; title: Language.I18n.text("ui.t_a30bcbfd7f1d"); subtitle: root.bar ? (root.bar.statsDevice || Language.I18n.text("ui.t_a9045f457df6")) : Language.I18n.text("ui.t_d461a493a375")
                         ControlComboBox {
                             width: 200
-                            palette.buttonText: pal.text; palette.text: pal.text; palette.base: pal.dark ? "#303035" : "#ffffff"; palette.window: palette.base
-                            model: ["Root filesystem (auto)"].concat(root.bar ? root.bar.stats.sample.devices || [] : [])
+                            palette.buttonText: pal.text; palette.text: pal.text; palette.base: pal.dark ? "#303035" : "#ffffff"; palette.window: pal.dark ? "#303035" : "#ffffff"
+                            model: [Language.I18n.text("ui.t_63dbe4ded22e")].concat(root.bar ? root.bar.stats.sample.devices || [] : [])
                             currentIndex: !root.bar || root.bar.statsDevice === "" ? 0 : model.indexOf(root.bar.statsDevice)
-                            displayText: currentIndex < 0 ? "Missing: " + root.bar.statsDevice : currentText
+                            displayText: currentIndex < 0 ? Language.I18n.text("ui.t_859bb20bb8d5") + root.bar.statsDevice : currentText
                             onActivated: i => { if (root.bar) root.bar.statsDevice = i === 0 ? "" : model[i]; }
                         }
                     }
                 }
 
-                SLabel { t: pal; header: true; text: "Menu Bar Items" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_a73484fbbf67") }
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Choose and arrange items"
-                        subtitle: "Drag items into place, add or hide what you need"
-                        SButton { t: pal; text: "Arrange…"; onClicked: { for (var i = 0; i < prefsWindow.panes.length; i++) if (prefsWindow.panes[i].id === "barlayout") { prefsWindow.go(i); break; } } }
+                        t: pal; title: Language.I18n.text("ui.t_94d9d0db9fdd")
+                        subtitle: Language.I18n.text("ui.t_a693bb976894")
+                        SButton { t: pal; text: Language.I18n.text("ui.t_a8515544675c"); onClicked: { for (var i = 0; i < prefsWindow.panes.length; i++) if (prefsWindow.panes[i].id === "barlayout") { prefsWindow.go(i); break; } } }
                     }
                 }
 
@@ -1547,8 +1574,8 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Keep clipboard history"
-                        subtitle: "Spotlight \u2192 Clipboard (needs wl-clipboard and cliphist). Turn off to stop recording what you copy"
+                        title: Language.I18n.text("ui.t_5194a6b4e2e9")
+                        subtitle: Language.I18n.text("ui.t_a84fa88fcdfe")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.clipHistory : false
@@ -1557,8 +1584,8 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Paste after choosing"
-                        subtitle: "Insert the chosen clipboard entry or emoji into the focused app (Shift+Return only copies)"
+                        title: Language.I18n.text("ui.t_e529de5dbff5")
+                        subtitle: Language.I18n.text("ui.t_57748802ea9d")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.clipAutoPaste : false
@@ -1566,13 +1593,13 @@ Scope {
                         }
                     }
                 }
-                SLabel { t: pal; header: true; text: "Screenshots" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_067348ce6894") }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Save to a folder"
-                        subtitle: "Press Print to select an area. Turn off to only copy it to the clipboard"
+                        title: Language.I18n.text("ui.t_9028adfd9ed0")
+                        subtitle: Language.I18n.text("ui.t_3d403def572a")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.screenshotSave : true
@@ -1581,8 +1608,8 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Save location"
-                        subtitle: "Leave empty for ~/Pictures/Screenshots"
+                        title: Language.I18n.text("ui.t_311e149e6e2b")
+                        subtitle: Language.I18n.text("ui.t_d4b5ae1a7f6a")
                         Row {
                             spacing: 8
                             Rectangle {
@@ -1614,16 +1641,16 @@ Scope {
                                     font.pixelSize: 12
                                 }
                             }
-                            SButton { t: pal; text: "Choose\u2026"; onClicked: shotPick.running = true }
+                            SButton { t: pal; text: Language.I18n.text("ui.t_7ca41615c19b"); onClicked: shotPick.running = true }
                         }
                     }
                     SRow {
                         t: pal
-                        title: "Quick folders"
+                        title: Language.I18n.text("ui.t_59796765cbcb")
                         SSegmented {
                             t: pal
                             property var dirs: ["~/Pictures/Screenshots", "~/Pictures", "~/Desktop", "~/Downloads"]
-                            model: ["Screenshots", "Pictures", "Desktop", "Downloads"]
+                            model: [Language.I18n.text("ui.t_067348ce6894"), Language.I18n.text("ui.t_1e6245009d67"), Language.I18n.text("ui.t_9bd88f2485ac"), Language.I18n.text("ui.t_d5fdc1af021e")]
                             segWidth: 84
                             current: {
                                 var d = root.bar ? root.bar.screenshotDir.replace(/\/+$/, "") : "";
@@ -1634,7 +1661,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Copy to clipboard"
+                        title: Language.I18n.text("ui.t_b749e205302c")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.screenshotClipboard : true
@@ -1643,7 +1670,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Show a notification"
+                        title: Language.I18n.text("ui.t_7ebf66788f4f")
                         SSwitch {
                             t: pal
                             checked: root.bar ? root.bar.screenshotNotify : true
@@ -1653,7 +1680,7 @@ Scope {
                 }
                 SLabel {
                     t: pal
-                    text: "The MacShell niri profile binds Print to region capture. Choose\u2026 needs zenity, kdialog or yad; otherwise type the path. Screenshots need grim."
+                    text: Language.I18n.text("ui.t_7d135b0d8ea1")
                 }
                 Process {
                     id: shotPick
@@ -1670,7 +1697,7 @@ Scope {
                 }
                 SLabel {
                     t: pal
-                    text: "Translucency, accent color, appearance and font are in Appearance. Commands (terminal, launcher, files, clipboard) can be edited in ~/.config/macbar/settings.json."
+                    text: Language.I18n.text("ui.t_2fb3ac59599f")
                 }
             }
         }
@@ -1750,7 +1777,7 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Size"
+                        title: Language.I18n.text("ui.t_1af851907331")
                         SSlider {
                             t: pal
                             from: 32; to: 128; stepSize: 1
@@ -1761,8 +1788,8 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Magnification"
-                        subtitle: "Enlarge icons as the pointer moves over them"
+                        title: Language.I18n.text("ui.t_cfa794169714")
+                        subtitle: Language.I18n.text("ui.t_27da735e72ac")
                         SSwitch {
                             t: pal
                             checked: root.magnificationEnabled
@@ -1771,7 +1798,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Magnification amount"
+                        title: Language.I18n.text("ui.t_23d87086d56e")
                         opacity: root.magnificationEnabled ? 1 : 0.45
                         SSlider {
                             t: pal
@@ -1788,7 +1815,7 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Icon spacing"
+                        title: Language.I18n.text("ui.t_4d614c479b9f")
                         SSlider {
                             t: pal
                             from: 0; to: 20; stepSize: 1
@@ -1799,7 +1826,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Distance from screen edge"
+                        title: Language.I18n.text("ui.t_3cc3eb66998c")
                         SSlider {
                             t: pal
                             from: 0; to: 40; stepSize: 1
@@ -1809,7 +1836,7 @@ Scope {
                         }
                     }
                 }
-                SLabel { t: pal; text: "Changes apply to the Dock immediately." }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_538d26c629ee") }
             }
         }
 
@@ -1823,17 +1850,17 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Appearance"
-                        subtitle: "Applies to the Dock, the Menu Bar and this window"
+                        title: Language.I18n.text("ui.t_3907fa7f8072")
+                        subtitle: Language.I18n.text("ui.t_58de52f89cf7")
                         Row {
                             spacing: 14
                             SThemeTile {
-                                objectName: "appearanceLight"; t: pal; label: "Light"; dark: false
+                                objectName: "appearanceLight"; t: pal; label: Language.I18n.text("ui.t_dbcd5e7bb7a0"); dark: false
                                 selected: !root.darkMode
                                 onClicked: root.setLook("darkMode", false)
                             }
                             SThemeTile {
-                                objectName: "appearanceDark"; t: pal; label: "Dark"; dark: true
+                                objectName: "appearanceDark"; t: pal; label: Language.I18n.text("ui.t_60acc53f13a5"); dark: true
                                 selected: root.darkMode
                                 onClicked: root.setLook("darkMode", true)
                             }
@@ -1845,8 +1872,8 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Accent color"
-                        subtitle: "Highlights in the Dock menu and this window"
+                        title: Language.I18n.text("ui.t_baeefbad50a3")
+                        subtitle: Language.I18n.text("ui.t_e446f534dc14")
                         Row {
                             spacing: 6
                             Repeater {
@@ -1885,15 +1912,15 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Dock style"
+                        title: Language.I18n.text("ui.t_abe3e305b379")
                         subtitle: root.dockStyle === "liquid" && root.glassState === "failed"
-                                  ? "Liquid Glass couldn't start (install qt6-shadertools) – using Normal Blur"
+                                  ? Language.I18n.text("ui.t_924f13c6c75e")
                                   : (root.dockStyle === "liquid" && root.glassState === "building"
-                                     ? "Preparing the Liquid Glass shader…"
-                                     : "Live background blur, or Liquid Glass where available")
+                                     ? Language.I18n.text("ui.t_bff38a47ec18")
+                                     : Language.I18n.text("ui.t_b230f9d4c10e"))
                         SSegmented {
                             t: pal
-                            model: ["Normal Blur", "Apple Liquid Glass"]
+                            model: [Language.I18n.text("ui.t_4fd27086d9ad"), Language.I18n.text("ui.t_6ba6253e385a")]
                             segWidth: 128
                             current: root.dockStyle === "liquid" ? 1 : 0
                             onPicked: i => root.dockStyle = (i === 1 ? "liquid" : "blur")
@@ -1905,9 +1932,9 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Translucency"
-                        subtitle: root.dockStyle === "liquid" ? "How much tint the glass adds over the refraction"
-                                                              : "How frosted the Dock's glass looks"
+                        title: Language.I18n.text("ui.t_22a60631a085")
+                        subtitle: root.dockStyle === "liquid" ? Language.I18n.text("ui.t_244043cda554")
+                                                              : Language.I18n.text("ui.t_5c87ff7e4b17")
                         SSlider {
                             t: pal
                             from: 0.0; to: 0.85; stepSize: 0.01
@@ -1918,7 +1945,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Blur"
+                        title: Language.I18n.text("ui.t_cd83e6731d2b")
                         subtitle: root.blurDescription
                         SSlider {
                             objectName: "appearanceGlassBlur"
@@ -1932,7 +1959,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Refraction"
+                        title: Language.I18n.text("ui.t_1707f1c01954")
                         subtitle: root.lensDescription(root.dockStyle, root.glassState)
                         SSlider {
                             objectName: "appearanceGlassIntensity"
@@ -1946,7 +1973,7 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Corner radius"
+                        title: Language.I18n.text("ui.t_76a6d9f3d7a7")
                         SSlider {
                             t: pal
                             from: 0; to: 32; stepSize: 1
@@ -1961,11 +1988,11 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Font"
-                        subtitle: "Used for labels and menus"
+                        title: Language.I18n.text("ui.t_64d0b3adcd2d")
+                        subtitle: Language.I18n.text("ui.t_1117d448ea5e")
                         SSegmented {
                             t: pal
-                            model: ["Inter", "Noto Sans", "System"]
+                            model: [Language.I18n.text("ui.t_30a4a5bca8f4"), Language.I18n.text("ui.t_e42550ccd0b1"), Language.I18n.text("ui.t_6725e7bbcd28")]
                             segWidth: 76
                             current: root.fontFamily.indexOf("Inter") === 0 ? 0 : (root.fontFamily === "Noto Sans" ? 1 : 2)
                             onPicked: i => root.setLook("fontFamily", ["Inter Variable", "Noto Sans", "sans-serif"][i])
@@ -1973,8 +2000,8 @@ Scope {
                     }
                 }
                 SLabel { t: pal; text: root.dockStyle === "liquid"
-                                       ? "Glass follows windows behind the Dock. Lens refraction needs window positions; otherwise live blur is used."
-                                       : "Normal Blur uses live background blur. Liquid Glass adds lens refraction where available." }
+                                       ? Language.I18n.text("ui.t_c82e8cb3af00")
+                                       : Language.I18n.text("ui.t_fb9edb267ee9") }
             }
         }
 
@@ -1988,13 +2015,13 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Automatically hide and show the Dock"
-                        subtitle: root.hideMode === "smart" ? "Hides only while a tiled window needs the space"
-                                : (root.hideMode === "always" ? "Always hidden until the pointer touches the screen edge"
-                                                              : "Always visible and reserves screen space")
+                        title: Language.I18n.text("ui.t_c7adf1590eac")
+                        subtitle: root.hideMode === "smart" ? Language.I18n.text("ui.t_03b38a2ebef1")
+                                : (root.hideMode === "always" ? Language.I18n.text("ui.t_1aa48a07ad7b")
+                                                              : Language.I18n.text("ui.t_5b6c9e508ca4"))
                         SSegmented {
                             t: pal
-                            model: ["Smart", "Always", "Never"]
+                            model: [Language.I18n.text("ui.t_9e6ad6db21db"), Language.I18n.text("ui.t_de9f057a471c"), Language.I18n.text("ui.t_6300ef800bb8")]
                             segWidth: 64
                             current: root.hideMode === "smart" ? 0 : (root.hideMode === "always" ? 1 : 2)
                             onPicked: i => root.hideMode = ["smart", "always", "never"][i]
@@ -2003,7 +2030,7 @@ Scope {
                     SRow {
                         t: pal
                         visible: root.hideMode !== "never"
-                        title: "Hide delay"
+                        title: Language.I18n.text("ui.t_87e2a93c73fa")
                         SSlider {
                             t: pal
                             from: 0; to: 1500; stepSize: 50
@@ -2018,10 +2045,10 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Show Dock on"
+                        title: Language.I18n.text("ui.t_1cd644dc67a5")
                         SSegmented {
                             t: pal
-                            model: ["All Displays", "Primary Only"]
+                            model: [Language.I18n.text("ui.t_d5707ec9ed3a"), Language.I18n.text("ui.t_050e4f86cb33")]
                             segWidth: 96
                             current: root.monitor === "" ? 0 : 1
                             onPicked: i => {
@@ -2036,36 +2063,36 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Show labels"
-                        subtitle: "Display an app's name when you hover its icon"
+                        title: Language.I18n.text("ui.t_3df0f4e09cf7")
+                        subtitle: Language.I18n.text("ui.t_d4329a62dbcf")
                         SSwitch { t: pal; checked: root.showLabels; onToggled: v => root.showLabels = v }
                     }
                     SRow {
                         t: pal
-                        title: "Show window previews"
-                        subtitle: "Open windows appear as live previews next to the Trash, each with its app's icon"
+                        title: Language.I18n.text("ui.t_06d4e379ec46")
+                        subtitle: Language.I18n.text("ui.t_152027d25939")
                         SSwitch { t: pal; checked: root.showThumbs; onToggled: v => root.showThumbs = v }
                     }
                     SRow {
                         t: pal
-                        title: "Live window capture"
-                        subtitle: "Capture open windows for the previews. Turn off and the previews show the app icon instead (Liquid Glass is not affected)"
+                        title: Language.I18n.text("ui.t_6e530369e7c4")
+                        subtitle: Language.I18n.text("ui.t_b8dc96f41f22")
                         SSwitch { t: pal; checked: root.windowCapture; onToggled: v => root.windowCapture = v }
                     }
                     SRow {
                         t: pal
-                        title: "Show indicators for open applications"
+                        title: Language.I18n.text("ui.t_121e74b6e5b9")
                         SSwitch { t: pal; checked: root.showIndicators; onToggled: v => root.showIndicators = v }
                     }
                     SRow {
                         t: pal
-                        title: "Animate opening applications"
-                        subtitle: "Icons bounce while an app is launching"
+                        title: Language.I18n.text("ui.t_a29f3e56df61")
+                        subtitle: Language.I18n.text("ui.t_2477397b6390")
                         SSwitch { t: pal; checked: root.bounceOnLaunch; onToggled: v => root.bounceOnLaunch = v }
                     }
                     SRow {
                         t: pal
-                        title: "Show Trash in the Dock"
+                        title: Language.I18n.text("ui.t_b273458e7a1f")
                         SSwitch { t: pal; checked: root.showTrash; onToggled: v => root.showTrash = v }
                     }
                 }
@@ -2082,14 +2109,14 @@ Scope {
                     return i.kind === "app" && i.pinned && !i.special;
                 }).length
 
-                SLabel { t: pal; header: true; text: "Kept in Dock" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_fe794d2ce2d9") }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
                         visible: appsCol.pinCount === 0
-                        title: "No apps are kept in the Dock"
-                        subtitle: "Right-click a running app and choose Keep in Dock."
+                        title: Language.I18n.text("ui.t_797a6705e669")
+                        subtitle: Language.I18n.text("ui.t_ae01dc9a27f2")
                     }
                     Repeater {
                         model: root.items
@@ -2102,21 +2129,21 @@ Scope {
                             iconSource: modelData.icon ? root.iconSrc(modelData.icon) : ""
                             SButton {
                                 t: pal
-                                text: "Remove"
+                                text: Language.I18n.text("ui.t_c3812fc4acb8")
                                 onClicked: root.togglePin(appRow.modelData)
                             }
                         }
                     }
                 }
-                SLabel { t: pal; text: "Drag icons in the Dock to reorder them. Pins are saved to ~/.config/macdock/pinned.json." }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_333df98cc74d") }
 
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Reset Dock Items"
-                        subtitle: "Go back to the default set of apps"
-                        SButton { t: pal; text: "Reset"; onClicked: root.resetPins() }
+                        title: Language.I18n.text("ui.t_63cb0b646310")
+                        subtitle: Language.I18n.text("ui.t_a905fbe2e4e7")
+                        SButton { t: pal; text: Language.I18n.text("ui.t_daee7606b339"); onClicked: root.resetPins() }
                     }
                 }
             }
@@ -2146,10 +2173,10 @@ Scope {
                     t: pal
                     visible: wifiPane.eth !== null
                     SRow {
-                        t: pal; title: "Ethernet"
+                        t: pal; title: Language.I18n.text("ui.t_681e12098d28")
                         subtitle: !wifiPane.eth ? "" : (wifiPane.eth.up
-                                  ? "Connected" + (wifiPane.eth.ip !== "" ? " · " + wifiPane.eth.ip : "") + (parseInt(wifiPane.eth.speed) > 0 ? " · " + wifiPane.eth.speed + " Mb/s" : "")
-                                  : "Cable unplugged")
+                                  ? Language.I18n.text("ui.t_22965568d22a") + (wifiPane.eth.ip !== "" ? " · " + wifiPane.eth.ip : "") + (parseInt(wifiPane.eth.speed) > 0 ? " · " + wifiPane.eth.speed + " Mb/s" : "")
+                                  : Language.I18n.text("ui.t_6cbe267539f8"))
                         Row {
                             spacing: 8
                             WGlyph { width: 18; height: 18; kind: "ethernet"; color: pal.text; anchors.verticalCenter: parent.verticalCenter }
@@ -2161,11 +2188,11 @@ Scope {
                     t: pal
                     SRow {
                         t: pal; title: "Wi-Fi"
-                        subtitle: !root.bar ? "" : (!root.bar.wifiOn ? "Off" : (root.bar.wifiSsid !== "" ? "Connected to " + root.bar.wifiSsid : "Not connected"))
+                        subtitle: !root.bar ? "" : (!root.bar.wifiOn ? Language.I18n.text("ui.t_ca7981b46ecf") : (root.bar.wifiSsid !== "" ? Language.I18n.text("ui.t_2af9ce1701f7") + root.bar.wifiSsid : Language.I18n.text("ui.t_0303e1824670")))
                         SSwitch { t: pal; checked: root.bar ? root.bar.wifiOn : false; onToggled: v => { if (root.bar && root.bar.wifiOn !== v) root.bar.toggleWifi(); } }
                     }
                 }
-                SLabel { t: pal; header: true; text: "Known Networks & Other Networks"; visible: root.bar && root.bar.wifiOn }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_ac7079f8da3a"); visible: root.bar && root.bar.wifiOn }
                 SCard {
                     t: pal
                     visible: root.bar && root.bar.wifiOn
@@ -2175,10 +2202,10 @@ Scope {
                             required property var modelData
                             t: pal
                             title: modelData.ssid + (modelData.inUse ? "  ✓" : "")
-                            subtitle: modelData.interface + " · " + modelData.security + (modelData.saved ? " · Saved" : "") + " · " + modelData.signal + "%"
+                            subtitle: modelData.interface + " · " + modelData.security + (modelData.saved ? Language.I18n.text("ui.t_c3bdf6a915dc") : "") + " · " + modelData.signal + "%"
                             SButton {
                                 t: pal
-                                text: modelData.inUse ? "Connected" : (modelData.saved || !modelData.secure ? "Connect" : "Join…")
+                                text: modelData.inUse ? Language.I18n.text("ui.t_22965568d22a") : (modelData.saved || !modelData.secure ? Language.I18n.text("ui.t_1a2303ede074") : Language.I18n.text("ui.t_2f3e634f638d"))
                                 onClicked: {
                                     if (modelData.inUse) return;
                                     if (modelData.secure && !modelData.saved) prefsWindow.visible = false;
@@ -2190,7 +2217,7 @@ Scope {
                 }
                 Row {
                     spacing: 8
-                    SButton { t: pal; text: "Scan Again"; onClicked: if (root.bar) root.bar.scanWifi() }
+                    SButton { t: pal; text: Language.I18n.text("ui.t_91cc084827cc"); onClicked: if (root.bar) root.bar.scanWifi() }
                 }
             }
         }
@@ -2207,9 +2234,9 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Bluetooth"
-                        subtitle: !btPane.bluetooth || !btPane.bluetooth.available ? "No Bluetooth adapter available"
-                                  : (btPane.bluetooth.enabled ? "On" : "Off")
+                        t: pal; title: Language.I18n.text("ui.t_8bb29098b369")
+                        subtitle: !btPane.bluetooth || !btPane.bluetooth.available ? Language.I18n.text("ui.t_282ff3956953")
+                                  : (btPane.bluetooth.enabled ? Language.I18n.text("ui.t_130011756125") : Language.I18n.text("ui.t_ca7981b46ecf"))
                         SSwitch {
                             t: pal
                             checked: btPane.bluetooth ? btPane.bluetooth.enabled : false
@@ -2220,9 +2247,9 @@ Scope {
                 }
                 SCard {
                     t: pal
-                    SRow { t: pal; title: "Pair a new device"; subtitle: "Search nearby devices and confirm PIN here"; SButton { t: pal; text: "Find…"; onClicked: { prefsWindow.visible = false; root.bar.controlRequested("bt"); btPane.bluetooth.discover(); } } }
+                    SRow { t: pal; title: Language.I18n.text("ui.t_eb6b82f8bc44"); subtitle: Language.I18n.text("ui.t_8392f91f36f0"); SButton { t: pal; text: Language.I18n.text("ui.t_a7b1a1eb0573"); onClicked: { prefsWindow.visible = false; root.bar.controlRequested("bt"); btPane.bluetooth.discover(); } } }
                 }
-                SLabel { t: pal; header: true; text: "My Devices"; visible: btPane.bluetooth && btPane.bluetooth.devices.length > 0 }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_b3a77477986c"); visible: btPane.bluetooth && btPane.bluetooth.devices.length > 0 }
                 SCard {
                     t: pal
                     visible: btPane.bluetooth && btPane.bluetooth.devices.length > 0
@@ -2236,7 +2263,7 @@ Scope {
                                       + (btPane.bluetooth.adapters.length > 1 ? " · " + modelData.adapterName : "")
                             SButton {
                                 t: pal
-                                text: btPane.bluetooth.busyPath === modelData.path ? "Updating…" : (modelData.connected ? "Disconnect" : "Connect")
+                                text: btPane.bluetooth.busyPath === modelData.path ? Language.I18n.text("ui.t_dfe40efe921f") : (modelData.connected ? Language.I18n.text("ui.t_acfc5be785a9") : Language.I18n.text("ui.t_1a2303ede074"))
                                 enabled: !btPane.bluetooth.busy && modelData.adapterEnabled && !modelData.blocked
                                 opacity: enabled ? 1 : 0.45
                                 onClicked: btPane.bluetooth.pick(modelData)
@@ -2283,7 +2310,7 @@ Scope {
                             t: pal
                             readonly property bool up: modelData.state.indexOf("connected") === 0
                             title: ({ ethernet: "Ethernet", wifi: "Wi-Fi", tun: modelData.dev === "tailscale0" ? "Tailscale" : "VPN" })[modelData.type] || modelData.dev
-                            subtitle: (up ? "Connected" : "Not Connected") + (modelData.con !== "" ? " · " + modelData.con : "") + (modelData.ip !== "" ? " · " + modelData.ip : "")
+                            subtitle: (up ? Language.I18n.text("ui.t_22965568d22a") : Language.I18n.text("ui.t_87d82c046732")) + (modelData.con !== "" ? " · " + modelData.con : "") + (modelData.ip !== "" ? " · " + modelData.ip : "")
                             Rectangle { width: 10; height: 10; radius: 5; color: parent.up ? "#30D158" : pal.text3 }
                         }
                     }
@@ -2304,16 +2331,16 @@ Scope {
                     showHeader: false; showSettings: false; padding: 14
                     background: Rectangle { radius: 10; color: pal.card; border.color: pal.cardBorder }
                 }
-                SLabel { t: pal; header: true; text: "Game Mode" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_1311d7944778") }
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Game Mode"
-                        subtitle: "Turns off blur, shadows, animations and Liquid Glass, pauses an animated wallpaper and uses High Power"
+                        t: pal; title: Language.I18n.text("ui.t_1311d7944778")
+                        subtitle: Language.I18n.text("ui.t_7c1ee2277c38")
                         SSwitch { t: pal; checked: root.bar ? root.bar.gamingMode : false; onToggled: v => { if (root.bar) root.bar.gamingMode = v; } }
                     }
                     SRow {
-                        t: pal; title: "Turn on automatically for fullscreen games"
+                        t: pal; title: Language.I18n.text("ui.t_426f5e8ed5ee")
                         SSwitch { t: pal; checked: root.bar ? root.bar.gamingAuto : true; onToggled: v => { if (root.bar) root.bar.gamingAuto = v; } }
                     }
                 }
@@ -2325,7 +2352,7 @@ Scope {
             id: paneCC
             Column {
                 spacing: 10
-                SLabel { t: pal; text: "Choose which controls appear in Control Center. You can also drag them around in Control Center → Edit Controls." }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_efefeed7b435") }
                 SCard {
                     t: pal
                     Repeater {
@@ -2356,23 +2383,23 @@ Scope {
             Column {
                 spacing: 18
                 Loader { width: parent.width; sourceComponent: paneDock }
-                SLabel { t: pal; header: true; text: "App Switcher (Alt + Tab)" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_dfa82c600178") }
                 SCard {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Style"
-                        subtitle: "Liquid Glass refracts what's behind it, Frosted blurs it, Opaque is a solid panel"
+                        title: Language.I18n.text("ui.t_7e744141b40e")
+                        subtitle: Language.I18n.text("ui.t_d1b8185a0851")
                         SSegmented {
                             t: pal
-                            model: ["Liquid Glass", "Frosted", "Opaque"]
+                            model: [Language.I18n.text("ui.t_29f87af4fb46"), Language.I18n.text("ui.t_fd0181484885"), Language.I18n.text("ui.t_0f5b8e6e63a9")]
                             segWidth: 92
                             current: Math.max(0, ["glass", "frosted", "opaque"].indexOf(root.bar ? root.bar.switcherStyle : "glass"))
                             onPicked: i => { if (root.bar) root.bar.switcherStyle = ["glass", "frosted", "opaque"][i]; }
                         }
                     }
                 }
-                SLabel { t: pal; header: true; text: "Behavior" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_edf8d3f1781f") }
                 Loader { width: parent.width; sourceComponent: paneBehavior }
             }
         }
@@ -2388,24 +2415,24 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Brightness"
+                        t: pal; title: Language.I18n.text("ui.t_ec811d30a89c")
                         SSlider { t: pal; value: root.bar ? root.bar.brightness : 0.5; onMoved: v => { if (root.bar) root.bar.setBrightness(v); } }
                     }
                     SRow {
-                        t: pal; title: "Night Shift"
-                        subtitle: root.bar ? root.bar.nightShift.label : "Requires wlsunset"
+                        t: pal; title: Language.I18n.text("ui.t_d9a2bf53437c")
+                        subtitle: root.bar ? root.bar.nightShift.label : Language.I18n.text("ui.t_4070e998d386")
                         SSwitch { t: pal; checked: root.bar ? root.bar.nightDesired : false; onToggled: v => { if (root.bar) root.bar.nightDesired = v; } }
                     }
                     SRow {
-                        t: pal; title: "Colour Temperature"; visible: root.bar !== null
+                        t: pal; title: Language.I18n.text("ui.t_0cfc2b70d616"); visible: root.bar !== null
                         SSlider {
-                            t: pal; leftLabel: "Less Warm"; rightLabel: "More Warm"
+                            t: pal; leftLabel: Language.I18n.text("ui.t_68ab01938841"); rightLabel: Language.I18n.text("ui.t_aa72a285d191")
                             value: root.bar ? 1 - (root.bar.nightTemp - 2500) / 3500 : 0.5
                             onMoved: v => { if (root.bar) root.bar.nightTemp = Math.round(2500 + (1 - v) * 3500); }
                         }
                     }
                 }
-                SLabel { t: pal; header: true; text: "Displays" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_5a3452eb50bc") }
                 // keep / revert sheet (macOS: "Keep these display settings?")
                 Rectangle {
                     visible: root.pendingOut !== ""
@@ -2415,22 +2442,22 @@ Scope {
                     Text {
                         x: 14; anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 220; wrapMode: Text.WordWrap
-                        text: "Keep these display settings? Reverting in " + root.revertLeft + " s."
+                        text: Language.I18n.text("ui.t_513a97b104c9") + root.revertLeft + " s."
                         color: pal.text; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold
                     }
                     Row {
                         anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
                         spacing: 8
-                        SButton { t: pal; text: "Revert"; onClicked: root.revertMode() }
-                        SButton { t: pal; text: "Keep Changes"; onClicked: root.keepMode() }
+                        SButton { t: pal; text: Language.I18n.text("ui.t_0026c5053478"); onClicked: root.revertMode() }
+                        SButton { t: pal; text: Language.I18n.text("ui.t_61dad43b8ca0"); onClicked: root.keepMode() }
                     }
                 }
                 SCard {
                     t: pal
                     visible: root.monList.length > 1
                     SRow {
-                        t: pal; title: "Main display"
-                        subtitle: "The Dock, the lock screen controls and new widgets go here"
+                        t: pal; title: Language.I18n.text("ui.t_df3c4252b1b7")
+                        subtitle: Language.I18n.text("ui.t_3adb25d74ffe")
                         SSegmented {
                             t: pal
                             model: root.monList.map(function (m) { return m.name; })
@@ -2482,13 +2509,13 @@ Scope {
                         SRow {
                             t: pal
                             title: (modelData.description || modelData.name).replace(/\s*\(.*\)$/, "")
-                            subtitle: modelData.name + " · " + modelData.width + " × " + modelData.height + " @ " + Math.round(modelData.refreshRate) + " Hz · Scale " + modelData.scale
+                            subtitle: modelData.name + " · " + modelData.width + " × " + modelData.height + " @ " + Math.round(modelData.refreshRate) + Language.I18n.text("ui.t_b6240345d05f") + modelData.scale
                         }
                         SRow {
-                            t: pal; title: "Resolution"
+                            t: pal; title: Language.I18n.text("ui.t_d4055fafa379")
                             SPopUp {
                                 t: pal
-                                model: monCard.resolutions.map(function (r) { return r.w + " × " + r.h + (r.custom ? "  (current)" : ""); })
+                                model: monCard.resolutions.map(function (r) { return r.w + " × " + r.h + (r.custom ? Language.I18n.text("ui.t_fdf010627cf3") : ""); })
                                 current: { for (var i = 0; i < monCard.resolutions.length; i++) if (monCard.resolutions[i].w + "x" + monCard.resolutions[i].h === monCard.selRes) return i; return 0; }
                                 onPicked: i => {
                                     var r = monCard.resolutions[i];
@@ -2500,7 +2527,7 @@ Scope {
                             }
                         }
                         SRow {
-                            t: pal; title: "Refresh rate"
+                            t: pal; title: Language.I18n.text("ui.t_1c04ebff4651")
                             SPopUp {
                                 t: pal
                                 model: monCard.rates.map(function (h) { return h + " Hz"; })
@@ -2524,23 +2551,23 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Show notification banners"
-                        subtitle: "Off = Do Not Disturb: notifications still go to Notification Center, without banners"
+                        t: pal; title: Language.I18n.text("ui.t_19a74ee03455")
+                        subtitle: Language.I18n.text("ui.t_52c30be164ea")
                         SSwitch { t: pal; checked: root.bar ? !root.bar.notifDnd : true; onToggled: v => { if (root.bar) root.bar.notifDnd = !v; } }
                     }
                     SRow {
-                        t: pal; title: "Play sound for notifications"
+                        t: pal; title: Language.I18n.text("ui.t_6676660e775a")
                         SSwitch { t: pal; checked: root.bar ? root.bar.uiSounds : true; onToggled: v => { if (root.bar) root.bar.uiSounds = v; } }
                     }
                     SRow {
-                        t: pal; title: "Screenshot notifications"
+                        t: pal; title: Language.I18n.text("ui.t_3517311519e8")
                         SSwitch { t: pal; checked: root.bar ? root.bar.screenshotNotify : true; onToggled: v => { if (root.bar) root.bar.screenshotNotify = v; } }
                     }
                 }
                 Row {
                     spacing: 8
-                    SButton { t: pal; text: "Send Test Notification"; onClicked: Quickshell.execDetached(["notify-send", "-a", "Settings", "Test notification", "Notifications are working"]) }
-                    SButton { t: pal; text: "Clear Notification Center"; onClicked: if (root.bar) root.bar.notifClearAnimated() }
+                    SButton { t: pal; text: Language.I18n.text("ui.t_a4c32eea534f"); onClicked: Quickshell.execDetached(["notify-send", "-a", "Settings", "Test notification", "Notifications are working"]) }
+                    SButton { t: pal; text: Language.I18n.text("ui.t_3a5c256b34f8"); onClicked: if (root.bar) root.bar.notifClearAnimated() }
                 }
             }
         }
@@ -2558,19 +2585,19 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Play user interface sound effects"
+                        t: pal; title: Language.I18n.text("ui.t_7783e704ea11")
                         SSwitch { t: pal; checked: root.bar ? root.bar.uiSounds : true; onToggled: v => { if (root.bar) root.bar.uiSounds = v; } }
                     }
                 }
-                SLabel { t: pal; header: true; text: "Output" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_b2439bcb8dee") }
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Output volume"; subtitle: Math.round((root.bar ? root.bar.volume : 0) * 100) + "%"
+                        t: pal; title: Language.I18n.text("ui.t_735bacc34ba7"); subtitle: Math.round((root.bar ? root.bar.volume : 0) * 100) + "%"
                         SSlider { t: pal; to: root.bar ? root.bar.maxVolume : 1.5; leftLabel: "0%"; rightLabel: "150%"; value: root.bar ? (root.bar.muted ? 0 : root.bar.volume) : 0; onMoved: v => { if (root.bar) root.bar.setVolume(v); } }
                     }
                     SRow {
-                        t: pal; title: "Mute"
+                        t: pal; title: Language.I18n.text("ui.t_8dd6857baf02")
                         SSwitch { t: pal; checked: root.bar ? root.bar.muted : false; onToggled: v => { if (root.bar && root.bar.muted !== v) root.bar.toggleMute(); } }
                     }
                     Repeater {
@@ -2581,16 +2608,16 @@ Scope {
                             title: modelData.description || modelData.nickname || modelData.name
                             id: devRowSink
                             readonly property bool cur: Pipewire.defaultAudioSink === modelData
-                            subtitle: cur ? "Selected" : ""
-                            SButton { t: pal; text: devRowSink.cur ? "In Use" : "Use"; onClicked: Pipewire.preferredDefaultAudioSink = devRowSink.modelData }
+                            subtitle: cur ? Language.I18n.text("ui.t_57fd7a0cf33f") : ""
+                            SButton { t: pal; text: devRowSink.cur ? Language.I18n.text("ui.t_ba0eb24926ce") : Language.I18n.text("ui.t_c36d819e7bc6"); onClicked: Pipewire.preferredDefaultAudioSink = devRowSink.modelData }
                         }
                     }
                 }
-                SLabel { t: pal; header: true; text: "Input" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_36ecb4f86691") }
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Input volume"
+                        t: pal; title: Language.I18n.text("ui.t_ba9d735ec56b")
                         SSlider { t: pal; value: sndPane.src && sndPane.src.audio ? sndPane.src.audio.volume : 0; onMoved: v => { if (sndPane.src && sndPane.src.audio) sndPane.src.audio.volume = v; } }
                     }
                     Repeater {
@@ -2601,8 +2628,8 @@ Scope {
                             title: modelData.description || modelData.nickname || modelData.name
                             id: devRowSource
                             readonly property bool cur: Pipewire.defaultAudioSource === modelData
-                            subtitle: cur ? "Selected" : ""
-                            SButton { t: pal; text: devRowSource.cur ? "In Use" : "Use"; onClicked: Pipewire.preferredDefaultAudioSource = devRowSource.modelData }
+                            subtitle: cur ? Language.I18n.text("ui.t_57fd7a0cf33f") : ""
+                            SButton { t: pal; text: devRowSource.cur ? Language.I18n.text("ui.t_ba0eb24926ce") : Language.I18n.text("ui.t_c36d819e7bc6"); onClicked: Pipewire.preferredDefaultAudioSource = devRowSource.modelData }
                         }
                     }
                 }
@@ -2617,13 +2644,13 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Do Not Disturb"
-                        subtitle: "Silences notification banners"
+                        t: pal; title: Language.I18n.text("ui.t_d0b47b15de45")
+                        subtitle: Language.I18n.text("ui.t_48018767b354")
                         SSwitch { t: pal; checked: root.bar ? root.bar.notifDnd : false; onToggled: v => { if (root.bar) root.bar.notifDnd = v; } }
                     }
                     SRow {
-                        t: pal; title: "Keep Awake"
-                        subtitle: "Stop the computer from going to sleep or locking"
+                        t: pal; title: Language.I18n.text("ui.t_7ace19020244")
+                        subtitle: Language.I18n.text("ui.t_0da10ff2d55d")
                         SSwitch { t: pal; checked: root.bar ? root.bar.keepAwake : false; onToggled: v => { if (root.bar) root.bar.keepAwake = v; } }
                     }
                 }
@@ -2643,10 +2670,10 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Now Playing position"
-                        subtitle: "You can also drag it on the lock screen"
+                        t: pal; title: Language.I18n.text("ui.t_b197cb6dd855")
+                        subtitle: Language.I18n.text("ui.t_134057944faf")
                         SSegmented {
-                            t: pal; model: ["Under Clock", "Above Password"]; segWidth: 110
+                            t: pal; model: [Language.I18n.text("ui.t_163e62dcc9df"), Language.I18n.text("ui.t_1812608fc099")]; segWidth: 110
                             current: lockPane.slot === "bottom" ? 1 : 0
                             onPicked: i => {
                                 lockPane.slot = i === 1 ? "bottom" : "top";
@@ -2655,12 +2682,12 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Album background when the cover is enlarged"
+                        t: pal; title: Language.I18n.text("ui.t_b87058fe430e")
                         SSwitch { t: pal; checked: root.bar ? root.bar.lockArtBackground : true; onToggled: v => { if (root.bar) root.bar.lockArtBackground = v; } }
                     }
                     SRow {
-                        t: pal; title: "24-hour clock"
-                        subtitle: "Shared with the menu bar clock"
+                        t: pal; title: Language.I18n.text("ui.t_2d26371afbeb")
+                        subtitle: Language.I18n.text("ui.t_29b8de718637")
                         SSwitch { t: pal; checked: root.bar ? root.bar.use24h : true; onToggled: v => { if (root.bar) root.bar.use24h = v; } }
                     }
                 }
@@ -2668,7 +2695,7 @@ Scope {
                 // the clock fonts, loaded straight from their files so the previews never fall back to another face
                 FontLoader { id: fNunito; source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/Nunito/Nunito.ttf" }
                 FontLoader { id: fSerif; source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/NotoSerifDisplay/NotoSerifDisplay.ttf" }
-                SLabel { t: pal; text: "Clock"; font.weight: Font.DemiBold; topPadding: 6 }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_93ff9273de4b"); font.weight: Font.DemiBold; topPadding: 6 }
                 SCard {
                     t: pal
                     // preset tiles
@@ -2718,17 +2745,17 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Font"
+                        t: pal; title: Language.I18n.text("ui.t_64d0b3adcd2d")
                         SPopUp {
                             t: pal
-                            model: ["Condensed", "Rounded", "Serif", "Default"]
+                            model: [Language.I18n.text("ui.t_ec5ac7c37133"), Language.I18n.text("ui.t_0a62cd800f27"), Language.I18n.text("ui.t_1b5e747e5031"), Language.I18n.text("ui.t_21b111cbfe6e")]
                             readonly property var ids: ["condensed", "rounded", "serif", "inter"]
                             current: Math.max(0, ids.indexOf(root.bar ? root.bar.lockClockFont : "condensed"))
                             onPicked: i => { if (root.bar) { root.bar.lockClockFont = ids[i]; root.bar.lockClockStyle = "custom"; } }
                         }
                     }
                     SRow {
-                        t: pal; title: "Weight"
+                        t: pal; title: Language.I18n.text("ui.t_81d27ef6d503")
                         SSlider {
                             t: pal; width: 220; from: 100; to: 1000; stepSize: 10
                             leftLabel: "Thin"; rightLabel: "Heavy"
@@ -2737,16 +2764,16 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Style"
-                        subtitle: "Solid glows with a hint of the wallpaper; Glass is Liquid Glass that catches the light"
+                        t: pal; title: Language.I18n.text("ui.t_7e744141b40e")
+                        subtitle: Language.I18n.text("ui.t_3d13d1da01c6")
                         SSegmented {
-                            t: pal; model: ["Solid", "Glass"]; segWidth: 80
+                            t: pal; model: [Language.I18n.text("ui.t_b8b311b0f273"), Language.I18n.text("ui.t_82c268188cd6")]; segWidth: 80
                             current: root.bar && root.bar.lockClockMaterial === "solid" ? 0 : 1
                             onPicked: i => { if (root.bar) { root.bar.lockClockMaterial = i === 0 ? "solid" : "glass"; root.bar.lockClockStyle = "custom"; } }
                         }
                     }
                     SRow {
-                        t: pal; title: root.bar && root.bar.lockClockMaterial === "solid" ? "Brightness" : "Glass"
+                        t: pal; title: root.bar && root.bar.lockClockMaterial === "solid" ? Language.I18n.text("ui.t_ec811d30a89c") : Language.I18n.text("ui.t_82c268188cd6")
                         SSlider {
                             t: pal; width: 220; from: 0; to: 1
                             leftLabel: root.bar && root.bar.lockClockMaterial === "solid" ? "Subtle" : "Clear"
@@ -2756,7 +2783,7 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Color"
+                        t: pal; title: Language.I18n.text("ui.t_6b73191a0a4b")
                         Row {
                             spacing: 8
                             Repeater {
@@ -2776,8 +2803,8 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Tall digits"
-                        subtitle: "Stretches the Condensed font to fill the space, like iOS 26"
+                        t: pal; title: Language.I18n.text("ui.t_a09ea81099e9")
+                        subtitle: Language.I18n.text("ui.t_62d6c2c20865")
                         SSwitch {
                             t: pal
                             enabled: root.bar && root.bar.lockClockFont === "condensed"
@@ -2786,9 +2813,9 @@ Scope {
                         }
                     }
                     SRow {
-                        t: pal; title: "Date"
+                        t: pal; title: Language.I18n.text("ui.t_99c40ab40592")
                         SSegmented {
-                            t: pal; model: ["Friday, October 16", "Fri Oct 16"]; segWidth: 130
+                            t: pal; model: [Language.I18n.text("ui.t_5e9213ce3652"), Language.I18n.text("ui.t_6e64dd88e5a3")]; segWidth: 130
                             current: root.bar && root.bar.lockClockDate === "short" ? 1 : 0
                             onPicked: i => { if (root.bar) { root.bar.lockClockDate = i === 1 ? "short" : "long"; root.bar.lockClockStyle = "custom"; } }
                         }
@@ -2798,14 +2825,14 @@ Scope {
                     spacing: 8
                     // a 6-second look at the lock screen (no real lock) with the settings above
                     SButton {
-                        t: pal; text: "Preview"
+                        t: pal; text: Language.I18n.text("ui.t_324b134f57c7")
                         onClicked: {
                             var b = root.bar;
                             var cfg = JSON.stringify({ f: b.lockClockFont, w: b.lockClockWeight, m: b.lockClockMaterial, i: b.lockClockIntensity, c: b.lockClockTint, t: b.lockClockTall, d: b.lockClockDate });
                             Quickshell.execDetached(["sh", "-c", "MACLOCK_PREVIEW=1 MACLOCK_CLOCK=\"$1\" timeout 6 qs -c MacLock-niri >/dev/null 2>&1", "sh", cfg]);
                         }
                     }
-                    SButton { t: pal; text: "Lock Screen Now"; onClicked: { prefsWindow.visible = false; Quickshell.execDetached(["loginctl", "lock-session"]); } }
+                    SButton { t: pal; text: Language.I18n.text("ui.t_5ffabc73f82c"); onClicked: { prefsWindow.visible = false; Quickshell.execDetached(["loginctl", "lock-session"]); } }
                 }
             }
         }
@@ -2834,14 +2861,14 @@ Scope {
                 }
                 SCard {
                     t: pal
-                    SRow { t: pal; title: "Full name"; Text { text: root.userName; color: pal.text2; font.family: pal.fam; font.pixelSize: 13 } }
-                    SRow { t: pal; title: "Account name"; Text { text: Quickshell.env("USER"); color: pal.text2; font.family: pal.fam; font.pixelSize: 13 } }
-                    SRow { t: pal; title: "Home folder"; Text { text: Quickshell.env("HOME"); color: pal.text2; font.family: pal.fam; font.pixelSize: 13 } }
+                    SRow { t: pal; title: Language.I18n.text("ui.t_f13a64ba2fea"); Text { text: root.userName; color: pal.text2; font.family: pal.fam; font.pixelSize: 13 } }
+                    SRow { t: pal; title: Language.I18n.text("ui.t_a704d8d4a818"); Text { text: Quickshell.env(Language.I18n.text("ui.t_92b7b421992e")); color: pal.text2; font.family: pal.fam; font.pixelSize: 13 } }
+                    SRow { t: pal; title: Language.I18n.text("ui.t_6772da558a23"); Text { text: Quickshell.env(Language.I18n.text("ui.t_36e65c39f83b")); color: pal.text2; font.family: pal.fam; font.pixelSize: 13 } }
                     SRow {
-                        t: pal; title: "Picture"
-                        subtitle: "Used on the lock screen and here"
+                        t: pal; title: Language.I18n.text("ui.t_9a1c54f55e7c")
+                        subtitle: Language.I18n.text("ui.t_2feaa8d5d982")
                         SButton {
-                            t: pal; text: "Change…"
+                            t: pal; text: Language.I18n.text("ui.t_a6b4705c6883")
                             onClicked: picProc.running = true
                         }
                     }
@@ -2862,15 +2889,15 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Key repeat rate"
+                        t: pal; title: Language.I18n.text("ui.t_075581ba5770")
                         SSlider { t: pal; leftLabel: "Slow"; rightLabel: "Fast"; from: 10; to: 80; value: root.bar ? root.bar.kbRepeatRate : 35; onMoved: v => { if (root.bar) root.bar.kbRepeatRate = Math.round(v); } }
                     }
                     SRow {
-                        t: pal; title: "Delay until repeat"
+                        t: pal; title: Language.I18n.text("ui.t_6a98dfaa634c")
                         SSlider { t: pal; leftLabel: "Long"; rightLabel: "Short"; from: 0; to: 1; value: root.bar ? 1 - (root.bar.kbRepeatDelay - 150) / 650 : 0.6; onMoved: v => { if (root.bar) root.bar.kbRepeatDelay = Math.round(150 + (1 - v) * 650); } }
                     }
                 }
-                SLabel { t: pal; text: "Layout: " + "us" + ". Changes apply right away." }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_3e407e62a746") + "us" + Language.I18n.text("ui.t_27fc12360ab5") }
             }
         }
 
@@ -2882,12 +2909,12 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Tracking speed"
+                        t: pal; title: Language.I18n.text("ui.t_d78c14b9bb26")
                         SSlider { t: pal; leftLabel: "Slow"; rightLabel: "Fast"; from: -1; to: 1; value: root.bar ? root.bar.mouseSens : 0; onMoved: v => { if (root.bar) root.bar.mouseSens = v; } }
                     }
                     SRow {
-                        t: pal; title: "Natural scrolling"
-                        subtitle: "Content tracks finger movement"
+                        t: pal; title: Language.I18n.text("ui.t_400dcf2176fe")
+                        subtitle: Language.I18n.text("ui.t_6918044e64bc")
                         SSwitch { t: pal; checked: root.bar ? root.bar.mouseNatural : false; onToggled: v => { if (root.bar) root.bar.mouseNatural = v; } }
                     }
                 }
@@ -2902,19 +2929,19 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: "Tap to click"
+                        t: pal; title: Language.I18n.text("ui.t_19573d0d2c25")
                         SSwitch { t: pal; checked: root.bar ? root.bar.tpTap : true; onToggled: v => { if (root.bar) root.bar.tpTap = v; } }
                     }
                     SRow {
-                        t: pal; title: "Natural scrolling"
+                        t: pal; title: Language.I18n.text("ui.t_400dcf2176fe")
                         SSwitch { t: pal; checked: root.bar ? root.bar.tpNatural : true; onToggled: v => { if (root.bar) root.bar.tpNatural = v; } }
                     }
                     SRow {
-                        t: pal; title: "Ignore trackpad while typing"
+                        t: pal; title: Language.I18n.text("ui.t_a9252e43f46b")
                         SSwitch { t: pal; checked: root.bar ? root.bar.tpDwt : true; onToggled: v => { if (root.bar) root.bar.tpDwt = v; } }
                     }
                     SRow {
-                        t: pal; title: "Scrolling speed"
+                        t: pal; title: Language.I18n.text("ui.t_424a8c99a0f8")
                         SSlider { t: pal; leftLabel: "Slow"; rightLabel: "Fast"; from: 0.2; to: 2; value: root.bar ? root.bar.tpScroll : 0.7; onMoved: v => { if (root.bar) root.bar.tpScroll = v; } }
                     }
                 }
@@ -2989,25 +3016,25 @@ Scope {
                             spacing: 6
                             Text {
                                 width: parent.width; elide: Text.ElideRight
-                                text: wpPane.curPath !== "" ? wpPane.nameOf(wpPane.curPath) : "No wallpaper"
+                                text: wpPane.curPath !== "" ? wpPane.nameOf(wpPane.curPath) : Language.I18n.text("ui.t_f705e7c50b98")
                                 color: pal.text; font.family: pal.fam; font.pixelSize: 15; font.weight: Font.DemiBold
                             }
                             Text {
                                 width: parent.width
-                                text: wpPane.curVideo !== "" ? "Animated wallpaper" : "Picture"
+                                text: wpPane.curVideo !== "" ? Language.I18n.text("ui.t_0bfd7e659b0d") : Language.I18n.text("ui.t_9a1c54f55e7c")
                                 color: pal.text2; font.family: pal.fam; font.pixelSize: 12
                             }
                             Text {
                                 width: parent.width; wrapMode: Text.WordWrap
                                 visible: wpPane.curVideo !== ""
-                                text: "Plays on every display and pauses behind fullscreen windows. The Liquid Glass and the lock screen use it too."
+                                text: Language.I18n.text("ui.t_3161734f9b2e")
                                 color: pal.text3; font.family: pal.fam; font.pixelSize: 11
                             }
                             Row {
                                 spacing: 8
                                 topPadding: 4
-                                SButton { t: pal; text: "Open Folder"; onClicked: Quickshell.execDetached(["xdg-open", root.bar ? root.bar.wpDirEff : ""]) }
-                                SButton { t: pal; text: "Refresh"; onClicked: if (root.bar) root.bar.wpRefresh() }
+                                SButton { t: pal; text: Language.I18n.text("ui.t_68b3f4bff6de"); onClicked: Quickshell.execDetached(["xdg-open", root.bar ? root.bar.wpDirEff : ""]) }
+                                SButton { t: pal; text: Language.I18n.text("ui.t_0e9161011702"); onClicked: if (root.bar) root.bar.wpRefresh() }
                             }
                         }
                     }
@@ -3019,16 +3046,16 @@ Scope {
                     visible: root.bar && root.bar.wpHasPair
                     SRow {
                         t: pal
-                        title: "Appearance"
+                        title: Language.I18n.text("ui.t_3907fa7f8072")
                         subtitle: {
                             var a = root.bar ? root.bar.wallpaperAppearance : "auto";
-                            return a === "auto" ? "Follows Light / Dark Mode"
-                                 : a === "dynamic" ? "Changes through the day: light by day, dark at night, blending at sunrise and sunset"
-                                 : a === "light" ? "Always the light version" : "Always the dark version";
+                            return a === "auto" ? Language.I18n.text("ui.t_ac3909f16606")
+                                 : a === "dynamic" ? Language.I18n.text("ui.t_c66b39b76ded")
+                                 : a === "light" ? Language.I18n.text("ui.t_62bf5f18482c") : Language.I18n.text("ui.t_6c0ec7dc3c32");
                         }
                         SSegmented {
                             t: pal
-                            model: ["Automatic", "Light", "Dark", "Dynamic"]
+                            model: [Language.I18n.text("ui.t_d461a493a375"), Language.I18n.text("ui.t_dbcd5e7bb7a0"), Language.I18n.text("ui.t_60acc53f13a5"), Language.I18n.text("ui.t_b6ee7b3e8d9c")]
                             segWidth: 78
                             current: ["auto", "light", "dark", "dynamic"].indexOf(root.bar ? root.bar.wallpaperAppearance : "auto")
                             onPicked: i => { if (root.bar) root.bar.wallpaperAppearance = ["auto", "light", "dark", "dynamic"][i]; }
@@ -3038,11 +3065,11 @@ Scope {
 
                 Item {
                     width: parent.width; height: 30
-                    SLabel { t: pal; header: true; width: 200; anchors.verticalCenter: parent.verticalCenter; text: "Wallpapers"; topPadding: 0 }
+                    SLabel { t: pal; header: true; width: 200; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_006547c4fdf5"); topPadding: 0 }
                     SSegmented {
                         t: pal
                         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                        model: ["All", "Pictures", "Animated"]
+                        model: [Language.I18n.text("ui.t_a52ace420f21"), Language.I18n.text("ui.t_1e6245009d67"), Language.I18n.text("ui.t_d1d632796f8a")]
                         segWidth: 80
                         current: wpPane.filter
                         onPicked: i => wpPane.filter = i
@@ -3104,7 +3131,7 @@ Scope {
                                         Text {
                                             id: wtBadge
                                             anchors.centerIn: parent
-                                            text: "\u25B6  Animated"
+                                            text: Language.I18n.text("ui.t_65fed84e8225")
                                             color: "white"; font.family: pal.fam; font.pixelSize: 9; font.weight: Font.DemiBold
                                         }
                                     }
@@ -3139,10 +3166,10 @@ Scope {
                 SLabel {
                     t: pal
                     visible: wpPane.shown.length === 0
-                    text: wpPane.filter === 2 ? "No animated wallpapers yet. Drop .mp4 / .webm videos into " + (root.bar ? root.bar.wpDirEff : "~/Pictures/Wallpapers") + "."
-                                              : "Nothing here yet."
+                    text: wpPane.filter === 2 ? Language.I18n.text("ui.t_5c2c41a32847") + (root.bar ? root.bar.wpDirEff : "~/Pictures/Wallpapers") + "."
+                                              : Language.I18n.text("ui.t_2de5247a982a")
                 }
-                SLabel { t: pal; text: "Tip: Ctrl+Alt+W opens the quick wallpaper picker, which shows animated wallpapers too." }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_e70308645f6c") }
             }
         }
 
@@ -3179,7 +3206,7 @@ Scope {
                             y: 138
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
-                            text: "Version 0.0.7 \u2022 niri \u2022 Quickshell"
+                            text: Language.I18n.text("ui.t_de34bb4f080b")
                             color: pal.text2
                             font.family: pal.fam
                             font.pixelSize: 12
@@ -3191,7 +3218,7 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Configuration"
+                        title: Language.I18n.text("ui.t_b332c3492d5e")
                         Text {
                             text: "~/.config/macdock"
                             color: pal.text2
@@ -3201,10 +3228,10 @@ Scope {
                     }
                     SRow {
                         t: pal
-                        title: "Open configuration folder"
+                        title: Language.I18n.text("ui.t_3d3aa27e265f")
                         SButton {
                             t: pal
-                            text: "Open"
+                            text: Language.I18n.text("ui.t_ed077f3d8125")
                             onClicked: Quickshell.execDetached(["xdg-open", root.configDir])
                         }
                     }
@@ -3214,11 +3241,11 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Install dependencies"
-                        subtitle: "Installs everything MacShell uses (Quickshell, awww, mpvpaper, ffmpeg, wf-recorder, fonts, icons…) with your package manager, in a terminal"
+                        title: Language.I18n.text("ui.t_28cf1ec4677d")
+                        subtitle: Language.I18n.text("ui.t_63ab7ab1ccd8")
                         SButton {
                             t: pal
-                            text: "Install\u2026"
+                            text: Language.I18n.text("ui.t_8c1df2d5fabe")
                             onClicked: {
                                 var inst = Quickshell.env("HOME") + "/.local/share/macshell/install.sh";
                                 var term = root.bar ? root.bar.terminal : "kitty";
@@ -3231,12 +3258,12 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: "Reset MacShell"
-                        subtitle: "Restore every setting to its default (appearance, Dock, Menu Bar, widgets, lock screen, input). Pinned apps and your widgets' layout are kept."
+                        title: Language.I18n.text("ui.t_a0ca304b1b0d")
+                        subtitle: Language.I18n.text("ui.t_caaf26a65c47")
                         SButton {
                             t: pal
                             destructive: true
-                            text: aboutCol.armed ? "Click to Confirm" : "Reset\u2026"
+                            text: aboutCol.armed ? Language.I18n.text("ui.t_f6c98c0d99bb") : Language.I18n.text("ui.t_f6027ace5b0f")
                             onClicked: {
                                 if (aboutCol.armed) { aboutCol.armed = false; root.resetSettings(); }
                                 else { aboutCol.armed = true; disarm.restart(); }
@@ -3246,15 +3273,15 @@ Scope {
                 }
 
                 // ── Credits ──
-                SLabel { t: pal; header: true; text: "Credits" }
+                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_2a6b24ad2872") }
                 SCard {
                     t: pal
                     Repeater {
                         model: [
                             { img: "assets/credits/0-ss.jpg", name: "Rickky", gh: "0-ss",
-                              role: "Owner — the menu bar, the Dock, the Liquid Glass and the widgets. The one who actually knew what he was doing" },
+                              role: Language.I18n.text("ui.t_84f7cd42cd98") },
                             { img: "assets/credits/vsoultann.png", name: "vSuol", gh: "vsoultann",
-                              role: "Collaborator — improved the Settings app and window, and every bug you will ever find" }
+                              role: Language.I18n.text("ui.t_d205b69d51d6") }
                         ]
                         delegate: Item {
                             id: cr
@@ -3297,7 +3324,7 @@ Scope {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 4
-                    text: "Designed by Apple in California.\nRebuilt on Linux by two people who could not afford the Mac."
+                    text: Language.I18n.text("ui.t_a9391b48e9df")
                     color: pal.text3; font.family: pal.fam; font.pixelSize: 11
                 }
 
@@ -3317,18 +3344,18 @@ Scope {
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter; y: 64
-                            text: "Protect your MacShell with AppleCare+"
+                            text: Language.I18n.text("ui.t_20060b05664d")
                             color: pal.text; font.family: pal.fam; font.pixelSize: 17; font.weight: Font.DemiBold
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter; y: 90
                             width: parent.width - 60; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-                            text: "Unlimited repairs for accidental damage, 24/7 priority access to Apple experts, and battery service coverage. Same price as for a MacBook Pro."
+                            text: Language.I18n.text("ui.t_88c01a1e5d09")
                             color: pal.text2; font.family: pal.fam; font.pixelSize: 12
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter; y: 136
-                            text: "$279.00 for 3 years or $99.99/yr."
+                            text: Language.I18n.text("ui.t_56bf35e62b0c")
                             color: pal.text; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.Medium
                         }
                         Rectangle {
@@ -3337,7 +3364,7 @@ Scope {
                             color: careMa.pressed ? Qt.darker(pal.accent, 1.15) : pal.accent
                             scale: careMa.pressed ? 0.96 : 1
                             Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
-                            Text { anchors.centerIn: parent; text: "Add AppleCare+"; color: "white"; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            Text { anchors.centerIn: parent; text: Language.I18n.text("ui.t_61c6dd2a1105"); color: "white"; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
                             MouseArea { id: careMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
                         }
                     }
@@ -3472,6 +3499,8 @@ Scope {
 
     function lookup(appId) {
         if (!appId) return null;
+        var builtin = Utilities.entry(appId, key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value));
+        if (builtin) return builtin;
         var e = DesktopEntries.byId(appId);
         if (!e && DesktopEntries.heuristicLookup) e = DesktopEntries.heuristicLookup(appId);
         return e;
@@ -3569,7 +3598,7 @@ Scope {
     }
 
     // MacShell's own windows all have the app id "org.quickshell": the Clock window counts as the Clock app
-    function appOf(tl) { return ((tl.appId === "org.quickshell" || tl.appId === "dev.noctalia.noctalia-qs") && tl.title === "Clock") ? "macshell-clock" : tl.appId; }
+    function appOf(tl) { return Utilities.ownWindow(tl.appId, tl.title); }
     function windowsFor(key) {
         var out = [];
         var tls = Niri.toplevels.values;
@@ -3605,7 +3634,7 @@ Scope {
             // (after the app database reloads it turned into "TypeError ... execute is not a function", and Files never opened)
             var ent = null;
             var rid = item.appId || item.key;
-            try { ent = DesktopEntries.byId(rid); } catch (err) { ent = null; }
+            try { ent = root.lookup(rid); } catch (err) { ent = null; }
             if (!ent) { try { ent = DesktopEntries.heuristicLookup ? DesktopEntries.heuristicLookup(item.key) : null; } catch (err2) { ent = null; } }
             var ok = false;
             if (ent && typeof ent.execute === "function") { try { ent.execute(); ok = true; } catch (err3) { ok = false; } }
@@ -3656,17 +3685,17 @@ Scope {
     function menuFor(item) {
         var m = [];
         if (item.kind === "win") {
-            m.push({ kind: "item", label: "Show", run: function () { activate(item, false); } });
-            m.push({ kind: "item", label: "Close", run: function () { if (item.tl) item.tl.close(); } });
+            m.push({ kind: "item", label: Language.I18n.text("ui.t_0df6f1cad36c"), run: function () { activate(item, false); } });
+            m.push({ kind: "item", label: Language.I18n.text("common.close"), run: function () { if (item.tl) item.tl.close(); } });
             m.push({ kind: "sep" });
-            m.push({ kind: "item", label: "Settings\u2026", run: function() { root.openPrefs(); } });
+            m.push({ kind: "item", label: Language.I18n.text("ui.t_7a04083baf8d"), run: function() { root.openPrefs(); } });
             return m;
         }
         if (item.special === "trash") {
-            m.push({ kind: "item", label: "Open", run: function () { activate(item, false); } });
-            m.push({ kind: "item", label: "Empty Trash", confirm: true, disabled: !trashFull, run: function () { root.emptyTrash(); } });
+            m.push({ kind: "item", label: Language.I18n.text("ui.t_ed077f3d8125"), run: function () { activate(item, false); } });
+            m.push({ kind: "item", label: Language.I18n.text("ui.t_b85cf0888f79"), confirm: true, disabled: !trashFull, run: function () { root.emptyTrash(); } });
             m.push({ kind: "sep" });
-            m.push({ kind: "item", label: "Settings\u2026", run: function() { root.openPrefs(); } });
+            m.push({ kind: "item", label: Language.I18n.text("ui.t_7a04083baf8d"), run: function() { root.openPrefs(); } });
             return m;
         }
         var wins = windowsFor(item.key);
@@ -3681,21 +3710,21 @@ Scope {
             m.push({ kind: "sep" });
         }
         if (item.entry) {
-            m.push({ kind: "item", label: item.pinned ? "Remove from Dock" : "Keep in Dock",
+            m.push({ kind: "item", label: item.pinned ? Language.I18n.text("ui.t_0cbc564f2355") : Language.I18n.text("ui.t_eb625dddc8f0"),
                      run: function () { togglePin(item); } });
-            m.push({ kind: "item", label: wins.length > 0 ? "New Window" : "Open",
+            m.push({ kind: "item", label: wins.length > 0 ? Language.I18n.text("ui.t_7469c2f6ff3a") : Language.I18n.text("ui.t_ed077f3d8125"),
                      run: function () { activate(item, true); } });
         }
         if (wins.length > 0) {
             m.push({ kind: "sep" });
-            m.push({ kind: "item", label: "Quit", run: function () {
+            m.push({ kind: "item", label: Language.I18n.text("ui.t_b3eb37acb66b"), run: function () {
                 var ws = windowsFor(item.key);
                 for (var j = 0; j < ws.length; j++) ws[j].close();
             } });
         }
 
         m.push({ kind: "sep" });
-        m.push({ kind: "item", label: "Settings\u2026", run: function() { root.openPrefs(); } });
+        m.push({ kind: "item", label: Language.I18n.text("ui.t_7a04083baf8d"), run: function() { root.openPrefs(); } });
 
         return m;
     }
@@ -3720,7 +3749,7 @@ Scope {
 
         var list = [], seen = {};
         for (var p = 0; p < pinned.length; p++) {
-            var e = DesktopEntries.byId(String(pinned[p]).replace(/\.desktop$/, ""));
+            var e = root.lookup(String(pinned[p]).replace(/\.desktop$/, ""));
             if (!e) continue;
             var ek = e.id.toLowerCase();
             if (seen[ek]) continue;
@@ -4740,7 +4769,7 @@ Scope {
                                     Text {
                                         id: label
                                         anchors.centerIn: parent
-                                        text: cell.isSep ? "" : ((cell.modelData.kind === "win" && cell.modelData.tl && cell.modelData.tl.title) ? cell.modelData.tl.title : cell.modelData.name)
+                                        text: cell.isSep ? "" : ((cell.modelData.kind === "win" && cell.modelData.tl && cell.modelData.tl.title) ? Utilities.displayTitle(root.appOf(cell.modelData.tl), cell.modelData.tl.title, value => Language.I18n.legacy(value)) : cell.modelData.name)
                                         color: "white"
                                         font.pixelSize: 13
                                         font.family: root.fontFamily
@@ -4871,7 +4900,7 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parent.width - 20
                                     elide: Text.ElideRight
-                                    text: mi.isSep ? "" : (mi.armedNow ? "Click again to confirm" : mi.modelData.label)
+                                    text: mi.isSep ? "" : (mi.armedNow ? Language.I18n.text("ui.t_1f8c95036230") : mi.modelData.label)
                                     color: mi.off ? Qt.rgba(1, 1, 1, 0.4) : "white"
                                     font.pixelSize: 13
                                     font.family: root.fontFamily

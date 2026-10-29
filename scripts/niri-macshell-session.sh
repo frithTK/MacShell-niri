@@ -4,6 +4,7 @@ set -euo pipefail
 profile_config=@PROFILE_CONFIG@
 preflight=@PREFLIGHT@
 qs_binary=@QS_BINARY@
+locale_helper=@LOCALE_HELPER@
 if [[ ${1:-} == --check ]]; then
     exec python3 "$preflight" "$profile_config" "$qs_binary"
 fi
@@ -28,6 +29,19 @@ fi
 if ! python3 "$preflight" "$profile_config" "$qs_binary"; then
     fallback 'Preflight failed; starting the original Niri session.'
 fi
+# Apply the user's locale before compositor/app startup and environment import.
+# The helper emits whitelisted assignments, never shell source. On invalid input
+# retain the login environment and report the problem rather than deny login.
+if locale_values=$(python3 "$locale_helper"); then
+    while IFS='=' read -r locale_key locale_value; do
+        case "$locale_key" in
+            LANG|LANGUAGE|LC_MESSAGES|LC_NUMERIC|LC_TIME|LC_MONETARY|LC_PAPER|LC_NAME|LC_ADDRESS|LC_TELEPHONE|LC_MEASUREMENT|LC_IDENTIFICATION)
+                export "$locale_key=$locale_value" ;;
+            '') ;;
+            *) echo 'Rejected unexpected locale variable.' >&2; exit 1 ;;
+        esac
+    done <<< "$locale_values"
+fi
 if ! systemctl --user daemon-reload; then
     fallback 'Cannot reload MacShell service; starting the original Niri session.'
 fi
@@ -37,6 +51,7 @@ systemctl --user reset-failed niri-macshell.service 2>/dev/null || true
 # A new login gets a new token; restarting Quickshell within this login keeps it.
 IFS= read -r MACSHELL_SESSION_TOKEN < /proc/sys/kernel/random/uuid
 export MACSHELL_SESSION_TOKEN
+export MACSHELL_MANAGED_SHELL=1
 if ! systemctl --user import-environment; then
     fallback 'Cannot import login environment; starting the original Niri session.'
 fi
@@ -47,7 +62,7 @@ if command -v dbus-update-activation-environment >/dev/null; then
 fi
 cleanup() {
     systemctl --user start --job-mode=replace-irreversibly niri-shutdown.target || true
-    systemctl --user unset-environment WAYLAND_DISPLAY DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP NIRI_SOCKET MACSHELL_SESSION_TOKEN || true
+    systemctl --user unset-environment WAYLAND_DISPLAY DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP NIRI_SOCKET MACSHELL_SESSION_TOKEN MACSHELL_MANAGED_SHELL || true
 }
 trap cleanup EXIT
 if systemctl --user --wait start niri-macshell.service; then

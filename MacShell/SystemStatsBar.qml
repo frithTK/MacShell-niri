@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls as Controls
 
 Item {
@@ -35,7 +36,7 @@ Item {
     visible: width > 0
     activeFocusOnTab: visible
     Accessible.role: Accessible.Button
-    Accessible.name: "Activity Monitor"
+    Accessible.name: Language.I18n.text("ui.t_0efe6bd6e0b2")
     Accessible.description: summary
     Accessible.onPressAction: root.clicked()
     Keys.onReturnPressed: root.clicked()

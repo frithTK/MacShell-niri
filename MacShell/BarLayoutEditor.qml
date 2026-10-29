@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 import QtQuick.Window
 import "BarLayout.js" as Layout
@@ -49,13 +50,13 @@ ControlMenu {
     onScopeChanged: { selectedId = ""; Qt.callLater(() => { if (root.selected.output && root.selected.output.logicalRect) root.previewWidth = root.selected.output.logicalRect.width; }); }
     readonly property bool editable: controller.ready && !controller.pending && !controller.readOnly
     readonly property var scopes: {
-        var result = [{key: "common", label: "All displays"}], attached = [];
+        var result = [{key: "common", label: Language.I18n.text("ui.t_893d3edb9042")}], attached = [];
         controller.outputs.forEach(output => {
             result.push({key: "live:" + output.name, label: output.name + " · " + (output.model || "connected"), output: output});
             var match = Outputs.resolve(draft.outputs, output, controller.outputs, draft.bindings);
             if (match.id) attached.push(match.id);
         });
-        Object.keys(draft.outputs).filter(key => attached.indexOf(key) < 0).forEach(key => result.push({key: "saved:" + key, label: draft.outputs[key].identity.connector + " · saved profile", id: key}));
+        Object.keys(draft.outputs).filter(key => attached.indexOf(key) < 0).forEach(key => result.push({key: "saved:" + key, label: draft.outputs[key].identity.connector + Language.I18n.text("ui.t_1b9e9f483dab"), id: key}));
         return result;
     }
     onScopesChanged: if (!scopes.some(item => item.key === scope)) Qt.callLater(() => { if (!root.scopes.some(item => item.key === root.scope)) root.scope = "common"; })
@@ -129,7 +130,7 @@ ControlMenu {
         selectedId = "";
     }
     function shortLabel(type) {
-        return ({appMenus: "App menus", monitoring: "Activity", tray: "Tray", keyboard: "Keyboard", wifi: "Wi-Fi", search: "Search", clock: "Clock", privacy: "Privacy", spacer: "Space"})[type] || Layout.label(controller.catalog, type);
+        return Language.I18n.legacy(({appMenus: Language.I18n.text("ui.t_bc5d8e3025d5"), monitoring: "Activity", tray: "Tray", keyboard: "Keyboard", wifi: "Wi-Fi", search: "Search", clock: "Clock", privacy: "Privacy", spacer: "Space"})[type] || Layout.label(controller.catalog, type));
     }
     function shiftSelected(offset) {
         if (!selectedEntry) return;
@@ -160,21 +161,21 @@ ControlMenu {
             Text {
                 width: parent.width - cancelButton.width - applyButton.width - 16
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Menu bar items"; color: root.foreground
+                text: Language.I18n.text("ui.t_7bff2a544977"); color: root.foreground
                 font.family: root.font.family; font.pixelSize: 17; font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
-            ControlButton { id: cancelButton; objectName: "barCancel"; text: "Cancel"; enabled: !root.controller.pending && root.dirty; onClicked: root.rebase() }
-            ControlButton { id: applyButton; objectName: "barApply"; text: root.controller.pending ? "Applying…" : "Apply"; primary: true; enabled: root.editable && !root.conflict && (root.dirty || root.controller.needsRepair || root.controller.migrationPending); onClicked: root.controller.save(root.draft, root.baseToken) }
+            ControlButton { id: cancelButton; objectName: "barCancel"; text: Language.I18n.text("common.cancel"); enabled: !root.controller.pending && root.dirty; onClicked: root.rebase() }
+            ControlButton { id: applyButton; objectName: "barApply"; text: root.controller.pending ? Language.I18n.text("ui.t_3329a9bb48b9") : Language.I18n.text("common.apply"); primary: true; enabled: root.editable && !root.conflict && (root.dirty || root.controller.needsRepair || root.controller.migrationPending); onClicked: root.controller.save(root.draft, root.baseToken) }
         }
-        Text { width: parent.width; text: "Drag items to arrange them. Click an item to move or hide it."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+        Text { width: parent.width; text: Language.I18n.text("ui.t_869cea78dbda"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         Text {
             width: parent.width; visible: root.scope !== "common"
-            text: root.selected.label + (root.inherited ? " · uses the all-displays layout" : " · separate layout")
+            text: root.selected.label + (root.inherited ? Language.I18n.text("ui.t_815b400d4059") : Language.I18n.text("ui.t_748fd19abe84"))
             color: root.accent; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap
         }
-        Text { width: parent.width; visible: text !== ""; text: root.conflict ? "Changed elsewhere. Reload to continue; your draft is still shown." : root.controller.error || root.controller.notice; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
-        ControlButton { objectName: "barReload"; visible: root.conflict || !!root.controller.error; text: "Reload"; enabled: !root.controller.pending; onClicked: { root.rebase(); root.controller.refresh(); } }
+        Text { width: parent.width; visible: text !== ""; text: root.conflict ? Language.I18n.text("ui.t_2503c4ba43ff") : Language.I18n.legacy(root.controller.error || root.controller.notice); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+        ControlButton { objectName: "barReload"; visible: root.conflict || !!root.controller.error; text: Language.I18n.text("language.reload"); enabled: !root.controller.pending; onClicked: { root.rebase(); root.controller.refresh(); } }
         Repeater {
             model: ["left", "center", "right"]
             delegate: Rectangle {
@@ -200,7 +201,7 @@ ControlMenu {
                     text: ({left: "Left", center: "Center", right: "Right"})[zoneCard.modelData]
                     color: root.secondary; font.family: root.font.family; font.pixelSize: 11
                 }
-                Text { x: 68; anchors.verticalCenter: parent.verticalCenter; visible: zoneCard.blocks.length === 0; text: "Drop items here"; color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
+                Text { x: 68; anchors.verticalCenter: parent.verticalCenter; visible: zoneCard.blocks.length === 0; text: Language.I18n.text("ui.t_4034ec9f457d"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
                 Flow {
                     id: chips; x: 68; y: 10; width: parent.width - 78; spacing: 6
                     Repeater {
@@ -220,7 +221,7 @@ ControlMenu {
                             z: dragMouse.drag.active ? 2 : 0
                             enabled: root.editable && !root.inherited
                             focusPolicy: Qt.StrongFocus
-                            Accessible.name: Layout.label(root.controller.catalog, blockType)
+                            Accessible.name: Language.I18n.legacy(Layout.label(root.controller.catalog, blockType))
                             Component.onCompleted: if (root.focusOnMoveId === blockId) { forceActiveFocus(); root.focusOnMoveId = ""; }
                             onClicked: root.selectedId = blockId
                             Keys.onReturnPressed: root.selectedId = blockId
@@ -276,26 +277,26 @@ ControlMenu {
                 id: selectionControls; x: 10; y: 10; width: parent.width - 20; spacing: 8
                 Row {
                     width: parent.width; spacing: 6
-                    Text { width: parent.width - hideButton.width - 6; anchors.verticalCenter: parent.verticalCenter; text: root.selectedEntry ? Layout.label(root.controller.catalog, root.selectedEntry.type) : ""; color: root.foreground; font.family: root.font.family; font.pixelSize: 12; elide: Text.ElideRight }
-                    ControlButton { id: hideButton; objectName: "barHide"; text: "Hide"; enabled: root.editable && !root.inherited; onClicked: root.hideSelected() }
+                    Text { width: parent.width - hideButton.width - 6; anchors.verticalCenter: parent.verticalCenter; text: root.selectedEntry ? Language.I18n.legacy(Layout.label(root.controller.catalog, root.selectedEntry.type)) : ""; color: root.foreground; font.family: root.font.family; font.pixelSize: 12; elide: Text.ElideRight }
+                    ControlButton { id: hideButton; objectName: "barHide"; text: Language.I18n.text("ui.t_ac20a57bfde0"); enabled: root.editable && !root.inherited; onClicked: root.hideSelected() }
                 }
                 Row {
                     width: parent.width; spacing: 6
                     ControlComboBox {
                         objectName: "barSelectedZone"; width: Math.max(90, parent.width - earlierButton.width - laterButton.width - 12)
-                        model: ["Left", "Center", "Right"]; currentIndex: root.selectedEntry ? ["left", "center", "right"].indexOf(root.selectedEntry.zone) : 0
+                        model: [Language.I18n.text("ui.t_58eb9032e3bb"), Language.I18n.text("ui.t_d946067427e9"), Language.I18n.text("ui.t_883361d5d682")]; currentIndex: root.selectedEntry ? ["left", "center", "right"].indexOf(root.selectedEntry.zone) : 0
                         enabled: root.editable && !root.inherited && !!root.selectedEntry
                         onActivated: i => root.move(root.selectedId, ["left", "center", "right"][i], 999)
                     }
-                    ControlButton { id: earlierButton; objectName: "barEarlier"; text: "←"; implicitWidth: 38; Accessible.name: "Move item earlier"; enabled: root.editable && !root.inherited && !!root.selectedEntry && root.entries.filter(item => item.zone === root.selectedEntry.zone && item.enabled)[0].id !== root.selectedId; onClicked: root.shiftSelected(-1) }
-                    ControlButton { id: laterButton; objectName: "barLater"; text: "→"; implicitWidth: 38; Accessible.name: "Move item later"; enabled: root.editable && !root.inherited && !!root.selectedEntry && root.entries.filter(item => item.zone === root.selectedEntry.zone && item.enabled).slice(-1)[0].id !== root.selectedId; onClicked: root.shiftSelected(1) }
+                    ControlButton { id: earlierButton; objectName: "barEarlier"; text: "←"; implicitWidth: 38; Accessible.name: Language.I18n.text("ui.t_4495e77129ed"); enabled: root.editable && !root.inherited && !!root.selectedEntry && root.entries.filter(item => item.zone === root.selectedEntry.zone && item.enabled)[0].id !== root.selectedId; onClicked: root.shiftSelected(-1) }
+                    ControlButton { id: laterButton; objectName: "barLater"; text: "→"; implicitWidth: 38; Accessible.name: Language.I18n.text("ui.t_b386d0a31ca0"); enabled: root.editable && !root.inherited && !!root.selectedEntry && root.entries.filter(item => item.zone === root.selectedEntry.zone && item.enabled).slice(-1)[0].id !== root.selectedId; onClicked: root.shiftSelected(1) }
                 }
             }
         }
         Row {
             width: parent.width; spacing: 8
             ControlButton {
-                id: addButton; objectName: "barAdd"; text: "+ Add item"; enabled: root.editable && !root.inherited && root.availableBlocks.length > 0
+                id: addButton; objectName: "barAdd"; text: Language.I18n.text("ui.t_d8af7430df31"); enabled: root.editable && !root.inherited && root.availableBlocks.length > 0
                 onClicked: addPopup.open()
                 Popup {
                     id: addPopup; objectName: "barAddPopup"; y: addButton.height + 5; width: Math.min(260, root.width); padding: 6
@@ -314,7 +315,7 @@ ControlMenu {
                                 model: root.availableBlocks
                                 delegate: ControlButton {
                                     required property var modelData
-                                    width: addList.width; objectName: "barAdd_" + modelData.type; text: "+  " + modelData.label
+                                    width: addList.width; objectName: "barAdd_" + modelData.type; text: "+  " + Language.I18n.legacy(modelData.label)
                                     Keys.onReturnPressed: clicked()
                                     onActiveFocusChanged: if (activeFocus) {
                                         var flick = addScroll.contentItem;
@@ -328,57 +329,57 @@ ControlMenu {
                     }
                 }
             }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: root.dirty ? "Unsaved changes" : ""; color: root.secondary; font.family: root.font.family; font.pixelSize: 11 }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: root.dirty ? Language.I18n.text("ui.t_a710c2b90913") : ""; color: root.secondary; font.family: root.font.family; font.pixelSize: 11 }
         }
-        ControlButton { objectName: "barAdvanced"; text: (root.advanced ? "▾" : "▸") + " More options"; onClicked: root.advanced = !root.advanced }
+        ControlButton { objectName: "barAdvanced"; text: (root.advanced ? "▾" : "▸") + Language.I18n.text("ui.t_078c987eb6be"); onClicked: root.advanced = !root.advanced }
         Column {
             width: parent.width; spacing: 12; visible: root.advanced
-            Text { text: "Display"; color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+            Text { text: Language.I18n.text("ui.t_34e108c0896d"); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
             ControlComboBox {
                 objectName: "barLayoutScope"; width: parent.width; enabled: !root.controller.pending
                 model: root.scopes; textRole: "label"
                 currentIndex: Math.max(0, root.scopes.findIndex(item => item.key === root.scope))
                 onActivated: index => { root.selectedId = ""; root.scope = root.scopes[index].key; }
             }
-            Text { width: parent.width; visible: root.inherited; text: root.match.ambiguous ? "Several saved layouts match this display. Choose one below or create a separate layout." : "Uses the all-displays layout. Create a separate layout to edit this display."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
-            ControlButton { objectName: "barCustomize"; visible: root.scope !== "common" && root.inherited; text: "Create separate layout"; enabled: root.editable; onClicked: root.customize() }
-            ControlButton { objectName: "barInherit"; visible: root.scope !== "common" && !root.inherited; text: "Use all-displays layout"; enabled: root.editable; onClicked: root.inherit() }
+            Text { width: parent.width; visible: root.inherited; text: root.match.ambiguous ? Language.I18n.text("ui.t_bff172eb236d") : Language.I18n.text("ui.t_704a7fab4434"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            ControlButton { objectName: "barCustomize"; visible: root.scope !== "common" && root.inherited; text: Language.I18n.text("ui.t_efe0a935c383"); enabled: root.editable; onClicked: root.customize() }
+            ControlButton { objectName: "barInherit"; visible: root.scope !== "common" && !root.inherited; text: Language.I18n.text("ui.t_ec2af69450c7"); enabled: root.editable; onClicked: root.inherit() }
             Column {
                 width: parent.width; visible: !!root.selected.output && root.inherited && root.savedIds.length > 0; spacing: 8
                 ControlComboBox { id: savedProfile; width: parent.width; model: root.savedIds.map(key => ({key: key, label: root.draft.outputs[key].identity.connector + " · " + (root.draft.outputs[key].identity.model || key)})); textRole: "label" }
-                ControlButton { text: "Use saved layout"; enabled: root.editable; onClicked: root.bindProfile(root.savedIds[savedProfile.currentIndex]) }
+                ControlButton { text: Language.I18n.text("ui.t_54ad8452d92a"); enabled: root.editable; onClicked: root.bindProfile(root.savedIds[savedProfile.currentIndex]) }
             }
             Column {
                 width: parent.width; visible: !!root.selectedEntry; spacing: 8
-                Text { text: "When space runs out"; color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
-                Text { width: parent.width; text: "Higher-priority items stay visible longer."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+                Text { text: Language.I18n.text("ui.t_37466d35fdbb"); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+                Text { width: parent.width; text: Language.I18n.text("ui.t_7b4cc146e625"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
                 Row {
                     spacing: 8
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Priority"; color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
-                    SpinBox { objectName: "barSelectedPriority"; width: 110; from: 0; to: 100; value: root.selectedEntry ? root.selectedEntry.priority : 0; editable: true; enabled: root.editable && !root.inherited; Accessible.name: "Selected item priority"; onValueModified: root.change(root.selectedId, "priority", value) }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_d60dbba07922"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
+                    SpinBox { objectName: "barSelectedPriority"; width: 110; from: 0; to: 100; value: root.selectedEntry ? root.selectedEntry.priority : 0; editable: true; enabled: root.editable && !root.inherited; Accessible.name: Language.I18n.text("ui.t_543340942a33"); onValueModified: root.change(root.selectedId, "priority", value) }
                 }
                 Row {
                     spacing: 8; visible: !!root.selectedEntry && root.selectedEntry.type === "spacer"
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Space width"; color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
-                    SpinBox { objectName: "barSelectedWidth"; width: 110; from: 0; to: 240; value: root.selectedEntry && root.selectedEntry.width !== undefined ? root.selectedEntry.width : 16; enabled: root.editable && !root.inherited; Accessible.name: "Spacer width"; onValueModified: root.change(root.selectedId, "width", value) }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_c10ce42aa769"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
+                    SpinBox { objectName: "barSelectedWidth"; width: 110; from: 0; to: 240; value: root.selectedEntry && root.selectedEntry.width !== undefined ? root.selectedEntry.width : 16; enabled: root.editable && !root.inherited; Accessible.name: Language.I18n.text("ui.t_ed3507e12ab6"); onValueModified: root.change(root.selectedId, "width", value) }
                 }
             }
-            Text { text: "Preview"; color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+            Text { text: Language.I18n.text("ui.t_324b134f57c7"); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
             Row {
                 spacing: 8
-                Text { anchors.verticalCenter: parent.verticalCenter; text: "Screen width"; color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
-                SpinBox { objectName: "barPreviewWidth"; from: 240; to: 7680; stepSize: 50; value: root.previewWidth; editable: true; onValueModified: root.previewWidth = value; Accessible.name: "Preview screen width" }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_317f934a4656"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
+                SpinBox { objectName: "barPreviewWidth"; from: 240; to: 7680; stepSize: 50; value: root.previewWidth; editable: true; onValueModified: root.previewWidth = value; Accessible.name: Language.I18n.text("ui.t_8e995ec1154a") }
             }
             BarLayoutPreview { width: parent.width; layout: root.entries; catalog: root.controller.catalog; logicalWidth: root.previewWidth; widgetScale: root.controller.widgetScale || 1; foreground: root.foreground; accent: root.accent }
-            ControlButton { objectName: "barReset"; text: "Reset this layout"; enabled: root.editable && !root.inherited; onClicked: { root.replaceEntries(Layout.defaults(root.controller.catalog)); root.selectedId = ""; } }
+            ControlButton { objectName: "barReset"; text: Language.I18n.text("ui.t_c82de9851ad7"); enabled: root.editable && !root.inherited; onClicked: { root.replaceEntries(Layout.defaults(root.controller.catalog)); root.selectedId = ""; } }
         }
         Column {
             spacing: 8; visible: root.controller.canRecover
-            ControlButton { text: "Restore defaults…"; enabled: !root.controller.pending; visible: !root.confirmRecovery; onClicked: root.confirmRecovery = true }
+            ControlButton { text: Language.I18n.text("ui.t_15efa04829c4"); enabled: !root.controller.pending; visible: !root.confirmRecovery; onClicked: root.confirmRecovery = true }
             Row {
                 spacing: 8; visible: root.confirmRecovery
-                ControlButton { text: "Confirm restore"; enabled: !root.controller.pending; onClicked: root.controller.recover(root.controller.token) }
-                ControlButton { text: "Cancel"; enabled: !root.controller.pending; onClicked: root.confirmRecovery = false }
+                ControlButton { text: Language.I18n.text("ui.t_5b55363005a0"); enabled: !root.controller.pending; onClicked: root.controller.recover(root.controller.token) }
+                ControlButton { text: Language.I18n.text("common.cancel"); enabled: !root.controller.pending; onClicked: root.confirmRecovery = false }
             }
         }
     }

@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 import "PreferenceFields.js" as Fields
 
@@ -72,7 +73,7 @@ Scope {
                 if (root.resetRequested) Qt.callLater(root.resetToDefaults);
             } else if (m.type === "error") {
                 root.pending = false;
-                root.error = m.error || "Activity settings are unavailable.";
+                root.error = m.error || Language.I18n.text("ui.t_d3062064c1c6");
                 root.finished(false);
             }
         }

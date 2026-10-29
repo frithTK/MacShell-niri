@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 
 Scope {
@@ -68,7 +69,7 @@ Scope {
                 root.prompt = m.network; root.secretNeeded = true; root.error = m.error || ""; root.promptRequested();
             } else if (m.type === "result" && m.id === root.request) {
                 root.busy = ""; root.request = -1; root.prompt = null; root.error = m.error || ""; root.refresh(); if (root.error !== "") root.retryPrompt();
-            } else if (m.type === "error") { root.error = m.error || "Wi-Fi request failed."; if (m.id === root.request) { root.busy = ""; root.request = -1; root.retryPrompt(); } }
+            } else if (m.type === "error") { root.error = m.error || Language.I18n.text("ui.t_4f6393e297f7"); if (m.id === root.request) { root.busy = ""; root.request = -1; root.retryPrompt(); } }
             else if (m.type === "unavailable") { root.available = false; root.enabled = false; root.networks = []; root.error = m.error; }
         }
     }

@@ -1,0 +1,46 @@
+{
+  "backend": "offscreen/software",
+  "baseline": "Background/title, no existing widget; four Large Activity cards, two Rings and two Graphs.",
+  "scenarios": {
+    "none": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 77.48,
+      "maxRssMiB": 77.48,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "sampler": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.5,
+      "meanRssMiB": 91.75,
+      "maxRssMiB": 91.75,
+      "maxProcesses": 2,
+      "samples": 10
+    },
+    "widgets": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 1.3,
+      "meanRssMiB": 121.72,
+      "maxRssMiB": 122.95,
+      "maxProcesses": 2,
+      "samples": 10
+    },
+    "hidden": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 79.92,
+      "maxRssMiB": 79.92,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "removed": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 104.47,
+      "maxRssMiB": 104.47,
+      "maxProcesses": 1,
+      "samples": 10
+    }
+  }
+}

@@ -11,9 +11,10 @@ Scope {
     property var history: []
     property double lastSample: 0
     property double clock: Date.now()
-    readonly property bool stale: !service.ready || clock - lastSample > Math.max(3500, interval * 2500)
+    readonly property bool stale: !enabled || !service.ready || lastSample === 0 || clock - lastSample > Math.max(3500, interval * 2500)
     readonly property string error: service.error
     function configure() { service.send("configure", {interval: interval, interface: interfaceName, device: device}); }
+    onEnabledChanged: lastSample = 0
     onIntervalChanged: configure()
     onInterfaceNameChanged: configure()
     onDeviceChanged: configure()

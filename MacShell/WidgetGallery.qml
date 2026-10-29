@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 import QtQuick.Window
 import "WidgetCatalog.js" as Catalog
@@ -55,46 +56,46 @@ ControlMenu {
     onSelectedStyleChanged: status = ""
     Connections {
         target: root.controller; ignoreUnknownSignals: true
-        function onMutationFinished(success) { root.status = success ? "Changes saved." : ""; root.confirmRecovery = false; }
+        function onMutationFinished(success) { root.status = success ? Language.I18n.text("ui.t_12b3f1a3e924") : ""; root.confirmRecovery = false; }
     }
     function add() {
         if (!canAdd) return;
         status = controller.addWidget(selectedType, selectedStyle, selectedSize, effectiveOutput)
-            ? (controller.pending ? "Adding widget…" : definition.label + " added to the desktop.")
-            : "No room for this size. Try a smaller widget or rearrange the desktop.";
+            ? (controller.pending ? Language.I18n.text("ui.t_8f5ddf11abe9") : Language.I18n.legacy(definition.label) + Language.I18n.text("ui.t_e5e0d20e2486"))
+            : Language.I18n.text("ui.t_6d0144f5651c");
     }
     contentItem: Column {
         width: root.width; spacing: 12
         Row {
             width: parent.width; spacing: 8
-            Text { width: parent.width - editButton.width - visibilitySwitch.width - 16; anchors.verticalCenter: parent.verticalCenter; text: "Desktop widgets"; color: root.foreground; font.family: root.font.family; font.pixelSize: 17; font.weight: Font.DemiBold; elide: Text.ElideRight }
+            Text { width: parent.width - editButton.width - visibilitySwitch.width - 16; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_7ea4f0f4af9f"); color: root.foreground; font.family: root.font.family; font.pixelSize: 17; font.weight: Font.DemiBold; elide: Text.ElideRight }
             ControlSwitch {
                 id: visibilitySwitch; objectName: "widgetsEnabled"; anchors.verticalCenter: parent.verticalCenter
                 checked: !!root.controller && root.controller.widgetsEnabled !== false
                 enabled: !!root.controller && root.controller.settingsEditable
-                Accessible.name: "Show desktop widgets"
+                Accessible.name: Language.I18n.text("ui.t_78b13ef8776b")
                 onToggled: if (root.controller) root.controller.setWidgetsEnabled(checked)
             }
-            ControlButton { id: editButton; objectName: "widgetsEdit"; text: root.controller && root.controller.editing ? "Done editing" : "Arrange…"; enabled: !!root.controller && root.controller.editable && root.controller.widgetsEnabled !== false; onClicked: root.controller.editing = !root.controller.editing }
+            ControlButton { id: editButton; objectName: "widgetsEdit"; text: root.controller && root.controller.editing ? Language.I18n.text("ui.t_058f24ef2d7c") : Language.I18n.text("ui.t_a8515544675c"); enabled: !!root.controller && root.controller.editable && root.controller.widgetsEnabled !== false; onClicked: root.controller.editing = !root.controller.editing }
         }
         Row {
             spacing: 6
-            ControlButton { objectName: "widgetsManageTab"; text: "My widgets"; primary: !root.adding; onClicked: root.adding = false }
-            ControlButton { objectName: "widgetsAddTab"; text: "Add widgets"; primary: root.adding; onClicked: root.adding = true }
+            ControlButton { objectName: "widgetsManageTab"; text: Language.I18n.text("ui.t_32ad1024f09f"); primary: !root.adding; onClicked: root.adding = false }
+            ControlButton { objectName: "widgetsAddTab"; text: Language.I18n.text("ui.t_5ab344046cec"); primary: root.adding; onClicked: root.adding = true }
         }
-        Text { width: parent.width; visible: text !== ""; text: root.controller ? root.controller.error || root.controller.notice : ""; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+        Text { width: parent.width; visible: text !== ""; text: root.controller ? Language.I18n.legacy(root.controller.error || root.controller.notice) : ""; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         Row {
             spacing: 8; visible: !!root.controller && (!!root.controller.error || root.controller.readOnly)
-            ControlButton { objectName: "widgetsReload"; text: "Reload"; enabled: !!root.controller && !root.controller.pending; onClicked: root.controller.reloadSettings() }
-            ControlButton { objectName: "widgetsRestore"; text: "Reset widgets…"; visible: !!root.controller && root.controller.canRecover && !root.confirmRecovery; enabled: !!root.controller && !root.controller.pending; onClicked: root.confirmRecovery = true }
+            ControlButton { objectName: "widgetsReload"; text: Language.I18n.text("language.reload"); enabled: !!root.controller && !root.controller.pending; onClicked: root.controller.reloadSettings() }
+            ControlButton { objectName: "widgetsRestore"; text: Language.I18n.text("ui.t_1b5b84085a2b"); visible: !!root.controller && root.controller.canRecover && !root.confirmRecovery; enabled: !!root.controller && !root.controller.pending; onClicked: root.confirmRecovery = true }
         }
         Column {
             width: parent.width; spacing: 8; visible: root.confirmRecovery
-            Text { width: parent.width; text: "Reset widget settings and remove saved widgets? A copy of the current file will be kept."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Text { width: parent.width; text: Language.I18n.text("ui.t_efe9e1ebce77"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
             Row {
                 spacing: 8
-                ControlButton { objectName: "widgetsConfirmRestore"; text: "Reset widgets"; enabled: !!root.controller && !root.controller.pending; onClicked: root.controller.recoverSettings() }
-                ControlButton { text: "Cancel"; onClicked: root.confirmRecovery = false }
+                ControlButton { objectName: "widgetsConfirmRestore"; text: Language.I18n.text("ui.t_7f0e04dbe6e8"); enabled: !!root.controller && !root.controller.pending; onClicked: root.controller.recoverSettings() }
+                ControlButton { text: Language.I18n.text("common.cancel"); onClicked: root.confirmRecovery = false }
             }
         }
         WidgetInstances {
@@ -105,15 +106,15 @@ ControlMenu {
         }
         Column {
             width: parent.width; spacing: 12; visible: root.adding
-            Text { width: parent.width; text: "Choose a widget and a size, then add it to your desktop."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Text { width: parent.width; text: Language.I18n.text("ui.t_973de64f8677"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
             Column {
                 width: parent.width; spacing: 6; visible: root.displayChoices.length > 1
-                Text { text: "Add to display"; color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
+                Text { text: Language.I18n.text("ui.t_06b607b65ce9"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
                 ControlComboBox {
                     objectName: "widgetOutput"; width: parent.width
                     model: root.displayChoices; textRole: "label"
                     currentIndex: Math.max(0, root.displayChoices.findIndex(item => item.name === root.effectiveOutput))
-                    Accessible.name: "Add widget to display"
+                    Accessible.name: Language.I18n.text("ui.t_4f9399fe2391")
                     onActivated: index => { root.selectedOutput = model[index].name; root.status = ""; }
                 }
             }
@@ -124,7 +125,7 @@ ControlMenu {
                     delegate: ControlButton {
                         required property var modelData
                         objectName: "widgetType_" + modelData.type
-                        text: modelData.label; primary: root.selectedType === modelData.type
+                        text: Language.I18n.legacy(modelData.label); primary: root.selectedType === modelData.type
                         onClicked: root.selectedType = modelData.type
                     }
                 }
@@ -141,7 +142,7 @@ ControlMenu {
                         WidgetPreview { id: preview; objectName: "widgetSample"; anchors.fill: parent; widgetType: root.selectedType; widgetSize: root.selectedSize; widgetStyle: root.selectedStyle; dark: root.dark; family: root.font.family }
                     }
                 }
-                Text { anchors.top: parent.top; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "Sample preview"; color: root.secondary; font.family: root.font.family; font.pixelSize: 10 }
+                Text { anchors.top: parent.top; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: Language.I18n.text("ui.t_39d399369a10"); color: root.secondary; font.family: root.font.family; font.pixelSize: 10 }
                 Row {
                     anchors.bottom: parent.bottom; anchors.bottomMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; spacing: 6
                     Repeater {
@@ -149,7 +150,7 @@ ControlMenu {
                         delegate: ControlButton {
                             required property var modelData
                             objectName: "widgetSize_" + modelData.key
-                            text: modelData.label; primary: root.selectedSize === modelData.key
+                            text: Language.I18n.legacy(modelData.label); primary: root.selectedSize === modelData.key
                             enabled: !!root.definition && root.definition.sizes.indexOf(modelData.key) >= 0
                             onClicked: root.selectedSize = modelData.key
                         }
@@ -161,27 +162,27 @@ ControlMenu {
                 ControlComboBox {
                     id: styleChoice
                     objectName: "widgetStyle"; width: Math.min(190, parent.width - addButton.width - 8)
-                    model: root.definition ? root.definition.styles.map(key => ({key: key, label: Catalog.styles[key]})) : []
+                    model: root.definition ? root.definition.styles.map(key => ({key: key, label: Language.I18n.legacy(Catalog.styles[key])})) : []
                     textRole: "label"
                     currentIndex: root.definition ? Math.max(0, root.definition.styles.indexOf(root.selectedStyle)) : 0
-                    Accessible.name: "Widget style"
+                    Accessible.name: Language.I18n.text("ui.t_1508e3ec8202")
                     onActivated: index => root.selectedStyle = model[index].key
                 }
                 Item { width: Math.max(0, parent.width - styleChoice.width - addButton.width - 16); height: 1 }
-                ControlButton { id: addButton; objectName: "widgetAdd"; text: "Add widget"; primary: true; enabled: root.canAdd; onClicked: root.add() }
+                ControlButton { id: addButton; objectName: "widgetAdd"; text: Language.I18n.text("ui.t_ac18a779157d"); primary: true; enabled: root.canAdd; onClicked: root.add() }
             }
-            Text { width: parent.width; text: root.status || (root.definition ? root.definition.description + " · " + root.placedCount + " on desktop" : "This widget type is unavailable."); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Text { width: parent.width; text: root.status || (root.definition ? Language.I18n.legacy(root.definition.description) + " · " + root.placedCount + Language.I18n.text("ui.t_9bb3fa87357c") : Language.I18n.text("ui.t_7ca8cf3a37ce")); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
-        ControlButton { objectName: "widgetsAdvanced"; text: (root.advanced ? "▾" : "▸") + " Shared weather settings"; onClicked: root.advanced = !root.advanced }
+        ControlButton { objectName: "widgetsAdvanced"; text: (root.advanced ? "▾" : "▸") + Language.I18n.text("ui.t_f4077f9a9cff"); onClicked: root.advanced = !root.advanced }
         Column {
             width: parent.width; spacing: 12; visible: root.advanced
-            Text { width: parent.width; text: Catalog.find("weather").shared; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("weather").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
             Column {
                 width: parent.width; spacing: 8
-                Text { text: "Weather location"; color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+                Text { text: Language.I18n.text("ui.t_b7dcbd263b22"); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
                 ControlComboBox {
                     objectName: "widgetWeatherLocation"; width: parent.width; enabled: !!root.controller && root.controller.settingsEditable
-                    model: ["Automatic (IP location)", "City"]
+                    model: [Language.I18n.text("ui.t_f5a46e041016"), Language.I18n.text("ui.t_fc33f73246f4")]
                     currentIndex: root.controller && root.controller.locMode === "city" ? 1 : 0
                     onActivated: index => root.controller.setWeather("locMode", index === 1 ? "city" : "auto")
                 }
@@ -189,20 +190,20 @@ ControlMenu {
                     objectName: "widgetWeatherCity"; width: parent.width
                     visible: !!root.controller && root.controller.locMode === "city"
                     enabled: !!root.controller && root.controller.settingsEditable
-                    placeholderText: "City name"; text: root.controller ? root.controller.cityName : ""
+                    placeholderText: Language.I18n.text("ui.t_b7c7a822e5ce"); text: root.controller ? root.controller.cityName : ""
                     color: root.foreground; font.family: root.font.family; font.pixelSize: 12
-                    Accessible.name: "Weather city"
+                    Accessible.name: Language.I18n.text("ui.t_83beb7eac7b3")
                     onEditingFinished: if (root.controller && root.controller.settingsEditable) root.controller.setWeather("cityName", text.trim())
                 }
                 ControlComboBox {
                     objectName: "widgetWeatherUnit"; width: parent.width; enabled: !!root.controller && root.controller.settingsEditable
-                    model: ["Celsius (°C)", "Fahrenheit (°F)"]
+                    model: [Language.I18n.text("ui.t_400b949d3863"), Language.I18n.text("ui.t_9c9497df3469")]
                     currentIndex: root.controller && root.controller.tempUnit === "F" ? 1 : 0
-                    Accessible.name: "Temperature unit"
+                    Accessible.name: Language.I18n.text("ui.t_e50c0db10a18")
                     onActivated: index => root.controller.setWeather("tempUnit", index === 1 ? "F" : "C")
                 }
             }
-            Text { width: parent.width; text: root.controller && root.controller.editing ? "Drag cards on the desktop. Click or right-click a card for size and removal controls. Finish with Done or Escape in Widget Controls." : "Arrange… opens widget controls for moving, resizing and removing cards."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Text { width: parent.width; text: root.controller && root.controller.editing ? Language.I18n.text("ui.t_d5a62f834439") : Language.I18n.text("ui.t_71a41351ed14"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
     }
 }

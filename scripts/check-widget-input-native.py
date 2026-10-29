@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='macshell-widget-input-') as directory:
     path = shell / 'MacWidgets.qml'
     source = path.read_text()
     source = source.replace('WlrLayershell.namespace: "macwidgets"', 'WlrLayershell.namespace: "macshell-widget-input-front"')
-    source = source.replace('WlrLayershell.layer: WlrLayer.Bottom', 'WlrLayershell.layer: WlrLayer.Overlay')
+    source = source.replace('root.editing ? WlrLayer.Overlay : WlrLayer.Bottom', 'root.editing ? WlrLayer.Overlay : WlrLayer.Overlay')
     source = source.replace('anchors { left: true; right: true; top: true; bottom: true }',
                             'anchors { left: true; top: true }\n            margins {left: 80; top: 80}\n            implicitWidth: 800; implicitHeight: 700')
     start = source.index('    readonly property var player: {')
@@ -209,13 +209,43 @@ with tempfile.TemporaryDirectory(prefix='macshell-widget-input-') as directory:
         wait(lambda s: not s['pending'] and s['resources']['views'] == 0 and not s['resources']['clock']['running'], 'disabled desktop destroys all visual consumers')
         call('displayWidgets', 'true')
         wait(lambda s: not s['pending'] and s['resources']['views'] == 1 and s['resources']['clock']['running'], 'enabled desktop recreates the saved Clock')
+        call('addActivity')
+        current = wait(lambda s: not s['pending'] and s['targets'] == 1 and s['resources']['sources']['stats'] == 1, 'Activity has a native input region and a shared subscription')
+        activity_id = next(row['wid'] for row in current['rows'] if row['wtype'] == 'activity')
+        call('move', activity_id, 0, 0)
+        wait(lambda s: not s['pending'] and activity_id in s['points'] and s['points'][activity_id]['x'] < 300, 'Activity inside the guarded surface')
+        time.sleep(.1); pointer(state()['points'][activity_id])
+        wait(lambda s: json.loads(call('activity'))['opens'] == 1, 'real compositor click opens Activity details')
+        assert json.loads(call('activity'))['output'] == output['name'], 'Activity must open on its own output'
+        call('editing', 'true'); wait(lambda s: s['editorActive'], 'Activity editor')
+        pointer(state()['points'][activity_id]); wait(lambda s: s['selected'] == activity_id, 'Edit takes priority over Activity details')
+        assert json.loads(call('activity'))['opens'] == 1
+        call('done'); wait(lambda s: not s['editing'], 'finish Activity editing')
+        point = state()['points'][activity_id]; call('remove', activity_id)
+        wait(lambda s: not s['pending'] and s['targets'] == 0 and s['resources']['sources']['stats'] == 0, 'Activity removal releases source and input')
+        time.sleep(.1); behind = state()['behind']; pointer(point)
+        wait(lambda s: s['behind'] == behind + 1, 'removed Activity leaves no native input region')
+        call('addBatteries')
+        current = wait(lambda s: not s['pending'] and s['resources']['sources']['batteries'] == 1, 'Batteries subscribes without an input region')
+        batteries_id = next(row['wid'] for row in current['rows'] if row['wtype'] == 'batteries')
+        call('move', batteries_id, 0, 0)
+        current = wait(lambda s: not s['pending'] and next(row for row in s['saved'] if row['id'] == batteries_id)['position']['column'] == 0, 'Batteries inside the guarded surface')
+        row = next(row for row in current['rows'] if row['wid'] == batteries_id)
+        point = dict(x=row['wx'] + 80, y=row['wy'] + 80)
+        time.sleep(.1); behind = state()['behind']; pointer(point)
+        wait(lambda s: s['behind'] == behind + 1 and s['targets'] == 0, 'Batteries remains click-through')
+        call('editing', 'true'); wait(lambda s: s['editorActive'], 'Batteries editor')
+        pointer(point, 'right'); wait(lambda s: s['selected'] == batteries_id, 'Batteries selection works in Edit')
+        call('done'); wait(lambda s: not s['editing'], 'finish Batteries editing')
+        call('remove', batteries_id)
+        wait(lambda s: not s['pending'] and s['resources']['sources']['batteries'] == 0, 'Batteries releases its source')
         call('quit'); process.wait(timeout=5)
         log_stream.flush()
         log = log_path.read_text()
         focus_modes = re.findall(r'set_keyboard_interactivity\((\d+)\)', log)
-        assert focus_modes and set(focus_modes) == {'0'}, 'Desktop layers must never grab keyboard focus'
+        assert focus_modes and set(focus_modes) == {'0', '1'} and focus_modes[-1] == '0', 'Only Arrange may request exclusive keyboard focus, then release it'
         assert not re.search(r'TypeError|ReferenceError|Binding loop|Unable to assign|Failed to load configuration', log), 'QML runtime error'
-        print('MACSHELL_WIDGET_INPUT_NATIVE_PASS: six Players including Duplicate/Remove/Undo, native masks, fullscreen culling, disable/enable, real drag, Escape/Done, focus restoration and reserved-area reflow')
+        print('MACSHELL_WIDGET_INPUT_NATIVE_PASS: six Players, Activity, passive Batteries/Edit/removal, native masks, fullscreen, disable/enable, drag, Escape/Done, focus restoration and reserved-area reflow')
     except Exception:
         log_stream.flush()
         for line in log_path.read_text().splitlines():

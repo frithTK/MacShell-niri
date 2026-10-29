@@ -168,9 +168,9 @@ Timer {
             } else if (phase === 20) {
                 themeCheck(macWidgets.addWidget("calendar", "normal", "small"), "create isolated calendar instance");
             } else if (phase === 21) {
-                macWidgets.editing = true; macWidgets.selectWidget(macWidgets.instanceRows[1].id);
+                macWidgets.editing = true; macWidgets.selectWidget(macWidgets.instanceRows[1].id); macWidgets.editControls.openActions();
             } else if (phase === 22) {
-                var configure = themeFind(macWidgets.editControls.contentItem, "widgetEditConfigure");
+                var configure = macWidgets.editControls.contentItem.actionButton("widgetEditConfigure");
                 themeCheck(configure && configure.visible && configure.enabled && macWidgets.editControls.active, "Configure available only for selected Edit card");
                 themeEvents.mouseClick(configure, configure.width / 2, configure.height / 2, Qt.LeftButton, Qt.NoModifier, 0);
             } else if (phase === 23) {

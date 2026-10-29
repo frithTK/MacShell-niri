@@ -1,5 +1,6 @@
 // macOS-style panel for niri. Compositor operations live in Niri.qml.
 import QtQuick
+import "Locale" as Language
 import "GlassTheme.js" as GlassTheme
 import "SettingsMigrations.js" as SettingsMigrations
 import "BarLayout.js" as BarLayout
@@ -14,6 +15,7 @@ import Quickshell.Services.Pipewire
 import Quickshell.Services.Mpris
 import Quickshell.Services.Notifications
 import "EmojiData.js" as EmojiData
+import "Utilities.js" as Utilities
 
 Scope {
     id: root
@@ -39,6 +41,8 @@ Scope {
     property bool notificationsEnabled: true // banners + Notification Center (off = no D-Bus daemon at all, so mako/dunst can take over)
     property bool clockAppEnabled: true      // the Clock app (alarms and timers still ring while it is on)
     readonly property bool barLayerNeeded: barEnabled || spotlightEnabled || ccEnabled || notificationsEnabled || keepAwake
+        || activeControl === "stats" || !!hub && !!hub.widgets && hub.widgets.widgetsEnabled
+            && hub.widgets.renderedRows.some(row => row.wtype === "activity")
     property bool darkMode: true
     property color accent: "#0A84FF"
     // "Inter" renders with the single variable file: the static Inter.ttc got mapped once per face (~25×13 MB of RSS)
@@ -213,11 +217,13 @@ Scope {
     property alias activityPreferences: activityPreferencesControl
     ActivityPreferences { id: activityPreferencesControl; enabled: root.settingsReady }
     signal controlRequested(string name)
+    signal monitoringRequested(string outputName)
     onControlRequested: name => { if (name === "airdrop") Qt.callLater(() => airDropWindow.open()); }
-    function showMonitoring() { controlRequested("stats"); }
+    function showMonitoring(outputName) { if (outputName) monitoringRequested(outputName); else controlRequested("stats"); }
     SystemStats {
         id: statsControl
-        enabled: root.settingsReady && (root.statsConsumers > 0 || root.activeControl === "stats" || root.statsPreferencesOpen)
+        enabled: root.settingsReady && (root.statsConsumers > 0 || root.activeControl === "stats" || root.statsPreferencesOpen
+            || !!root.hub && !!root.hub.widgets && root.hub.widgets.subscriptions.counts.stats > 0)
         interval: root.statsInterval
         interfaceName: root.statsInterface
         device: root.statsDevice
@@ -251,9 +257,9 @@ Scope {
         barWidgets = next;
     }
     readonly property var accentChoices: [
-        { name: "Blue", c: "#0a84ff" }, { name: "Purple", c: "#bf5af2" }, { name: "Pink", c: "#ff375f" },
-        { name: "Red", c: "#ff453a" }, { name: "Orange", c: "#ff9f0a" }, { name: "Yellow", c: "#ffd60a" },
-        { name: "Green", c: "#30d158" }, { name: "Graphite", c: "#8e8e93" }
+        { name: Language.I18n.text("ui.t_ec7d56a01607"), c: "#0a84ff" }, { name: Language.I18n.text("ui.t_7d465fb9b931"), c: "#bf5af2" }, { name: Language.I18n.text("ui.t_bd38ed773240"), c: "#ff375f" },
+        { name: Language.I18n.text("ui.t_ba19e9c3d5f4"), c: "#ff453a" }, { name: Language.I18n.text("ui.t_78e7771b8b46"), c: "#ff9f0a" }, { name: Language.I18n.text("ui.t_19dd83f11752"), c: "#ffd60a" },
+        { name: Language.I18n.text("ui.t_d486dfbd5fb5"), c: "#30d158" }, { name: Language.I18n.text("ui.t_1d261a8554d2"), c: "#8e8e93" }
     ]
 
     // ═════════════ CONTROL CENTER LAYOUT ═════════════
@@ -261,19 +267,19 @@ Scope {
     // first-fit in the order of `ccControls`, so dragging a control onto another one simply reorders the list.
     readonly property var ccCatalog: [
         { id: "wifi",       label: "Wi-Fi",         glyph: "wifi",       w: 2, h: 1 },
-        { id: "bluetooth",  label: "Bluetooth",     glyph: "bluetooth",  w: 2, h: 1 },
-        { id: "airplane",   label: "Airplane Mode", glyph: "airplane",   w: 1, h: 1 },
-        { id: "focus",      label: "Focus",         glyph: "moon",       w: 2, h: 1 },
-        { id: "nightshift", label: "Night Shift",   glyph: "nightshift", w: 1, h: 1 },
-        { id: "keepawake",  label: "Keep Awake",    glyph: "coffee",     w: 1, h: 1 },
-        { id: "darkmode",   label: "Dark Mode",     glyph: "contrast",   w: 1, h: 1 },
-        { id: "gaming",     label: "Game Mode",     glyph: "gamepad",    w: 2, h: 1 },
-        { id: "record",     label: "Screen Recording", glyph: "record",  w: 2, h: 1 },
-        { id: "mirroring",  label: "Screen Mirroring", glyph: "mirroring", w: 2, h: 1 },
-        { id: "airdrop",    label: "AirDrop",       glyph: "airdrop",    w: 2, h: 1 },
-        { id: "nowplaying", label: "Now Playing",   glyph: "note",       w: 2, h: 2 },
-        { id: "display",    label: "Display",       glyph: "sun",        w: 4, h: 1 },
-        { id: "sound",      label: "Sound",         glyph: "speaker",    w: 4, h: 1 }
+        { id: "bluetooth",  label: Language.I18n.text("ui.t_8bb29098b369"),     glyph: "bluetooth",  w: 2, h: 1 },
+        { id: "airplane",   label: Language.I18n.text("ui.t_e3df6ab9ba1b"), glyph: "airplane",   w: 1, h: 1 },
+        { id: "focus",      label: Language.I18n.text("ui.t_9d3cab2b5efe"),         glyph: "moon",       w: 2, h: 1 },
+        { id: "nightshift", label: Language.I18n.text("ui.t_d9a2bf53437c"),   glyph: "nightshift", w: 1, h: 1 },
+        { id: "keepawake",  label: Language.I18n.text("ui.t_7ace19020244"),    glyph: "coffee",     w: 1, h: 1 },
+        { id: "darkmode",   label: Language.I18n.text("ui.t_df8c7c89b3e4"),     glyph: "contrast",   w: 1, h: 1 },
+        { id: "gaming",     label: Language.I18n.text("ui.t_1311d7944778"),     glyph: "gamepad",    w: 2, h: 1 },
+        { id: "record",     label: Language.I18n.text("ui.t_bc3c742893dc"), glyph: "record",  w: 2, h: 1 },
+        { id: "mirroring",  label: Language.I18n.text("ui.t_a72c5d7ed939"), glyph: "mirroring", w: 2, h: 1 },
+        { id: "airdrop",    label: Language.I18n.text("ui.t_9ccc01839580"),       glyph: "airdrop",    w: 2, h: 1 },
+        { id: "nowplaying", label: Language.I18n.text("ui.t_8b2ae991573c"),   glyph: "note",       w: 2, h: 2 },
+        { id: "display",    label: Language.I18n.text("ui.t_34e108c0896d"),       glyph: "sun",        w: 4, h: 1 },
+        { id: "sound",      label: Language.I18n.text("ui.t_46124e023603"),         glyph: "speaker",    w: 4, h: 1 }
     ]
     readonly property var ccDefault: ["wifi", "nowplaying", "bluetooth", "airplane", "focus", "record", "mirroring", "airdrop", "nightshift", "keepawake", "display", "sound"]
     function ccDef(id) {
@@ -791,7 +797,7 @@ Scope {
             spacing: 1
             Text {
                 width: parent.width
-                text: nb.urgency === 2 ? "TIME SENSITIVE" : nb.app
+                text: nb.urgency === 2 ? Language.I18n.text("ui.t_3299e1c9c571") : nb.app
                 horizontalAlignment: /[\u0590-\u08ff]/.test(text) ? Text.AlignRight : Text.AlignLeft
                 visible: text !== ""
                 color: nb.urgency === 2 ? nb.t.fg2 : nb.t.fg
@@ -949,13 +955,15 @@ Scope {
     readonly property string clockText: {
         var d = clock.date;
         var tf = root.use24h ? (root.showSeconds ? "HH:mm:ss" : "HH:mm") : (root.showSeconds ? "h:mm:ss AP" : "h:mm AP");
-        var t = Qt.formatDateTime(d, tf);
-        return root.showDate ? Qt.formatDateTime(d, "ddd d MMM") + "  " + t : t;
+        var t = Language.I18n.formatDateTime(d, tf);
+        return root.showDate ? Language.I18n.formatDateTime(d, "ddd d MMM") + "  " + t : t;
     }
 
     // active app
     function lookup(appId) {
         if (!appId) return null;
+        var builtin = Utilities.entry(appId, key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value));
+        if (builtin) return builtin;
         var e = DesktopEntries.byId(appId);
         if (!e && DesktopEntries.heuristicLookup) e = DesktopEntries.heuristicLookup(appId);
         return e;
@@ -963,10 +971,10 @@ Scope {
     readonly property var activeTl: Niri.activeToplevel
     readonly property string activeAppId: activeTl ? (activeTl.appId || "") : ""
     readonly property string appName: {
-        if (activeAppId === "") return "Desktop";
+        if (activeAppId === "") return Language.I18n.text("ui.t_9bd88f2485ac");
         // MacShell's own windows (all "org.quickshell")
-        if (activeAppId === "org.quickshell" || activeAppId === "dev.noctalia.noctalia-qs") return (activeTl.title === "Clock" || activeTl.title === "App Store") ? activeTl.title
-                                                     : (activeTl.title === "macshell Settings" ? "System Settings" : "MacShell");
+        if (activeAppId === "org.quickshell" || activeAppId === "dev.noctalia.noctalia-qs") return (Utilities.windowId(activeTl.title) || activeTl.title === "App Store") ? Utilities.displayTitle(activeAppId, activeTl.title, value => Language.I18n.legacy(value))
+                                                     : (activeTl.title === "macshell Settings" ? Language.I18n.text("ui.t_1f87f883cc7e") : "MacShell");
         var e = lookup(activeAppId);
         return e ? e.name : activeAppId;
     }
@@ -976,11 +984,11 @@ Scope {
     readonly property var menuTitles: [
         { id: "apple", label: "" },
         { id: "app", label: appName, bold: true },
-        { id: "file", label: "File" },
-        { id: "edit", label: "Edit" },
-        { id: "view", label: "View" },
-        { id: "window", label: "Window" },
-        { id: "help", label: "Help" }
+        { id: "file", label: Language.I18n.text("ui.t_50009ce1da4d") },
+        { id: "edit", label: Language.I18n.text("ui.t_464c4ffd019e") },
+        { id: "view", label: Language.I18n.text("ui.t_dcc839a4015c") },
+        { id: "window", label: Language.I18n.text("ui.t_19734a1b58ca") },
+        { id: "help", label: Language.I18n.text("ui.t_b79cac926e0b") }
     ]
 
     // audio
@@ -1317,11 +1325,11 @@ Scope {
     }
     readonly property var privacyRows: {
         var a = [];
-        if (privacy.mic.length > 0) a.push({ k: "mic", glyph: "mic", c: "#FF9F0A", title: "Microphone", sub: privacy.mic.join(", ") });
-        if (privacy.cam.length > 0) a.push({ k: "cam", glyph: "camera", c: "#30D158", title: "Camera", sub: privacy.cam.join(", ") });
-        if (privacy.share.length > 0) a.push({ k: "share", glyph: "monitor", c: "#BF5AF2", title: "Screen Sharing", sub: privacy.share.join(", ") });
-        if (recording) a.push({ k: "rec", glyph: "monitor", c: "#BF5AF2", title: "Screen Recording", sub: "Recording " + recTime() });
-        if (mirroring.sending) a.push({ k: "airplay", glyph: "mirroring", c: "#BF5AF2", title: "AirPlay", sub: mirroring.label });
+        if (privacy.mic.length > 0) a.push({ k: "mic", glyph: "mic", c: "#FF9F0A", title: Language.I18n.text("ui.t_186352a881d0"), sub: privacy.mic.join(", ") });
+        if (privacy.cam.length > 0) a.push({ k: "cam", glyph: "camera", c: "#30D158", title: Language.I18n.text("ui.t_03494b0d1f80"), sub: privacy.cam.join(", ") });
+        if (privacy.share.length > 0) a.push({ k: "share", glyph: "monitor", c: "#BF5AF2", title: Language.I18n.text("ui.t_0cca2a16a1da"), sub: privacy.share.join(", ") });
+        if (recording) a.push({ k: "rec", glyph: "monitor", c: "#BF5AF2", title: Language.I18n.text("ui.t_bc3c742893dc"), sub: Language.I18n.text("ui.t_6d21b74516ed") + recTime() });
+        if (mirroring.sending) a.push({ k: "airplay", glyph: "mirroring", c: "#BF5AF2", title: Language.I18n.text("ui.t_5d9bbb593f62"), sub: mirroring.label });
         return a;
     }
     // Recording owns its process and audio routes; all capture consumers share quiet.
@@ -1475,11 +1483,11 @@ Scope {
     function aboutActive(aw, n) {
         var l = [];
         if (aw) {
-            l.push("Class: " + aw["class"]);
-            l.push("PID: " + aw.pid);
-            if (aw.workspace) l.push("Workspace: " + aw.workspace.name);
-            if (aw.title) l.push("Title: " + aw.title);
-        } else l.push("Class: " + activeAppId);
+            l.push(Language.I18n.text("ui.t_7499de7d9988") + aw["class"]);
+            l.push(Language.I18n.text("ui.t_606f2113571d") + aw.pid);
+            if (aw.workspace) l.push(Language.I18n.text("ui.t_68256a37a790") + aw.workspace.name);
+            if (aw.title) l.push(Language.I18n.text("ui.t_74ad422593f7") + aw.title);
+        } else l.push(Language.I18n.text("ui.t_7499de7d9988") + activeAppId);
         Quickshell.execDetached(["notify-send", "-a", "macbar", "About " + n, l.join("\n")]);
     }
     function forceQuitActive(aw) {
@@ -1496,7 +1504,8 @@ Scope {
     }
     function quitActive() {
         var tls = Niri.toplevels.values;
-        for (var i = 0; i < tls.length; i++) if (tls[i].appId === activeAppId) tls[i].close();
+        var key = Utilities.ownWindow(activeAppId, activeTl ? activeTl.title : "");
+        for (var i = 0; i < tls.length; i++) if (Utilities.ownWindow(tls[i].appId, tls[i].title) === key) tls[i].close();
     }
     function launchActive() {
         var e = lookup(activeAppId);
@@ -1617,15 +1626,15 @@ Scope {
     function clipWhen(ts) {
         if (!ts) return "";
         var d = new Date(ts * 1000), n = new Date();
-        var tm = Qt.formatDateTime(d, root.use24h ? "HH:mm" : "h:mm ap");
+        var tm = Language.I18n.formatDateTime(d, root.use24h ? "HH:mm" : "h:mm ap");
         var today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
         var day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        if (day === today) return "Copied " + tm;
-        if (day === today - 86400000) return "Copied Yesterday, " + tm;
-        return "Copied " + Qt.formatDateTime(d, "d MMM") + ", " + tm;
+        if (day === today) return Language.I18n.text("ui.t_cb6ce564da41") + tm;
+        if (day === today - 86400000) return Language.I18n.text("ui.t_0c5e35f293ec") + tm;
+        return Language.I18n.text("ui.t_cb6ce564da41") + Language.I18n.formatDateTime(d, "d MMM") + ", " + tm;
     }
     function clipEntry(id, txt, ts) {
-        var en = { id: id, text: txt, kind: "text", title: txt, label: "Text", host: "", thumb: "", color: "" };
+        var en = { id: id, text: txt, kind: "text", title: txt, label: Language.I18n.text("ui.t_71988c4d8e08"), host: "", thumb: "", color: "" };
         var m = /^\[\[ binary data ([\d.]+ \w+) (\w+) (\d+x\d+) \]\]$/.exec(txt);
         if (m) {
             en.kind = "image";
@@ -1779,9 +1788,10 @@ Scope {
         if (q !== "") {
             var hits = [];
             for (i = 0; i < L.length; i++) {
-                var p = L[i][4].indexOf(q);
+                var translatedName = Language.I18n.emojiName(L[i][0], L[i][1]).toLowerCase();
+                var p = (L[i][4] + " " + translatedName + " " + Language.I18n.emojiKeywords(L[i][0])).toLowerCase().indexOf(q);
                 if (p < 0) continue;
-                var nm = L[i][1].toLowerCase();
+                var nm = translatedName;
                 // exact name, name starts with it, exact keyword (e.g. "smile" -> grinning face), a word of the name, anything else
                 hits.push([nm === q ? 0 : (nm.indexOf(q) === 0 ? 1 : ((" " + L[i][2] + " ").indexOf(" " + q + " ") >= 0 ? 2
                            : (nm.indexOf(" " + q) >= 0 ? 3 : (p === 0 ? 4 : 5)))), i]);
@@ -1815,8 +1825,9 @@ Scope {
         return p !== "" ? p : fb;
     }
     readonly property var appList: {
-        var vals = DesktopEntries.applications.values, out = [];
-        for (var i = 0; i < vals.length; i++) if (!vals[i].noDisplay) out.push(vals[i]);
+        var vals = DesktopEntries.applications.values, out = Utilities.entries(key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value))
+            .filter(app => app.key !== "clock" || !root.hub || !root.hub.clock || root.hub.clock.appEnabled);
+        for (var i = 0; i < vals.length; i++) if (!vals[i].noDisplay && !Utilities.find(vals[i].id)) out.push(vals[i]);
         out.sort(function (a, b) { return a.name.localeCompare(b.name); });
         return out;
     }
@@ -1852,8 +1863,8 @@ Scope {
             if (!map[cat]) map[cat] = [];
             map[cat].push(list[i]);
         }
-        var secs = [{ name: "Suggestions", apps: sug }];
-        for (i = 0; i < catOrder.length; i++) if (map[catOrder[i]]) secs.push({ name: catOrder[i], apps: map[catOrder[i]] });
+        var secs = [{ name: Language.I18n.text("ui.t_16c1d601fc66"), apps: sug }];
+        for (i = 0; i < catOrder.length; i++) if (map[catOrder[i]]) secs.push({ id: catOrder[i], name: Language.I18n.legacy(catOrder[i]), apps: map[catOrder[i]] });
         return secs;
     }
     function searchApps(q) {
@@ -1879,7 +1890,7 @@ Scope {
     }
     function appSearchSection(q) {
         var r = searchApps(q);
-        return r.length > 0 ? [{ name: "Top Hits", apps: r }] : [];
+        return r.length > 0 ? [{ name: Language.I18n.text("ui.t_effd40c768bb"), apps: r }] : [];
     }
     function launchApp(e) {
         var u = {};
@@ -1893,23 +1904,23 @@ Scope {
     function appItems(q, limit) {
         var r = searchApps(q), out = [];
         for (var i = 0; i < r.length && i < limit; i++)
-            out.push({ title: r[i].name, sub: r[i].genericName || "Application", icon: iconSrc(r[i].icon),
+            out.push({ title: r[i].name, sub: r[i].genericName || Language.I18n.text("ui.t_e7ad522ea327"), icon: iconSrc(r[i].icon),
                        glyph: "", confirm: false, run: appRunner(r[i]) });
         return out;
     }
     function actionItems(q) {
         var all = [
-            { title: "Lock Screen", glyph: "lock", run: function () { Quickshell.execDetached(["sh", (Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, ""))]); } },
-            { title: "Sleep", glyph: "moon", run: function () { sh("systemctl suspend"); } },
-            { title: "System Settings\u2026", glyph: "gear", run: function () { openSettings(); } },
-            { title: "Log Out", glyph: "logout", confirm: true, run: function () { root.logOut(); } },
-            { title: "Restart", glyph: "restart", confirm: true, run: function () { sh("systemctl reboot"); } },
-            { title: "Shut Down", glyph: "power", confirm: true, run: function () { sh("systemctl poweroff"); } }
+            { title: Language.I18n.text("ui.t_91a007b58b9d"), glyph: "lock", run: function () { Quickshell.execDetached(["sh", (Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, ""))]); } },
+            { title: Language.I18n.text("ui.t_d466bcf52eb6"), glyph: "moon", run: function () { sh("systemctl suspend"); } },
+            { title: Language.I18n.text("ui.t_85c35c367d93"), glyph: "gear", run: function () { openSettings(); } },
+            { title: Language.I18n.text("ui.t_d57d48b71020"), glyph: "logout", confirm: true, run: function () { root.logOut(); } },
+            { title: Language.I18n.text("ui.t_6b983a81e5e8"), glyph: "restart", confirm: true, run: function () { sh("systemctl reboot"); } },
+            { title: Language.I18n.text("ui.t_3e45a33d2260"), glyph: "power", confirm: true, run: function () { sh("systemctl poweroff"); } }
         ];
         var s = (q || "").trim().toLowerCase(), out = [];
         for (var i = 0; i < all.length; i++) {
             if (s !== "" && all[i].title.toLowerCase().indexOf(s) < 0) continue;
-            out.push({ title: all[i].title, sub: "Action", icon: "", glyph: all[i].glyph,
+            out.push({ title: all[i].title, sub: Language.I18n.text("ui.t_64cff1319d2f"), icon: "", glyph: all[i].glyph,
                        confirm: all[i].confirm === true, run: all[i].run });
         }
         return out;
@@ -1941,7 +1952,7 @@ Scope {
             var t=ts[i], o=t.lastIpcObject||{}, title=String(o.title||t.title||""), cls=String(o["class"]||t.appId||""), app=root.lookup(cls), label=title||app&&app.name||cls;
             if((label+" "+cls+" "+(app?app.name:" ")).toLowerCase().indexOf(s)<0)continue;
             var addr=String(t.id);
-            (function(win,addr,workspace,cl,name,icon){out.push({title:name,sub:"Open Window",icon:icon||"",glyph:"layers",run:function(){root.swPending={id:win.id};swFocusTimer.restart();}});})(t,addr,o.workspace&&o.workspace.id>0?o.workspace.id:0,cls,label,app?root.iconSrc(app.icon):"");
+            (function(win,addr,workspace,cl,name,icon){out.push({title:name,sub:Language.I18n.text("ui.t_d3aa9a25b08d"),icon:icon||"",glyph:"layers",run:function(){root.swPending={id:win.id};swFocusTimer.restart();}});})(t,addr,o.workspace&&o.workspace.id>0?o.workspace.id:0,cls,label,app?root.iconSrc(app.icon):"");
         }
         return out;
     }
@@ -1952,7 +1963,7 @@ Scope {
         var out = [], s = (q || "").trim().toLowerCase();
         if (s.indexOf("file ") === 0 || s.indexOf("find ") === 0) {
             var fq=s.replace(/^(file|find)\s+/,"").trim(); if(fq!=="" && fileQuery!==fq) updateFileSearch(fq);
-            out=fileItems(fq); if(out.length===0) out.push({title:fileSearchPending?"Searching files…":"No matching files",sub:"Files",glyph:"folder",run:function(){}});
+            out=fileItems(fq); if(out.length===0) out.push({title:fileSearchPending?Language.I18n.text("ui.t_0d9498215681"):Language.I18n.text("ui.t_7eaa329a4009"),sub:Language.I18n.text("ui.t_abc7e9892806"),glyph:"folder",run:function(){}});
             return out;
         }
         if(s.length>0) out=appItems(q,4);
@@ -1960,24 +1971,24 @@ Scope {
         else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:"Calculator · Return to copy",glyph:"search",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
         var wins=windowItems(q); for(var j=0;j<wins.length&&out.length<6;j++)out.push(wins[j]);
         var acts=actionItems(q); for(var k=0;k<acts.length&&out.length<6;k++)if(acts[k].title.toLowerCase().indexOf(s)===0)out.push(acts[k]);
-        if(s.length>0 && out.length<7) out.push({title:"Search the web for “"+q.trim()+"”",sub:"Web Search · Return to open",glyph:"search",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
+        if(s.length>0 && out.length<7) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:"Web Search · Return to open",glyph:"search",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
         return out.slice(0,8);
     }
 
     function menuModelFor(name) {
         var m = [], i;
         if (name === "apple") {
-            m.push(mi("About This Linux", "", function () { sh(terminal + " -e sh -c 'fastfetch || neofetch; echo; read -p \"Press Enter\" _'"); }));
+            m.push(mi(Language.I18n.text("ui.t_ad469209b12b"), "", function () { sh(terminal + " -e sh -c 'fastfetch || neofetch; echo; read -p \"Press Enter\" _'"); }));
             m.push(msep());
-            m.push(mi("System Settings\u2026", "", function () { root.openSettings(); }));
+            m.push(mi(Language.I18n.text("ui.t_85c35c367d93"), "", function () { root.openSettings(); }));
             m.push(msep());
             m.push(mi("Lock Screen", "", function () { Quickshell.execDetached(["sh", (Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, ""))]); }));
-            m.push(mi("Sleep", "", function () { sh("systemctl suspend"); }));
+            m.push(mi(Language.I18n.text("ui.t_d466bcf52eb6"), "", function () { sh("systemctl suspend"); }));
             m.push(msep());
-            m.push(mc("Restart\u2026", function () { sh("systemctl reboot"); }));
-            m.push(mc("Shut Down\u2026", function () { sh("systemctl poweroff"); }));
+            m.push(mc(Language.I18n.text("ui.t_2c58de95b0c9"), function () { sh("systemctl reboot"); }));
+            m.push(mc(Language.I18n.text("ui.t_6f9f1fa0f12b"), function () { sh("systemctl poweroff"); }));
             m.push(msep());
-            m.push(mc("Log Out\u2026", function () { root.logOut(); }));
+            m.push(mc(Language.I18n.text("ui.t_6011f9d3572d"), function () { root.logOut(); }));
         } else {
             var id = activeAppId.toLowerCase(), kind = appKind(id), has = activeAppId !== "";
             var aw = (has && activeWin && String(activeWin["class"]).toLowerCase() === id) ? activeWin : null;
@@ -1987,114 +1998,114 @@ Scope {
 
             if (name === "app") {
                 if (!has) {
-                    m.push(mi("New Terminal", "", function () { sh(terminal); }));
-                    m.push(mi("Open Home Folder", "", function () { sh(filesCmd); }));
+                    m.push(mi(Language.I18n.text("ui.t_981ace960b9e"), "", function () { sh(terminal); }));
+                    m.push(mi(Language.I18n.text("ui.t_4b725923d942"), "", function () { sh(filesCmd); }));
                     m.push(msep());
-                    m.push(mi("Search\u2026", "", function () { root.search(); }));
+                    m.push(mi(Language.I18n.text("ui.t_7336265a0467"), "", function () { root.search(); }));
                 } else {
-                    m.push(mi("About " + n, "", function () { root.aboutActive(aw, n); }));
+                    m.push(mi(Language.I18n.text("ui.t_c381a5010d7e") + n, "", function () { root.aboutActive(aw, n); }));
                     if (editor || files) {
                         m.push(msep());
-                        m.push(mi("Preferences\u2026", "Ctrl+,", keys(["ctrl"], "comma")));
+                        m.push(mi(Language.I18n.text("ui.t_67102244a667"), "Ctrl+,", keys(["ctrl"], "comma")));
                     }
                     m.push(msep());
-                    m.push(mi("Hide " + n, "", function () { Niri.hideActive(); }));
-                    m.push(mi("Show Hidden Windows", "", function () { Niri.showHidden(); }));
+                    m.push(mi(Language.I18n.text("ui.t_aa760a5c3844") + n, "", function () { Niri.hideActive(); }));
+                    m.push(mi(Language.I18n.text("ui.t_db118b1bcd22"), "", function () { Niri.showHidden(); }));
                     m.push(msep());
-                    m.push(mi("Quit " + n, "Ctrl+Q", function () { root.quitActive(); }));
-                    m.push(mc("Force Quit " + n, function () { root.forceQuitActive(aw); }));
+                    m.push(mi(Language.I18n.text("ui.t_259b35c42b89") + n, "Ctrl+Q", function () { root.quitActive(); }));
+                    m.push(mc(Language.I18n.text("ui.t_189a41f12257") + n, function () { root.forceQuitActive(aw); }));
                 }
             } else if (name === "file") {
                 if (!has) {
-                    m.push(mi("New Terminal", "", function () { sh(terminal); }));
-                    m.push(mi("New Files Window", "", function () { sh(filesCmd); }));
+                    m.push(mi(Language.I18n.text("ui.t_981ace960b9e"), "", function () { sh(terminal); }));
+                    m.push(mi(Language.I18n.text("ui.t_748921aaebe0"), "", function () { sh(filesCmd); }));
                 } else {
-                    m.push(mi("New Window", "", function () { root.launchActive(); }));
+                    m.push(mi(Language.I18n.text("ui.t_7469c2f6ff3a"), "", function () { root.launchActive(); }));
                     if (browser) {
                         var ff = /firefox|librewolf|floorp|zen|waterfox/.test(id);
-                        m.push(mi("New Private Window", ff ? "Ctrl+Shift+P" : "Ctrl+Shift+N", keys(["ctrl", "shift"], ff ? "p" : "n")));
+                        m.push(mi(Language.I18n.text("ui.t_f33668d1bf44"), ff ? "Ctrl+Shift+P" : "Ctrl+Shift+N", keys(["ctrl", "shift"], ff ? "p" : "n")));
                     }
-                    if (browser || files) m.push(mi("New Tab", "Ctrl+T", keys(["ctrl"], "t")));
-                    if (term) m.push(mi("New Tab", "Ctrl+Shift+T", keys(["ctrl", "shift"], "t")));
-                    if (browser) m.push(mi("Reopen Closed Tab", "Ctrl+Shift+T", keys(["ctrl", "shift"], "t")));
-                    if (!term && !files) m.push(mi("Open\u2026", "Ctrl+O", keys(["ctrl"], "o")));
+                    if (browser || files) m.push(mi(Language.I18n.text("ui.t_b2f8fd639208"), "Ctrl+T", keys(["ctrl"], "t")));
+                    if (term) m.push(mi(Language.I18n.text("ui.t_b2f8fd639208"), "Ctrl+Shift+T", keys(["ctrl", "shift"], "t")));
+                    if (browser) m.push(mi(Language.I18n.text("ui.t_c5a521a215c8"), "Ctrl+Shift+T", keys(["ctrl", "shift"], "t")));
+                    if (!term && !files) m.push(mi(Language.I18n.text("ui.t_1f1d592bdd1a"), "Ctrl+O", keys(["ctrl"], "o")));
                     if (!term && !files) {
                         m.push(msep());
-                        m.push(mi(browser ? "Save Page As\u2026" : "Save", "Ctrl+S", keys(["ctrl"], "s")));
-                        if (!browser) m.push(mi("Save As\u2026", "Ctrl+Shift+S", keys(["ctrl", "shift"], "s")));
-                        m.push(mi("Print\u2026", "Ctrl+P", keys(["ctrl"], "p")));
+                        m.push(mi(browser ? Language.I18n.text("ui.t_1acb00a7f24b") : Language.I18n.text("ui.t_1509f561f241"), "Ctrl+S", keys(["ctrl"], "s")));
+                        if (!browser) m.push(mi(Language.I18n.text("ui.t_a4b76af59533"), "Ctrl+Shift+S", keys(["ctrl", "shift"], "s")));
+                        m.push(mi(Language.I18n.text("ui.t_07c371255954"), "Ctrl+P", keys(["ctrl"], "p")));
                     }
                     m.push(msep());
-                    if (browser || files || editor) m.push(mi("Close Tab", "Ctrl+W", keys(["ctrl"], "w")));
-                    if (term) m.push(mi("Close Tab", "Ctrl+Shift+W", keys(["ctrl", "shift"], "w")));
-                    m.push(mi("Close Window", "", disp(["close-window"])));
+                    if (browser || files || editor) m.push(mi(Language.I18n.text("ui.t_f271892dc1c3"), "Ctrl+W", keys(["ctrl"], "w")));
+                    if (term) m.push(mi(Language.I18n.text("ui.t_f271892dc1c3"), "Ctrl+Shift+W", keys(["ctrl", "shift"], "w")));
+                    m.push(mi(Language.I18n.text("ui.t_32fd144c1f4b"), "", disp(["close-window"])));
                 }
                 m.push(msep());
-                if (aw) m.push(mi("Screenshot Window", "", function () { root.shotWindow(aw); }));
-                m.push(mi("Screenshot Selection\u2026", "", function () { root.shot("sel"); }));
-                m.push(mi("Screenshot Screen", "", function () { root.shot(""); }));
-                m.push(mi(root.recording ? "Stop Screen Recording" : "Start Screen Recording", "", function () { root.toggleRecording(); }));
-                m.push(mi("Pick Color", "", function () { root.pickColor(); }));
+                if (aw) m.push(mi(Language.I18n.text("ui.t_150b38e88657"), "", function () { root.shotWindow(aw); }));
+                m.push(mi(Language.I18n.text("ui.t_7f9dcc5cbf8b"), "", function () { root.shot("sel"); }));
+                m.push(mi(Language.I18n.text("ui.t_dbdc217e6204"), "", function () { root.shot(""); }));
+                m.push(mi(root.recording ? Language.I18n.text("ui.t_6b5e333bf3be") : Language.I18n.text("ui.t_9030a512d0f3"), "", function () { root.toggleRecording(); }));
+                m.push(mi(Language.I18n.text("ui.t_9b78ab17c13f"), "", function () { root.pickColor(); }));
             } else if (name === "edit") {
                 if (has && term) {
-                    m.push(mi("Copy", "Ctrl+Shift+C", keys(["ctrl", "shift"], "c")));
-                    m.push(mi("Paste", "Ctrl+Shift+V", keys(["ctrl", "shift"], "v")));
+                    m.push(mi(Language.I18n.text("ui.t_e21f935f11d7"), "Ctrl+Shift+C", keys(["ctrl", "shift"], "c")));
+                    m.push(mi(Language.I18n.text("ui.t_f3380f7b44bd"), "Ctrl+Shift+V", keys(["ctrl", "shift"], "v")));
                 } else if (has) {
-                    m.push(mi("Undo", "Ctrl+Z", keys(["ctrl"], "z")));
-                    m.push(mi("Redo", "Ctrl+Shift+Z", keys(["ctrl", "shift"], "z")));
+                    m.push(mi(Language.I18n.text("ui.t_a8283ade3185"), "Ctrl+Z", keys(["ctrl"], "z")));
+                    m.push(mi(Language.I18n.text("ui.t_74273989b096"), "Ctrl+Shift+Z", keys(["ctrl", "shift"], "z")));
                     m.push(msep());
-                    m.push(mi("Cut", "Ctrl+X", keys(["ctrl"], "x")));
-                    m.push(mi("Copy", "Ctrl+C", keys(["ctrl"], "c")));
-                    m.push(mi("Paste", "Ctrl+V", keys(["ctrl"], "v")));
-                    if (browser || editor) m.push(mi("Paste and Match Style", "Ctrl+Shift+V", keys(["ctrl", "shift"], "v")));
-                    m.push(mi("Select All", "Ctrl+A", keys(["ctrl"], "a")));
+                    m.push(mi(Language.I18n.text("ui.t_1f45f02561f4"), "Ctrl+X", keys(["ctrl"], "x")));
+                    m.push(mi(Language.I18n.text("ui.t_e21f935f11d7"), "Ctrl+C", keys(["ctrl"], "c")));
+                    m.push(mi(Language.I18n.text("ui.t_f3380f7b44bd"), "Ctrl+V", keys(["ctrl"], "v")));
+                    if (browser || editor) m.push(mi(Language.I18n.text("ui.t_7ccc3ec8c488"), "Ctrl+Shift+V", keys(["ctrl", "shift"], "v")));
+                    m.push(mi(Language.I18n.text("ui.t_d1ec69e64b96"), "Ctrl+A", keys(["ctrl"], "a")));
                     m.push(msep());
-                    m.push(mi("Find\u2026", "Ctrl+F", keys(["ctrl"], "f")));
+                    m.push(mi(Language.I18n.text("ui.t_a7b1a1eb0573"), "Ctrl+F", keys(["ctrl"], "f")));
                 }
                 if (has) m.push(msep());
-                m.push(mi("Clipboard History\u2026", "", function () { root.spotOpen("clip"); }));
-                m.push(mi("Emoji & Symbols", "", function () { root.spotOpen("emoji"); }));
+                m.push(mi(Language.I18n.text("ui.t_dbf706cd68d5"), "", function () { root.spotOpen("clip"); }));
+                m.push(mi(Language.I18n.text("ui.t_7963f9b689fa"), "", function () { root.spotOpen("emoji"); }));
             } else if (name === "view") {
                 if (has) {
-                    m.push(mi(fsMode === 2 ? "Exit Full Screen" : "Enter Full Screen", "", disp(["fullscreen-window"])));
+                    m.push(mi(fsMode === 2 ? Language.I18n.text("ui.t_5ef4b4a67fa6") : Language.I18n.text("ui.t_534ab6506ea1"), "", disp(["fullscreen-window"])));
                     m.push(msep());
                     m.push(mchk("Floating", "", floating, disp(["toggle-window-floating"])));
-                    m.push(dis(mi("Center Window", "", disp(["center-window"])), !floating));
-                    m.push(dis(mi("Toggle Tabbed Column", "", disp(["toggle-column-tabbed-display"])), floating));
+                    m.push(dis(mi(Language.I18n.text("ui.t_6d60e99dd1db"), "", disp(["center-window"])), !floating));
+                    m.push(dis(mi(Language.I18n.text("ui.t_c6880e1c18bc"), "", disp(["toggle-column-tabbed-display"])), floating));
                     if (!term) {
                         m.push(msep());
-                        m.push(mi("Actual Size", "Ctrl+0", keys(["ctrl"], "0")));
-                        m.push(mi("Zoom In", "Ctrl+=", keys(["ctrl"], "equal")));
-                        m.push(mi("Zoom Out", "Ctrl+-", keys(["ctrl"], "minus")));
+                        m.push(mi(Language.I18n.text("ui.t_ef37f4e061bb"), "Ctrl+0", keys(["ctrl"], "0")));
+                        m.push(mi(Language.I18n.text("ui.t_5a982cf9dc11"), "Ctrl+=", keys(["ctrl"], "equal")));
+                        m.push(mi(Language.I18n.text("ui.t_24649ee0c7a9"), "Ctrl+-", keys(["ctrl"], "minus")));
                     }
                     if (browser || files) {
                         m.push(msep());
-                        m.push(mi("Reload", "F5", keys([], "F5")));
+                        m.push(mi(Language.I18n.text("language.reload"), "F5", keys([], "F5")));
                         if (browser) {
-                            m.push(mi("Reload Ignoring Cache", "Ctrl+Shift+R", keys(["ctrl", "shift"], "r")));
-                            m.push(mi("Developer Tools", "F12", keys([], "F12")));
+                            m.push(mi(Language.I18n.text("ui.t_1b5637bb40bc"), "Ctrl+Shift+R", keys(["ctrl", "shift"], "r")));
+                            m.push(mi(Language.I18n.text("ui.t_85c1562cd9ce"), "F12", keys([], "F12")));
                         }
                     }
                     m.push(msep());
                 }
-                m.push(mchk("Dark Mode", "", root.darkMode, function () { root.darkMode = !root.darkMode; }));
+                m.push(mchk(Language.I18n.text("ui.t_df8c7c89b3e4"), "", root.darkMode, function () { root.darkMode = !root.darkMode; }));
             } else if (name === "window") {
                 if (has) {
-                    m.push(mi("Move to Background Workspace", "", function () { Niri.hideActive(); }));
+                    m.push(mi(Language.I18n.text("ui.t_6be4984f1838"), "", function () { Niri.hideActive(); }));
                     m.push(mchk("Zoom", "", fsMode === 1, disp(["maximize-column"])));
-                    m.push(mi(floating ? "Tile Window" : "Float Window", "", disp(["toggle-window-floating"])));
+                    m.push(mi(floating ? Language.I18n.text("ui.t_f14f70a0a46e") : Language.I18n.text("ui.t_c391949bab97"), "", disp(["toggle-window-floating"])));
                     m.push(msep());
-                    m.push(mi("Move Window Left", "", disp(["move-column-left"])));
-                    m.push(mi("Move Window Right", "", disp(["move-column-right"])));
-                    m.push(mi("Make Wider", "", disp(["set-window-width", "+100"])));
-                    m.push(mi("Make Narrower", "", disp(["set-window-width", "-100"])));
-                    if (Quickshell.screens.length > 1) m.push(mi("Move to Next Monitor", "", disp(["move-window-to-monitor-next"])));
-                    m.push(mi("Move to Next Workspace", "", disp(["move-window-to-workspace-down"])));
-                    m.push(mi("Move to Previous Workspace", "", disp(["move-window-to-workspace-up"])));
+                    m.push(mi(Language.I18n.text("ui.t_d5a7119ca63f"), "", disp(["move-column-left"])));
+                    m.push(mi(Language.I18n.text("ui.t_3739c2e41d27"), "", disp(["move-column-right"])));
+                    m.push(mi(Language.I18n.text("ui.t_58a0e5102b25"), "", disp(["set-window-width", "+100"])));
+                    m.push(mi(Language.I18n.text("ui.t_0a59b62d3fa7"), "", disp(["set-window-width", "-100"])));
+                    if (Quickshell.screens.length > 1) m.push(mi(Language.I18n.text("ui.t_592daa0fbdd8"), "", disp(["move-window-to-monitor-next"])));
+                    m.push(mi(Language.I18n.text("ui.t_3aa577e6441c"), "", disp(["move-window-to-workspace-down"])));
+                    m.push(mi(Language.I18n.text("ui.t_3afb2048a995"), "", disp(["move-window-to-workspace-up"])));
                     m.push(msep());
                 }
-                m.push(mi("Show Hidden Windows", "", function () { Niri.showHidden(); }));
-                m.push(mi("Show Minimized Windows", "", function () { Niri.showHidden(); }));
+                m.push(mi(Language.I18n.text("ui.t_db118b1bcd22"), "", function () { Niri.showHidden(); }));
+                m.push(mi(Language.I18n.text("ui.t_472dd88a9760"), "", function () { Niri.showHidden(); }));
                 var tls = Niri.toplevels.values;
                 if (tls.length > 0) m.push(msep());
                 for (i = 0; i < tls.length && i < 8; i++) {
@@ -2104,8 +2115,8 @@ Scope {
                     })(tls[i]);
                 }
             } else if (name === "help") {
-                m.push(mi("Search\u2026", "", function () { root.search(); }));
-                if (has) m.push(mi(n + " Help", "", function () { root.helpFor(id, n); }));
+                m.push(mi(Language.I18n.text("ui.t_7336265a0467"), "", function () { root.search(); }));
+                if (has) m.push(mi(n + Language.I18n.text("ui.t_cbb79502d895"), "", function () { root.helpFor(id, n); }));
                 m.push(msep());
                 m.push(mi("niri Keybinds", "", function () { Quickshell.execDetached(["xdg-open", "https://niri-wm.github.io/niri/Configuration:-Key-Bindings.html"]); }));
                 m.push(mi("Reload niri Config", "", function () { Quickshell.execDetached(["niri", "msg", "action", "load-config-file"]); }));
@@ -2285,7 +2296,7 @@ Scope {
                     Text {
                         id: hintTxt
                         anchors.centerIn: parent
-                        text: "Drag to select an area   \u2022   Return: whole screen   \u2022   Esc: cancel"
+                        text: Language.I18n.text("ui.t_ba2252c4f068")
                         color: "white"
                         font.family: root.fontFamily; font.pixelSize: 13
                     }
@@ -2918,13 +2929,13 @@ Scope {
             var t = order[k], id = t.appId || "";
             if (id === "") continue;
             // MacShell's own windows (all "org.quickshell") are separate apps: Clock, System Settings
-            if (id === "org.quickshell" || id === "dev.noctalia.noctalia-qs") id = t.title === "Clock" ? "macshell-clock"
+            if (id === "org.quickshell" || id === "dev.noctalia.noctalia-qs") id = Utilities.windowId(t.title) || (t.title === "Clock" ? "macshell-clock"
                                              : (t.title === "App Store" ? "macshell-appstore"
-                                             : (t.title === "macshell Settings" ? "systemsettings" : id));
+                                             : (t.title === "macshell Settings" ? "systemsettings" : id)));
             if (seen[id] !== undefined) { apps[seen[id]].count++; continue; }
             var e = root.lookup(id);
             seen[id] = apps.length;
-            apps.push({ appId: id, cls: t.appId, name: id === "systemsettings" ? "System Settings" : (e ? e.name : id),
+            apps.push({ appId: id, cls: t.appId, name: id === "systemsettings" ? Language.I18n.text("ui.t_1f87f883cc7e") : (e ? e.name : id),
                         icon: id === "systemsettings" ? "preferences-system" : (e ? e.icon : ""), win: t, count: 1 });
         }
         return apps;
@@ -3122,6 +3133,9 @@ Scope {
                         var ownerExists = Quickshell.screens.some(s => s.name === root.interactionScreen);
                         if ((prompt && ownerExists ? root.interactionScreen === win.modelData.name : ui.toastScreen) && ui.pop !== name) ui.openPop(name, ui.width - 150);
                     }
+                    function onMonitoringRequested(outputName) {
+                        if (win.modelData.name === outputName && ui.pop !== "stats") ui.openPop("stats", ui.width - 150);
+                    }
                     function onPopupOwnerChanged() { if (root.popupOwner !== "" && root.popupOwner !== win.modelData.name) ui.pop = ""; }
                 }
                 Component.onDestruction: {
@@ -3173,9 +3187,9 @@ Scope {
                     if (pop === "appmenus") return root.menuTitles.filter(item => item.id !== "apple").map(item => ({type: "appMenus", label: item.label, target: item.id}));
                     var entries = [];
                     barBg.plan.overflow.forEach(block => {
-                        if (block.type === "tray") SystemTray.items.values.forEach(item => entries.push({type: "tray", label: item.title || "Tray application", item: item}));
+                        if (block.type === "tray") SystemTray.items.values.forEach(item => entries.push({type: "tray", label: item.title || Language.I18n.text("ui.t_c3418e8ce8e0"), item: item}));
                         else if (block.type === "appMenus") root.menuTitles.filter(item => item.id !== "apple").forEach(item => entries.push({type: block.type, label: item.label, target: item.id}));
-                        else if (block.type === "workspaces") root.workspaceIdsFor(perScreen.modelData.name).forEach(id => entries.push({type: block.type, label: "Workspace " + Niri.workspaceLabel(id), target: id}));
+                        else if (block.type === "workspaces") root.workspaceIdsFor(perScreen.modelData.name).forEach(id => entries.push({type: block.type, label: Language.I18n.text("ui.t_32bb3156b167") + Niri.workspaceLabel(id), target: id}));
                         else entries.push({type: block.type, label: BarLayout.label(root.barLayout.catalog, block.type)});
                     });
                     return entries;
@@ -3507,6 +3521,8 @@ Scope {
                                 required property string wsize
                                 required property string wmode
                                 required property string wappearance
+                                required property string wactivity
+                                required property string wbatteries
                                 required property real wx
                                 required property real wy
                                 z: -1
@@ -3524,6 +3540,8 @@ Scope {
                                         && mw.y < bd.region.y + bd.region.height && mw.y + mw.height > bd.region.y
                                     wtype: mw.wtype; wstyle: mw.wstyle; wsize: mw.wsize; wmode: mw.wmode
                                     wappearance: mw.wappearance
+                                    wactivity: mw.wactivity
+                                    wbatteries: mw.wbatteries
                                     sx: mw.x; sy: mw.y
                                     sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
                                 }
@@ -3695,7 +3713,7 @@ Scope {
                         battery: {available: root.hasBattery, preferred: batRow.implicitWidth + 14},
                         privacy: {available: root.privacyAny, preferred: root.privacyDots.length * 10},
                         controlCenter: {available: root.ccEnabled},
-                        clock: {preferred: barMetrics.advanceWidth(root.clockText) + 16, forms: [barMetrics.advanceWidth(root.clockText) + 16, barMetrics.advanceWidth(Qt.formatTime(clock.date, root.use24h ? "HH:mm" : "h:mm AP")) + 16]}
+                        clock: {preferred: barMetrics.advanceWidth(root.clockText) + 16, forms: [barMetrics.advanceWidth(root.clockText) + 16, barMetrics.advanceWidth(Language.I18n.formatTime(clock.date, root.use24h ? "HH:mm" : "h:mm AP")) + 16]}
                     })
                     readonly property var plan: BarLayout.solve(layout, root.barLayout.catalog, measurements, width / root.barWidgetScale)
                     function reportFrame() {
@@ -4085,7 +4103,7 @@ Scope {
                                 Text {
                                     id: clockText
                                     anchors.centerIn: parent
-                                    text: clockSlot.placement.mode > 0 ? Qt.formatTime(clock.date, root.use24h ? "HH:mm" : "h:mm AP") : root.clockText
+                                    text: clockSlot.placement.mode > 0 ? Language.I18n.formatTime(clock.date, root.use24h ? "HH:mm" : "h:mm AP") : root.clockText
                                     color: screenPal.fg
                                     font.family: screenPal.fam
                                     font.pixelSize: 13
@@ -4198,7 +4216,7 @@ Scope {
                             width: volFlick.width - 28
                             spacing: 3
 
-                            Text { x: 4; text: "Output · " + Math.round(root.volume * 100) + "%"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold; bottomPadding: 3 }
+                            Text { x: 4; text: Language.I18n.text("ui.t_a2396c2e9a67") + Math.round(root.volume * 100) + "%"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold; bottomPadding: 3 }
                             Item {
                                 width: parent.width; height: 32
                                 CCSlider {
@@ -4226,7 +4244,7 @@ Scope {
                                     onClicked: root.chooseAudio(modelData)
                                 }
                             }
-                            Text { visible: root.audioOutputs.length === 0; x: 4; text: "No output devices"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; topPadding: 4; bottomPadding: 4 }
+                            Text { visible: root.audioOutputs.length === 0; x: 4; text: Language.I18n.text("ui.t_fcdbdde0caae"); color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; topPadding: 4; bottomPadding: 4 }
                             Item { width: 1; height: 5 }
                             Text { x: 4; text: "Apps"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold; bottomPadding: 2 }
                             Repeater {
@@ -4250,13 +4268,13 @@ Scope {
                                     }
                                 }
                             }
-                            Text { visible: root.appAudioStreams.length === 0; x: 4; text: "No apps are playing audio"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 11; topPadding: 2; bottomPadding: 4 }
+                            Text { visible: root.appAudioStreams.length === 0; x: 4; text: Language.I18n.text("ui.t_b5f1856791ae"); color: pal.fg2; font.family: pal.fam; font.pixelSize: 11; topPadding: 2; bottomPadding: 4 }
                             Item { width: 1; height: 5 }
                             Rectangle { width: parent.width; height: 1; color: pal.sep }
                             Item { width: 1; height: 5 }
                             Item {
                                 width: parent.width; height: 32
-                                Text { x: 4; anchors.verticalCenter: parent.verticalCenter; text: "Input"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                Text { x: 4; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_36ecb4f86691"); color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
                                 Rectangle {
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
@@ -4291,7 +4309,7 @@ Scope {
                                     onClicked: root.chooseAudio(modelData)
                                 }
                             }
-                            Text { visible: root.audioInputs.length === 0; x: 4; text: "No input devices"; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; topPadding: 4; bottomPadding: 4 }
+                            Text { visible: root.audioInputs.length === 0; x: 4; text: Language.I18n.text("ui.t_2c90b766675b"); color: pal.fg2; font.family: pal.fam; font.pixelSize: 12; topPadding: 4; bottomPadding: 4 }
                         }
                     }
                 }
@@ -4345,7 +4363,7 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parent.width - 84
                                     elide: Text.ElideRight
-                                    text: kr.modelData.name
+                                    text: Language.I18n.legacy(kr.modelData.name)
                                     color: pal.fg
                                     font.family: pal.fam; font.pixelSize: 13
                                     font.weight: kr.index === root.kbIndex ? Font.DemiBold : Font.Normal
@@ -4479,7 +4497,9 @@ Scope {
                                 }
                                 MouseArea {
                                     anchors.fill: parent
-                                    onClicked: { root.notifActivate(toast.nid); toast.dismiss(); }
+                                    objectName: "notificationActivate_" + toast.nid
+                                    // Activation removes this delegate synchronously.
+                                    onClicked: root.notifActivate(toast.nid)
                                 }
                                 // the slab reveals the content (clip), and inside it the content comes into focus. The blur sits on an
                                 // inner layer with room to spread (auto padding), so it is soft all round instead of a cut-off smear,
@@ -4559,7 +4579,7 @@ Scope {
                         opacity: notifPop.chrome
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Notification system"
+                            text: Language.I18n.text("ui.t_fa3ea3dda5df")
                             color: pal.fg
                             font.family: pal.fam; font.pixelSize: 17; font.weight: Font.DemiBold
                         }
@@ -4571,7 +4591,7 @@ Scope {
                             Text {
                                 id: clrText
                                 anchors.centerIn: parent
-                                text: "Clear All"
+                                text: Language.I18n.text("ui.t_ddceb7adfdb8")
                                 color: pal.fg
                                 font.family: pal.fam; font.pixelSize: 12; font.weight: Font.Medium
                             }
@@ -4585,7 +4605,7 @@ Scope {
                         Glyph { x: 12; anchors.verticalCenter: parent.verticalCenter; width: 15; height: 15; kind: "moon"; color: pal.fg }
                         Text {
                             x: 36; anchors.verticalCenter: parent.verticalCenter
-                            text: "Do Not Disturb"
+                            text: Language.I18n.text("ui.t_d0b47b15de45")
                             color: pal.fg
                             font.family: pal.fam; font.pixelSize: 13
                         }
@@ -4609,7 +4629,7 @@ Scope {
                         Behavior on opacity { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
                         x: 0; y: 96; width: parent.width; height: 60
                         horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                        text: "No Notifications"
+                        text: Language.I18n.text("ui.t_d963c3ae148d")
                         color: pal.fg2
                         font.family: pal.fam; font.pixelSize: 14
                     }
@@ -4805,7 +4825,7 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parent.width - x - 12 - (sc.visible ? sc.implicitWidth + 12 : 0)
                                     elide: Text.ElideRight
-                                    text: it.isSep ? "" : (it.armedNow ? "Click again to confirm" : it.modelData.label)
+                                    text: it.isSep ? "" : (it.armedNow ? Language.I18n.text("ui.t_1f8c95036230") : it.modelData.label)
                                     color: it.hot ? "white" : (it.off ? pal.fg2 : pal.fg)
                                     font.family: pal.fam
                                     font.pixelSize: 13
@@ -5179,7 +5199,7 @@ Scope {
                             }
                         }
                         Rectangle { width: parent.width; height: 1; color: pal.sep }
-                        Text { visible: root.otherConnections.length>0; width:parent.width; leftPadding:6; text:"Ethernet & VPN"; color:pal.fg2; font.family:pal.fam; font.pixelSize:11; font.weight:Font.DemiBold }
+                        Text { visible: root.otherConnections.length>0; width:parent.width; leftPadding:6; text:Language.I18n.text("ui.t_0fb0d3323a26"); color:pal.fg2; font.family:pal.fam; font.pixelSize:11; font.weight:Font.DemiBold }
                         Column {
                             width: parent.width
                             Repeater {
@@ -5189,7 +5209,7 @@ Scope {
                                     width: parent.width; height: 30
                                     Rectangle { anchors.fill:parent; radius:8; color:connMa.containsMouse?pal.hover:"transparent" }
                                     Glyph { x:8; anchors.verticalCenter:parent.verticalCenter; width:14; height:14; kind:modelData.type==="vpn"?"lock":"wifi"; color:pal.fg }
-                                    Text { x:30; anchors.verticalCenter:parent.verticalCenter; width:parent.width-42; elide:Text.ElideRight; text:modelData.name+(modelData.active?" · Connected":""); color:pal.fg; font.family:pal.fam; font.pixelSize:12 }
+                                    Text { x:30; anchors.verticalCenter:parent.verticalCenter; width:parent.width-42; elide:Text.ElideRight; text:modelData.name+(modelData.active?Language.I18n.text("ui.t_1d93760af6d9"):""); color:pal.fg; font.family:pal.fam; font.pixelSize:12 }
                                     MouseArea { id:connMa; anchors.fill:parent; hoverEnabled:true; onClicked:root.toggleConnection(modelData) }
                                 }
                             }
@@ -5199,7 +5219,7 @@ Scope {
                             visible: !root.wifiOn
                             width: parent.width; height: 56
                             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                            text: "Wi-Fi is turned off"
+                            text: Language.I18n.text("ui.t_2c4c56b42eac")
                             color: pal.fg2
                             font.family: pal.fam; font.pixelSize: 13
                         }
@@ -5207,14 +5227,14 @@ Scope {
                             visible: root.wifiOn && root.wifiNets.length === 0
                             width: parent.width; height: 56
                             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                            text: root.wifiScanning ? "Searching\u2026" : "No networks found"
+                            text: root.wifiScanning ? Language.I18n.text("ui.t_c31723ab3302") : Language.I18n.text("ui.t_679de4a6058d")
                             color: pal.fg2
                             font.family: pal.fam; font.pixelSize: 13
                         }
                         Text {
                             visible: root.wifiOn && root.wifiNets.length > 0
                             leftPadding: 6
-                            text: "Networks"
+                            text: Language.I18n.text("ui.t_ab2c47c3c77f")
                             color: pal.fg2
                             font.family: pal.fam; font.pixelSize: 11; font.weight: Font.DemiBold
                         }
@@ -5271,7 +5291,7 @@ Scope {
                                                 visible: nr.busy
                                                 anchors.right: parent.right; anchors.rightMargin: 12
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                text: "Connecting\u2026"
+                                                text: Language.I18n.text("ui.t_72021eb70e91")
                                                 color: pal.fg2
                                                 font.family: pal.fam; font.pixelSize: 12
                                             }
@@ -5279,7 +5299,7 @@ Scope {
                                                 visible: !nr.busy && nr.modelData.inUse && wma.containsMouse
                                                 anchors.right: parent.right; anchors.rightMargin: 12
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                text: "Disconnect"
+                                                text: Language.I18n.text("ui.t_acfc5be785a9")
                                                 color: "white"
                                                 font.family: pal.fam; font.pixelSize: 12
                                             }
@@ -5324,7 +5344,7 @@ Scope {
                                                 x: 42; y: 3; height: 32
                                                 verticalAlignment: Text.AlignVCenter
                                                 visible: pw.text === ""
-                                                text: "Password"
+                                                text: Language.I18n.text("ui.t_e7cf3ef4f17c")
                                                 color: pal.fg3
                                                 font.family: pal.fam; font.pixelSize: 13
                                             }
@@ -5351,7 +5371,7 @@ Scope {
                                                 anchors.right: parent.right; anchors.rightMargin: 16
                                                 y: 3; height: 32
                                                 verticalAlignment: Text.AlignVCenter
-                                                text: "Join"
+                                                text: Language.I18n.text("ui.t_fd30fe681b4b")
                                                 color: pw.text.length > 0 ? root.accent : pal.fg3
                                                 font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold
                                                 MouseArea {
@@ -5385,7 +5405,7 @@ Scope {
                             }
                             Text {
                                 x: 10; anchors.verticalCenter: parent.verticalCenter
-                                text: "Wi-Fi Settings\u2026"
+                                text: Language.I18n.text("ui.t_a3aaea148928")
                                 color: wsa.containsMouse ? "white" : pal.fg
                                 font.family: pal.fam; font.pixelSize: 13
                             }
@@ -5438,12 +5458,12 @@ Scope {
                         spacing: 8
 
                         Text {
-                            text: Qt.formatDateTime(clock.date, "dddd")
+                            text: Language.I18n.formatDateTime(clock.date, "dddd")
                             color: pal.fg2
                             font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold
                         }
                         Text {
-                            text: Qt.formatDateTime(clock.date, "d MMMM yyyy")
+                            text: Language.I18n.formatDateTime(clock.date, "d MMMM yyyy")
                             color: pal.fg
                             font.family: pal.fam; font.pixelSize: 22; font.weight: Font.DemiBold
                         }
@@ -5452,7 +5472,7 @@ Scope {
                             width: parent.width; height: 26
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: Qt.locale().monthName(ui.calMonth, Locale.LongFormat) + " " + ui.calYear
+                                text: Language.I18n.formatLocale.monthName(ui.calMonth, Locale.LongFormat) + " " + ui.calYear
                                 color: pal.fg
                                 font.family: pal.fam; font.pixelSize: 14; font.weight: Font.DemiBold
                             }
@@ -5479,7 +5499,7 @@ Scope {
                                     required property int index
                                     width: calCol.width / 7
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: Qt.locale().dayName((index + (root.weekStartsMonday ? 1 : 0)) % 7, Locale.ShortFormat).substring(0, 2)
+                                    text: Language.I18n.formatLocale.dayName((index + (root.weekStartsMonday ? 1 : 0)) % 7, Locale.ShortFormat).substring(0, 2)
                                     color: pal.fg2
                                     font.family: pal.fam; font.pixelSize: 11; font.weight: Font.DemiBold
                                 }
@@ -5652,7 +5672,7 @@ Scope {
                                 MorphText {
                                     animateWidth: false; duration: 420
                                     width: parent.width; elide: Text.ElideRight
-                                    text: !root.wifiOn ? "Off" : (root.wifiSsid !== "" ? root.wifiSsid : "Not Connected")
+                                    text: !root.wifiOn ? Language.I18n.text("ui.t_ca7981b46ecf") : (root.wifiSsid !== "" ? root.wifiSsid : Language.I18n.text("ui.t_87d82c046732"))
                                     color: pal.fg2; font.family: pal.fam; font.pixelSize: 12
                                 }
                             }
@@ -5682,13 +5702,13 @@ Scope {
                             Column {
                                 x: 62; anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 86; spacing: 1
-                                Text { text: "Bluetooth"; color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                Text { text: Language.I18n.text("ui.t_8bb29098b369"); color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
                                 MorphText {
                                     animateWidth: false; duration: 420
                                     width: parent.width; elide: Text.ElideRight
-                                    text: root.bluetooth.busyAction === "power" ? "Updating…"
-                                          : (!root.bluetooth.available ? "Unavailable"
-                                          : (!root.btOn ? "Off" : (root.btConnected > 0 ? root.btConnected + " Connected" : "Not Connected")))
+                                    text: root.bluetooth.busyAction === "power" ? Language.I18n.text("ui.t_dfe40efe921f")
+                                          : (!root.bluetooth.available ? Language.I18n.text("common.unavailable")
+                                          : (!root.btOn ? Language.I18n.text("ui.t_ca7981b46ecf") : (root.btConnected > 0 ? root.btConnected + Language.I18n.text("ui.t_db6a973be8ac") : Language.I18n.text("ui.t_87d82c046732"))))
                                     color: pal.fg2; font.family: pal.fam; font.pixelSize: 12
                                 }
                             }
@@ -5718,7 +5738,7 @@ Scope {
                             Column {
                                 x: 62; anchors.verticalCenter: parent.verticalCenter
                                 spacing: 1
-                                Text { text: "Focus"; color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                Text { text: Language.I18n.text("ui.t_9d3cab2b5efe"); color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
                                 MorphText { animateWidth: false; duration: 420; text: root.timedModes.label("focus"); color: pal.fg2; font.family: pal.fam; font.pixelSize: 12 }
                             }
                             MouseArea { x: 58; width: parent.width - 58; height: parent.height; onClicked: ui.openPop("focus", ui.width - 180, ui.anchorOverflow, ui.anchorType || "controlCenter") }
@@ -5738,8 +5758,8 @@ Scope {
                                 x: 62; anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 62 - 10
                                 spacing: 1
-                                Text { width: parent.width; elide: Text.ElideRight; text: "Game Mode"; color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                MorphText { animateWidth: false; duration: 420; width: parent.width; elide: Text.ElideRight; text: root.gamingAutoActive && !root.gamingMode ? "On (game detected)" : (root.gaming ? "On" : (root.gamingAuto ? "Auto" : "Off"))
+                                Text { width: parent.width; elide: Text.ElideRight; text: Language.I18n.text("ui.t_1311d7944778"); color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                MorphText { animateWidth: false; duration: 420; width: parent.width; elide: Text.ElideRight; text: root.gamingAutoActive && !root.gamingMode ? Language.I18n.text("ui.t_e22aed4b4c91") : (root.gaming ? Language.I18n.text("ui.t_130011756125") : (root.gamingAuto ? Language.I18n.text("ui.t_0286249762f7") : Language.I18n.text("ui.t_ca7981b46ecf")))
                                        color: root.gaming ? "#30D158" : pal.fg2; font.family: pal.fam; font.pixelSize: 12 }
                             }
                         }
@@ -5758,8 +5778,8 @@ Scope {
                                 x: 62; anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 62 - 10
                                 spacing: 1
-                                MorphText { animateWidth: false; duration: 420; width: parent.width; elide: Text.ElideRight; text: root.recording ? "Stop" : "Record"; color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                MorphText { animateWidth: false; duration: 420; width: parent.width; elide: Text.ElideRight; text: root.recording ? root.recTime() : "Screen"; color: root.recording ? "#FF453A" : pal.fg2; font.family: pal.fam; font.pixelSize: 12 }
+                                MorphText { animateWidth: false; duration: 420; width: parent.width; elide: Text.ElideRight; text: root.recording ? Language.I18n.text("ui.t_cae7d57bc067") : Language.I18n.text("ui.t_bfdd510698ef"); color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                MorphText { animateWidth: false; duration: 420; width: parent.width; elide: Text.ElideRight; text: root.recording ? root.recTime() : Language.I18n.text("ui.t_6e56137e21d3"); color: root.recording ? "#FF453A" : pal.fg2; font.family: pal.fam; font.pixelSize: 12 }
                             }
                         }
                     }
@@ -5776,7 +5796,7 @@ Scope {
                             Column {
                                 x: 62; anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 84; spacing: 1
-                                Text { width: parent.width; text: "Screen Mirroring"; elide: Text.ElideRight; color: pal.fg; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                Text { width: parent.width; text: Language.I18n.text("ui.t_a72c5d7ed939"); elide: Text.ElideRight; color: pal.fg; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
                                 MorphText { width: parent.width; animateWidth: false; elide: Text.ElideRight; text: root.mirroring.label; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12 }
                             }
                             MouseArea { x: 58; width: parent.width - 58; height: parent.height; onClicked: ui.openPop("airplay", ui.width, ui.anchorOverflow, ui.anchorType || "controlCenter") }
@@ -5793,7 +5813,7 @@ Scope {
                             }
                             Column {
                                 x: 62; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 84; spacing: 1
-                                Text { width: parent.width; text: "AirDrop"; elide: Text.ElideRight; color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                Text { width: parent.width; text: Language.I18n.text("ui.t_9ccc01839580"); elide: Text.ElideRight; color: pal.fg; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
                                 MorphText { width: parent.width; animateWidth: false; elide: Text.ElideRight; text: airDropControl.label; color: pal.fg2; font.family: pal.fam; font.pixelSize: 12 }
                             }
                             MouseArea { x: 58; width: parent.width - 58; height: parent.height; onClicked: root.controlRequested("airdrop") }
@@ -5812,7 +5832,7 @@ Scope {
                             Controls.AbstractButton {
                                 objectName: "nightShiftSettings"
                                 anchors.right: parent.right; width: 24; height: parent.height
-                                Accessible.name: "Night Shift temperature"
+                                Accessible.name: Language.I18n.text("ui.t_ec026cdcadf6")
                                 contentItem: Item {
                                     Glyph { anchors.centerIn: parent; width: 12; height: 12; kind: "chevR"; color: pal.fg2 }
                                 }
@@ -5894,7 +5914,7 @@ Scope {
                                 spacing: 1
                                 Text {
                                     width: parent.width; elide: Text.ElideRight
-                                    text: np.pl && np.pl.trackTitle ? np.pl.trackTitle : "Now Playing"
+                                    text: np.pl && np.pl.trackTitle ? np.pl.trackTitle : Language.I18n.text("ui.t_8b2ae991573c")
                                     color: np.pl ? pal.fg : pal.fg2
                                     font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold
                                 }
@@ -5946,7 +5966,7 @@ Scope {
                             radius: 26
                             Text {
                                 x: 14; y: 8
-                                text: "Display"
+                                text: Language.I18n.text("ui.t_34e108c0896d")
                                 color: pal.fg; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold
                             }
                             CCSlider {
@@ -5968,7 +5988,7 @@ Scope {
                             Text {
                                 x: 14; y: 8
                                 width: parent.width - 42; elide: Text.ElideRight
-                                text: "Sound · " + Math.round(root.volume * 100) + "%" + (root.sink ? " · " + (root.sink.description || root.sink.name) : "")
+                                text: Language.I18n.text("ui.t_03e9c0d3ca73") + Math.round(root.volume * 100) + "%" + (root.sink ? " · " + (root.sink.description || root.sink.name) : "")
                                 color: pal.fg; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold
                             }
                             Glyph {
@@ -6055,7 +6075,7 @@ Scope {
                                             anchors.verticalCenter: parent.verticalCenter
                                             width: 54; height: 24; radius: 12
                                             color: "#FF453A"
-                                            Text { anchors.centerIn: parent; text: "Stop"; color: "white"; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                            Text { anchors.centerIn: parent; text: Language.I18n.text("ui.t_cae7d57bc067"); color: "white"; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
                                             MouseArea { anchors.fill: parent; onClicked: root.toggleRecording() }
                                         }
                                     }
@@ -6074,7 +6094,7 @@ Scope {
                             Text {
                                 visible: root.ccPlan.items.length === 0
                                 anchors.centerIn: parent
-                                text: "No controls. Use Edit Controls to add some."
+                                text: Language.I18n.text("ui.t_0b90b14512e9")
                                 color: pal.fg2; font.family: pal.fam; font.pixelSize: 12
                             }
 
@@ -6178,7 +6198,7 @@ Scope {
                             spacing: 8
                             Text {
                                 leftPadding: 4
-                                text: "Add Controls"
+                                text: Language.I18n.text("ui.t_2c7f4ce64766")
                                 color: pal.fg2
                                 font.family: pal.fam; font.pixelSize: 12; font.weight: Font.DemiBold
                             }
@@ -6244,12 +6264,12 @@ Scope {
                                 CCPill {
                                     visible: ui.ccEdit
                                     t: pal; gx: ccg
-                                    text: "Reset"
+                                    text: Language.I18n.text("ui.t_daee7606b339")
                                     onClicked: root.ccControls = root.ccDefault.slice()
                                 }
                                 CCPill {
                                     t: pal; gx: ccg
-                                    text: ui.ccEdit ? "Done" : "Edit Controls"
+                                    text: ui.ccEdit ? Language.I18n.text("common.done") : Language.I18n.text("ui.t_4615ef639d9d")
                                     strong: ui.ccEdit
                                     onClicked: ui.ccEdit = !ui.ccEdit
                                 }
@@ -6509,7 +6529,7 @@ Scope {
                         Text {
                             id: wpTitle
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Wallpapers"
+                            text: Language.I18n.text("ui.t_006547c4fdf5")
                             color: pal.fg
                             font.family: pal.fam; font.pixelSize: 15; font.weight: Font.DemiBold
                         }
@@ -6519,7 +6539,7 @@ Scope {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 84; height: 30; radius: 10
                             color: wpChooseMa.containsMouse ? pal.btnHover : pal.btnOff
-                            Text { anchors.centerIn: parent; text: "Choose\u2026"; color: pal.fg; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.Medium }
+                            Text { anchors.centerIn: parent; text: Language.I18n.text("ui.t_7ca41615c19b"); color: pal.fg; font.family: pal.fam; font.pixelSize: 12; font.weight: Font.Medium }
                             MouseArea { id: wpChooseMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.wpPickFolder() }
                         }
                         Rectangle {
@@ -6573,7 +6593,7 @@ Scope {
                             Text {
                                 visible: wpSearch.text === "" && !wpSearch.activeFocus
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "Search"
+                                text: Language.I18n.text("common.search")
                                 color: pal.fg3
                                 font.family: pal.fam; font.pixelSize: 12
                             }
@@ -6598,7 +6618,7 @@ Scope {
                         text: root.wpStatus !== "" ? root.wpStatus
                               : (root.wpShown.length + (root.wpShown.length === 1 ? " image" : " images")
                                  + ((root.wallpaperFavs || []).length > 0 ? "  \u00b7  \u2605 first" : "")
-                                 + "  \u00b7  Type to search, Enter apply, Space favourite")
+                                 + Language.I18n.text("ui.t_aca2e414ec5c"))
                         color: pal.fg3
                         font.family: pal.fam; font.pixelSize: 11
                     }
@@ -6708,7 +6728,7 @@ Scope {
                                         Text {
                                             id: wcBadge
                                             anchors.centerIn: parent
-                                            text: "\u25B6  Animated"
+                                            text: Language.I18n.text("ui.t_65fed84e8225")
                                             color: "white"
                                             font.family: pal.fam; font.pixelSize: 10; font.weight: Font.DemiBold
                                         }
@@ -6802,8 +6822,8 @@ Scope {
                         width: parent.width - 80
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: root.wpQuery !== "" ? "No wallpapers match \u201c" + root.wpQuery + "\u201d"
-                              : "No images in " + root.wpDirEff + "\nDrop some in, or pick another folder with Choose\u2026"
+                        text: root.wpQuery !== "" ? Language.I18n.text("ui.t_6d5ac65d3615") + root.wpQuery + "\u201d"
+                              : Language.I18n.text("ui.t_40d3cf7206a5") + root.wpDirEff + Language.I18n.text("ui.t_e7bc2e7127b4")
                         color: pal.fg2
                         font.family: pal.fam; font.pixelSize: 13
                     }
@@ -7068,7 +7088,7 @@ Scope {
                                 animateWidth: false
                                 duration: 460
                                 blurMax: 48
-                                text: ui.spHoverLabel !== "" ? ui.spHoverLabel : "Spotlight Search"
+                                text: ui.spHoverLabel !== "" ? ui.spHoverLabel : Language.I18n.text("ui.t_296cb158c0e5")
                                 color: pal.fg2
                                 font.family: pal.fam; font.pixelSize: 17
                                 elide: Text.ElideRight
@@ -7090,8 +7110,8 @@ Scope {
                         }
                         Repeater {
                             model: [
-                                { k: "appstore", id: "apps", label: "Apps" }, { k: "folder", id: "files", label: "Files" },
-                                { k: "layers", id: "actions", label: "Actions" }, { k: "clipboard", id: "clip", label: "Clipboard" }, { k: "smile", id: "emoji", label: "Emoji" }
+                                { k: "appstore", id: "apps", label: "Apps" }, { k: "folder", id: "files", label: Language.I18n.text("ui.t_abc7e9892806") },
+                                { k: "layers", id: "actions", label: Language.I18n.text("ui.t_ff8059dc6752") }, { k: "clipboard", id: "clip", label: Language.I18n.text("ui.t_285d69f0c5d1") }, { k: "smile", id: "emoji", label: Language.I18n.text("ui.t_61ad8976e650") }
                             ]
                             delegate: CCBtn {
                                 required property var modelData
@@ -7194,7 +7214,7 @@ Scope {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: parent.width - 54 - 140
                                         elide: Text.ElideRight
-                                        text: rr.armedNow ? "Press Return again to confirm" : (rr.modelData ? rr.modelData.title : "")
+                                        text: rr.armedNow ? Language.I18n.text("ui.t_56af92f92b20") : (rr.modelData ? rr.modelData.title : "")
                                         color: rr.sel ? "white" : pal.fg
                                         font.family: pal.fam; font.pixelSize: 14
                                     }
@@ -7231,13 +7251,13 @@ Scope {
                         readonly property var items: ui.spMode === "clip" ? ui.spResults : []
                         readonly property int rowH: 56
                         readonly property int shown: Math.min(items.length, 7)
-                        readonly property string emptyTitle: root.clipState === "missing" ? "Clipboard history isn't set up"
-                            : (!root.clipHistory ? "Clipboard history is off"
+                        readonly property string emptyTitle: root.clipState === "missing" ? Language.I18n.text("ui.t_f948efee2fc6")
+                            : (!root.clipHistory ? Language.I18n.text("ui.t_98f3c171f27c")
                             : (root.clipLoading && root.clipEntries.length === 0 ? "Loading\u2026"
-                            : (ui.spQuery.trim() !== "" ? "No Results" : "Nothing copied yet")))
-                        readonly property string emptySub: root.clipState === "missing" ? "Install cliphist and wl-clipboard, then open this tab again"
-                            : (!root.clipHistory ? "Turn it on in System Settings \u2192 Menu Bar"
-                            : (ui.spQuery.trim() === "" && !root.clipLoading ? "Copy some text or an image and it will show up here" : ""))
+                            : (ui.spQuery.trim() !== "" ? Language.I18n.text("ui.t_ed805f62bdbf") : Language.I18n.text("ui.t_1c0006ee863c"))))
+                        readonly property string emptySub: root.clipState === "missing" ? Language.I18n.text("ui.t_74ae71c81bcb")
+                            : (!root.clipHistory ? Language.I18n.text("ui.t_e49c6720db6f")
+                            : (ui.spQuery.trim() === "" && !root.clipLoading ? Language.I18n.text("ui.t_1bb86a09457d") : ""))
                         height: 64 + (items.length > 0 ? shown * rowH + 14 : 118)
                         Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
                         GGlass { anchors.fill: parent; gx: spg; cornerR: 32; thickness: 30; strengthMul: 0.85; shadowAmt: 0.5 }
@@ -7258,7 +7278,7 @@ Scope {
                                 id: clipLabel
                                 x: 46
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "Clipboard"
+                                text: Language.I18n.text("ui.t_285d69f0c5d1")
                                 color: pal.fg
                                 font.family: pal.fam; font.pixelSize: 24; font.weight: Font.Medium
                             }
@@ -7478,9 +7498,9 @@ Scope {
                                         Text {
                                             x: 38
                                             anchors.verticalCenter: parent.verticalCenter
-                                            text: cm.modelData === "auto" ? "Paste Automatically"
-                                                  : (cm.modelData === "del" ? "Delete Selected"
-                                                  : (cm.armedNow ? "Click again to confirm" : "Clear History"))
+                                            text: cm.modelData === "auto" ? Language.I18n.text("ui.t_2ceb6ba917f4")
+                                                  : (cm.modelData === "del" ? Language.I18n.text("ui.t_6662750e0331")
+                                                  : (cm.armedNow ? Language.I18n.text("ui.t_1f8c95036230") : Language.I18n.text("ui.t_9768be40e931")))
                                             color: cmMa.containsMouse ? "white" : ((cm.modelData === "clear") ? "#FF453A" : pal.fg)
                                             font.family: pal.fam; font.pixelSize: 14
                                         }
@@ -7538,7 +7558,7 @@ Scope {
                                 id: emojiLabel
                                 x: 46
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "Emoji"
+                                text: Language.I18n.text("ui.t_61ad8976e650")
                                 color: pal.fg
                                 font.family: pal.fam; font.pixelSize: 24; font.weight: Font.Medium
                             }
@@ -7645,7 +7665,7 @@ Scope {
                             height: emojiPanel.gridRows * emojiPanel.cell
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            text: ui.spQuery.trim() !== "" ? "No Results" : "No recently used emoji"
+                            text: ui.spQuery.trim() !== "" ? Language.I18n.text("ui.t_ed805f62bdbf") : Language.I18n.text("ui.t_54670f28748a")
                             color: pal.fg2
                             font.family: pal.fam; font.pixelSize: 14
                         }
@@ -7660,7 +7680,7 @@ Scope {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 180
                                 elide: Text.ElideRight
-                                text: emojiPanel.cur ? (emojiPanel.cur[0] + "  " + emojiPanel.cur[1]) : ""
+                                text: emojiPanel.cur ? (emojiPanel.cur[0] + "  " + Language.I18n.emojiName(emojiPanel.cur[0], emojiPanel.cur[1])) : ""
                                 color: pal.fg2
                                 font.family: pal.fam; font.pixelSize: 13
                             }
@@ -7668,7 +7688,7 @@ Scope {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 4
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: root.clipAutoPaste ? "Return to insert" : "Return to copy"
+                                text: root.clipAutoPaste ? Language.I18n.text("ui.t_0b865d472eb3") : Language.I18n.text("ui.t_75245254fc6f")
                                 color: pal.fg3
                                 font.family: pal.fam; font.pixelSize: 12
                             }
@@ -7702,7 +7722,7 @@ Scope {
                                 x: 40 + 3
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: appsInput.text === ""
-                                text: "Applications"
+                                text: Language.I18n.text("ui.t_98e33b0f3104")
                                 color: pal.fg3
                                 font.family: pal.fam; font.pixelSize: 24
                             }
@@ -7770,7 +7790,7 @@ Scope {
                                                 visible: !sec.searching && sec.modelData.apps.length > 5
                                                 anchors.right: parent.right
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                text: sec.expanded ? "Show Less" : "Show More"
+                                                text: sec.expanded ? Language.I18n.text("ui.t_0264d7b0ccb8") : Language.I18n.text("ui.t_ba8a80fdd737")
                                                 color: root.accent
                                                 font.family: pal.fam; font.pixelSize: 12; font.weight: Font.Bold
                                                 MouseArea {
@@ -7834,7 +7854,7 @@ Scope {
                                     height: 90
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
-                                    text: "No Results"
+                                    text: Language.I18n.text("ui.t_ed805f62bdbf")
                                     color: pal.fg2
                                     font.family: pal.fam; font.pixelSize: 14
                                 }

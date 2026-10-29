@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Per-user niri installer with validation, snapshots and rollback."""
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import json
 import os
@@ -30,6 +32,7 @@ SHELL = CONFIG / "quickshell/MacShell-niri"
 LOCK = CONFIG / "quickshell/MacLock-niri"
 NIRI = CONFIG / "niri/config.kdl"
 SESSION_UNIT = CONFIG / "systemd/user/niri-macshell.service"
+SHELL_UNIT = CONFIG / "systemd/user/macshell-niri-shell.service"
 
 
 def quickshell():
@@ -63,7 +66,7 @@ def validate(path):
 
 
 def runtime_check():
-    missing = [name for name in ("niri", "python3", quickshell()) if not shutil.which(name)]
+    missing = [name for name in ("niri", "python3", "systemctl", "systemd-run", "flock", quickshell()) if not shutil.which(name)]
     if missing:
         raise RuntimeError("Missing required programs: " + ", ".join(missing))
     check_runtime(quickshell())
@@ -108,7 +111,11 @@ def launcher(lock=False):
     text += "".join(f"export {key}={shlex.quote(value)}\n" for key, value in env.items())
     text += 'export PATH=' + shlex.quote(str(Path(quickshell()).parent)) + ':"$PATH"\n'
     text += 'export QT_QUICK_CONTROLS_STYLE="${QT_QUICK_CONTROLS_STYLE:-Basic}"\n'
-    return text + (f'exec sh {shlex.quote(str(LOCK / "lock-via-ipc.sh"))} "$@"\n' if lock else 'exec "$MACSHELL_QS_BIN" -c MacShell-niri "$@"\n')
+    if lock:
+        return text + f'exec sh {shlex.quote(str(LOCK / "lock-via-ipc.sh"))} "$@"\n'
+    text += 'if [[ $# -eq 0 && ${MACSHELL_MANAGED_SHELL:-} == 1 && ${MACSHELL_SERVICE_CHILD:-} != 1 ]]; then\n'
+    text += f'    exec /usr/bin/python3 {shlex.quote(str(PROFILE / "shell-supervisor.py"))} start\nfi\n'
+    return text + 'unset MACSHELL_SERVICE_CHILD\nexec "$MACSHELL_QS_BIN" -c MacShell-niri "$@"\n'
 
 
 def session_files():
@@ -116,8 +123,13 @@ def session_files():
     shutil.copy2(SOURCE / "scripts/session_preflight.py", preflight)
     ready = PROFILE / "session-ready.py"
     shutil.copy2(SOURCE / "scripts/session_ready.py", ready)
+    supervisor = PROFILE / "shell-supervisor.py"
+    shutil.copy2(SOURCE / "scripts/shell_supervisor.py", supervisor)
+    locale_helper = PROFILE / "session-locale.py"
+    shutil.copy2(SOURCE / "scripts/session_locale.py", locale_helper)
+    shutil.copy2(SOURCE / "MacShell/locale_preferences.py", PROFILE / "locale_preferences.py")
     script = (SOURCE / "scripts/niri-macshell-session.sh").read_text()
-    for token, value in {"@PROFILE_CONFIG@": PROFILE / "niri/config.kdl", "@PREFLIGHT@": preflight, "@QS_BINARY@": quickshell()}.items():
+    for token, value in {"@PROFILE_CONFIG@": PROFILE / "niri/config.kdl", "@PREFLIGHT@": preflight, "@QS_BINARY@": quickshell(), "@LOCALE_HELPER@": locale_helper}.items():
         script = script.replace(token, shlex.quote(str(value)))
     path = BIN / "niri-macshell-session"
     path.write_text(script)
@@ -125,7 +137,8 @@ def session_files():
     SESSION_UNIT.parent.mkdir(parents=True, exist_ok=True)
     def unit_arg(path):
         return '"' + str(path).replace("%", "%%").replace("\\", "\\\\").replace('"', '\\"') + '"'
-    SESSION_UNIT.write_text('[Unit]\nDescription=niri with the separate MacShell profile\nBindsTo=graphical-session.target\nBefore=graphical-session.target\nWants=graphical-session-pre.target\nAfter=graphical-session-pre.target\nWants=xdg-desktop-autostart.target\nBefore=xdg-desktop-autostart.target\n\n[Service]\nSlice=session.slice\nType=notify\nTimeoutStartSec=30\nTimeoutStopSec=10\nExecStart=/usr/bin/niri --session --config ' + unit_arg(PROFILE / "niri/config.kdl") + '\nExecStartPost=/usr/bin/python3 ' + unit_arg(ready) + ' ' + unit_arg(BIN / "macshell-niri") + '\n')
+    SESSION_UNIT.write_text('[Unit]\nDescription=niri with the separate MacShell profile\nBindsTo=graphical-session.target\nBefore=graphical-session.target\nWants=graphical-session-pre.target\nAfter=graphical-session-pre.target\nWants=xdg-desktop-autostart.target\nBefore=xdg-desktop-autostart.target\n\n[Service]\nSlice=session.slice\nType=notify\nTimeoutStartSec=30\nTimeoutStopSec=10\nExecStart=/usr/bin/niri --session --config ' + unit_arg(PROFILE / "niri/config.kdl") + '\nExecStartPost=/usr/bin/python3 ' + unit_arg(ready) + ' ' + unit_arg(BIN / "macshell-niri") + '\nExecStopPost=-/usr/bin/systemctl --user stop macshell-niri-shell.service\n')
+    SHELL_UNIT.write_text('[Unit]\nDescription=MacShell for the niri session\nPartOf=niri-macshell.service\nStartLimitIntervalSec=60\nStartLimitBurst=5\n\n[Service]\nSlice=session.slice\nType=exec\nEnvironment=MACSHELL_SERVICE_CHILD=1\nExecStartPre=/usr/bin/python3 ' + unit_arg(supervisor) + ' check ' + unit_arg(quickshell()) + '\nExecStart=' + unit_arg(BIN / "macshell-niri") + '\nRestart=on-failure\nRestartSec=2\nTimeoutStopSec=10\nKillMode=control-group\n')
     bundle = DATA / "session"
     bundle.mkdir(parents=True, exist_ok=True)
     for source in ("scripts/register-session.sh", "scripts/session-entry.sh", "config/niri-macshell.desktop"):
@@ -210,6 +223,49 @@ def restore(directory, manifest, force=False):
         (DATA / "latest").unlink(missing_ok=True)
 
 
+def session_active():
+    result = subprocess.run(["systemctl", "--user", "show", "niri-macshell.service", "--property=ActiveState", "--value"], capture_output=True, text=True, timeout=5)
+    if result.returncode:
+        raise RuntimeError("Cannot determine whether the MacShell session is active")
+    return result.stdout.strip() not in ("inactive", "failed")
+
+
+def instances(name):
+    result = subprocess.run([quickshell(), "-c", name, "list", "--any-display", "--json"], check=True, capture_output=True, text=True, timeout=5)
+    if result.stdout.startswith('No running instances for "') and result.stdout.rstrip().endswith('Use --all to list all instances.'):
+        return []
+    value = json.loads(result.stdout)
+    if not isinstance(value, list):
+        raise RuntimeError("Unexpected Quickshell instance list")
+    return value
+
+
+@contextmanager
+def install_guard():
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime or not Path(runtime).is_dir():
+        raise RuntimeError("Installation needs the user runtime directory")
+    with (Path(runtime) / "macshell-niri-lock.guard").open("a") as guard:
+        fcntl.flock(guard, fcntl.LOCK_EX)
+        if instances("MacLock-niri"):
+            state = subprocess.run([quickshell(), "-c", "MacLock-niri", "ipc", "call", "lockscreen", "state"], capture_output=True, text=True, timeout=5)
+            if state.returncode or state.stdout.strip() != "ready":
+                raise RuntimeError("MacLock is active or its state is unknown; unlock before changing the installation")
+        yield
+
+
+def stop_shell(name):
+    if not instances(name):
+        return False
+    subprocess.run([quickshell(), "-c", name, "kill"], check=True, capture_output=True, timeout=5)
+    deadline = time.monotonic() + 10
+    while instances(name):
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"{name} did not stop; installation was not changed")
+        time.sleep(.1)
+    return True
+
+
 def start_previous(name):
     if name:
         command = [str(BIN / "macshell-niri")] if name == "MacShell-niri" else ["qs", "-c", name]
@@ -219,6 +275,13 @@ def start_previous(name):
 def install(activate=False, session=False):
     if os.geteuid() == 0:
         raise RuntimeError("Run as your desktop user, without sudo.")
+    with install_guard():
+        if session_active():
+            raise RuntimeError("Log out of the MacShell session before installing or updating it")
+        install_unlocked(activate, session)
+
+
+def install_unlocked(activate=False, session=False):
     if not activate and not session and NIRI.is_file() and NIRI.read_text().startswith("// Original config snapshot:"):
         raise RuntimeError("MacShell is already active. Use --activate to update it with session recovery.")
     if activate or session:
@@ -230,15 +293,14 @@ def install(activate=False, session=False):
             previous_shell = prepare_niri(staged)
         targets = [SHELL, LOCK, BIN / "macshell-niri", BIN / "maclock-niri", PROFILE] + ([NIRI] if activate else [])
         if session:
-            targets += [SESSION_UNIT, BIN / "niri-macshell-session", DATA / "session"]
+            targets += [SESSION_UNIT, SHELL_UNIT, BIN / "niri-macshell-session", DATA / "session"]
         directory, manifest = snapshot(targets)
         if activate:
             manifest["previous_shell"] = "MacShell-niri" if previous_port else "noctalia-shell" if previous_shell else None
         previous_stopped = False
         try:
             if previous_port:
-                subprocess.run(["qs", "-c", "MacShell-niri", "kill"], capture_output=True)
-                previous_stopped = True
+                previous_stopped = stop_shell("MacShell-niri")
             for source, destination in ((SOURCE / "MacShell", SHELL), (SOURCE / "MacLock", LOCK)):
                 remove(destination)
                 shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -267,8 +329,7 @@ def install(activate=False, session=False):
                 (directory / "manifest.json").write_text(json.dumps(manifest, indent=2))
                 subprocess.run(["niri", "msg", "action", "load-config-file"], check=True, capture_output=True)
                 if previous_shell:
-                    subprocess.run(["qs", "-c", "noctalia-shell", "kill"], capture_output=True)
-                    previous_stopped = True
+                    previous_stopped = stop_shell("noctalia-shell") or previous_stopped
                 logs = DATA / "logs"
                 logs.mkdir(exist_ok=True)
                 with (logs / "shell.log").open("w") as log:
@@ -288,6 +349,8 @@ def install(activate=False, session=False):
                     raise RuntimeError("MacShell did not become ready; reverting configuration. Log: " + str(logs / "shell.log"))
         except Exception:
             restore(directory, manifest)
+            if session:
+                subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True)
             if manifest.get("activated"):
                 subprocess.run(["niri", "msg", "action", "load-config-file"], capture_output=True)
             if previous_stopped:
@@ -326,14 +389,21 @@ def main():
         manifest = json.loads((directory / "manifest.json").read_text())
         if manifest.get("niri_digest") and digest(NIRI) != manifest["niri_digest"] and not args.force:
             raise RuntimeError("niri config was edited; inspect the backup before forcing rollback.")
-        if manifest["activated"]:
-            subprocess.run(["qs", "-c", "MacShell-niri", "kill"], capture_output=True)
-        restore(directory, manifest, args.force)
-        if manifest.get("session_only"):
-            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False, capture_output=True)
-        if manifest["activated"]:
-            subprocess.run(["niri", "msg", "action", "load-config-file"], capture_output=True)
-            start_previous(manifest.get("previous_shell"))
+        with install_guard():
+            if session_active():
+                raise RuntimeError("Log out of the MacShell session before rolling back")
+            stopped = stop_shell("MacShell-niri") if manifest["activated"] else False
+            try:
+                restore(directory, manifest, args.force)
+                if manifest.get("session_only"):
+                    subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, capture_output=True)
+                if manifest["activated"]:
+                    subprocess.run(["niri", "msg", "action", "load-config-file"], check=True, capture_output=True)
+                    start_previous(manifest.get("previous_shell"))
+            except Exception:
+                if stopped:
+                    start_previous("MacShell-niri")
+                raise
         print("Restored:", directory, "\nPost-install files were preserved in its after/ directory.")
         return 0
     install(args.activate, args.session)

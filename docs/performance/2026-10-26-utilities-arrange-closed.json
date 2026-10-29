@@ -1,0 +1,125 @@
+{
+  "phase": "current",
+  "seconds": 45.02,
+  "cpu_one_core": 8.374,
+  "cpu_machine": 0.698,
+  "logical_cpus": 12,
+  "peak_rss_mib": 791.48,
+  "peak_pss_mib": 537.33,
+  "peak_processes": 16,
+  "pss_complete": true,
+  "processes": [
+    {
+      "name": "qs",
+      "cpu_one_core": 6.33,
+      "rss_mib": 458.09,
+      "pss_mib": 363.9
+    },
+    {
+      "name": "python3 / niri_ipc.py",
+      "cpu_one_core": 1.0,
+      "rss_mib": 12.92,
+      "pss_mib": 5.8
+    },
+    {
+      "name": "python3 / bluetooth_service.py",
+      "cpu_one_core": 0.267,
+      "rss_mib": 31.02,
+      "pss_mib": 15.82
+    },
+    {
+      "name": "python3 / network_control.py",
+      "cpu_one_core": 0.133,
+      "rss_mib": 31.34,
+      "pss_mib": 16.4
+    },
+    {
+      "name": "python3 / system_stats.py",
+      "cpu_one_core": 0.111,
+      "rss_mib": 13.94,
+      "pss_mib": 6.79
+    },
+    {
+      "name": "python3 / niri_capture.py",
+      "cpu_one_core": 0.022,
+      "rss_mib": 61.33,
+      "pss_mib": 41.14
+    },
+    {
+      "name": "python3 / widget_layout_service.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 19.32,
+      "pss_mib": 8.22
+    },
+    {
+      "name": "python3 / night_shift.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 14.76,
+      "pss_mib": 6.79
+    },
+    {
+      "name": "python3 / timed_modes.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 13.84,
+      "pss_mib": 6.64
+    },
+    {
+      "name": "python3 / airdrop_service.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 16.39,
+      "pss_mib": 8.57
+    },
+    {
+      "name": "python3 / screen_mirroring.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 16.88,
+      "pss_mib": 8.63
+    },
+    {
+      "name": "python3 / recording_control.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 16.59,
+      "pss_mib": 8.63
+    },
+    {
+      "name": "python3 / power_control.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 30.49,
+      "pss_mib": 15.33
+    },
+    {
+      "name": "python3 / bar_layout_service.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 18.72,
+      "pss_mib": 8.06
+    },
+    {
+      "name": "python3 / activity_preferences_service.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 18.87,
+      "pss_mib": 8.03
+    },
+    {
+      "name": "python3 / native_blur.py",
+      "cpu_one_core": 0.0,
+      "rss_mib": 16.1,
+      "pss_mib": 7.73
+    }
+  ],
+  "gpu_engine_percent": {
+    "0000:00:02.0/render": 0.503,
+    "0000:00:02.0/copy": 0.0,
+    "0000:00:02.0/video": 0.0,
+    "0000:00:02.0/video-enhance": 0.0
+  },
+  "status": {
+    "connected": true,
+    "windows": 8,
+    "capture": true,
+    "captureEnabled": true,
+    "captureFrames": 6
+  },
+  "monitoring_open_start": false,
+  "monitoring_open_end": false,
+  "scenario_valid": true
+}

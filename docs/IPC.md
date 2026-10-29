@@ -22,6 +22,9 @@
 | `clock open` | Открыть Clock |
 | `clock tab NAME` | Открыть вкладку `world`, `alarms`, `stopwatch` или `timers` |
 | `clock stop` / `clock snooze` | Остановить текущий сигнал или отложить его |
+| `calculator open` | Открыть Calculator |
+| `calculator expression TEXT` | Открыть Calculator и вычислить выражение, переданное одним аргументом |
+| `utilities open NAME` | Открыть встроенную утилиту `calculator` или `clock` |
 | `notifications open` / `notifications close` | Открыть или закрыть Notification Center |
 | `notifications clear` | Очистить уведомления |
 | `notifications dismiss ID` | Удалить уведомление по числовому ID |

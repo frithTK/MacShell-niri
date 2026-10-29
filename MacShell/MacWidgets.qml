@@ -1,8 +1,8 @@
 // Desktop widgets (macOS Tahoe style) for macshell.
 //
-//   * one full-screen layer per connected display, BELOW normal windows
+//   * one desktop layer per display; Arrange covers windows until Done/Escape
 //   * click-through while you are not editing; edit mode shows free grid slots and snaps widget moves / sizes without overlap
-//   * Weather data from Open-Meteo, a local-date Calendar, a live local-time Clock, and a Music player (MPRIS) widget
+//   * Weather data from Open-Meteo, a local-date Calendar, a live local-time Clock, a Music player (MPRIS), shared Activity, and Batteries
 //   * settings + placed widgets are saved to ~/.config/macwidgets/settings.json
 //
 //   qs -c macbar ipc call widgets refresh        re-fetch the weather now
@@ -11,6 +11,8 @@
 // niri: nothing is required. (No blur layerrule is needed, the Liquid Glass style blurs the wallpaper itself.)
 
 import QtQuick
+import "Locale" as Language
+import QtQuick.Window
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -19,12 +21,17 @@ import "WidgetCatalog.js" as Catalog
 import "WidgetLayout.js" as Layout
 import "WidgetAppearance.js" as Appearance
 import "WidgetVisibility.js" as Visibility
+import "ActivityWidgetData.js" as ActivityData
+import "BatteriesData.js" as BatteriesData
 
 Scope {
     id: root
 
     property var hub: null
     readonly property var dock: hub ? hub.dock : null
+    readonly property var stats: hub && hub.bar ? hub.bar.stats : null
+    readonly property var activityAppearance: hub && hub.bar && hub.bar.activityPreferences ? hub.bar.activityPreferences.values : ({})
+    function openActivity(output) { if (hub && hub.bar) hub.bar.showMonitoring(output); }
 
     // ───────────── state ─────────────
     property bool editing: false
@@ -38,6 +45,14 @@ Scope {
     property var desktopWindows: ({})
     readonly property var desktopWindow: desktopWindows[screenName] || null
     property string editingGeometry: ""
+    property bool editingHadFocus: false
+    property var draggingWidgets: ({})
+    readonly property bool dragging: Object.keys(draggingWidgets).length > 0
+    function setDragging(id, value) {
+        var next = Object.assign({}, draggingWidgets);
+        if (value) next[id] = true; else delete next[id];
+        draggingWidgets = next;
+    }
     function registerWindow(name, window) {
         var next = Object.assign({}, desktopWindows);
         if (window) next[name] = window; else delete next[name];
@@ -48,7 +63,17 @@ Scope {
         return plan && !plan.ambiguous ? JSON.stringify([plan.screen.width, plan.screen.height, plan.area]) : "";
     }
     property var focusController: Niri
-    property alias editControls: editWindow
+    QtObject {
+        id: editSession
+        readonly property var surface: root.desktopWindows[root.editingOutput] || null
+        readonly property var contentItem: surface ? surface.editor : null
+        readonly property bool visible: root.editing && !!contentItem
+        readonly property bool active: visible && !!surface.contentItem.Window.window && surface.contentItem.Window.window.active
+        function activate() { Qt.callLater(() => { if (contentItem) contentItem.activate(); }); }
+        function openActions() { Qt.callLater(() => { if (contentItem) contentItem.openActions(); }); }
+        onActiveChanged: if (active) root.editingHadFocus = true
+    }
+    property alias editControls: editSession
     readonly property var selectedRow: renderedRows.find(item => item.wid === selectedId) || null
     function geometryToken(row) { return row ? JSON.stringify([row.woutput, row.wx, row.wy, row.wsize, row.wtype]) : ""; }
     function selectWidget(id) {
@@ -56,7 +81,7 @@ Scope {
         selectedId = id;
         if (selectedRow) { editingOutput = selectedRow.woutput; editingGeometry = screenToken(editingOutput); }
         selectionGeometry = geometryToken(selectedRow); editError = "";
-        editWindow.activate();
+        editSession.activate();
     }
     function finishEditing(restore) { restoreAfterEdit = restore; editing = false; }
     onEditingChanged: {
@@ -66,10 +91,10 @@ Scope {
             returnFocusId = focusController.activeToplevel ? focusController.activeToplevel.id : 0;
             returnWorkspaceId = focusController.focusedWorkspace ? focusController.focusedWorkspace.id : -1;
             editingOutput = screenName; editingGeometry = screenToken(editingOutput);
-            selectedId = ""; editError = ""; editWindow.activate();
+            selectedId = ""; editError = ""; editingHadFocus = false; editSession.activate();
         } else {
-            var wasActive = editWindow.active, restore = restoreAfterEdit, targetId = returnFocusId;
-            editWindow.hide(); selectedId = ""; editError = ""; restoreAfterEdit = true;
+            var wasActive = editingHadFocus, restore = restoreAfterEdit, targetId = returnFocusId;
+            selectedId = ""; editError = ""; restoreAfterEdit = true; draggingWidgets = ({}); editingHadFocus = false;
             if (wasActive && restore && targetId) Qt.callLater(() => {
                 var target = root.focusController.windowMap[String(targetId)], active = root.focusController.activeToplevel;
                 if (target && root.focusController.focusedWorkspace && root.focusController.focusedWorkspace.id === root.returnWorkspaceId
@@ -99,6 +124,14 @@ Scope {
     property bool overviewOpen: Niri.overview
     function outputActive(name) { return widgetsEnabled && !Visibility.covered(name, visibilityClients, visibilityConnected, overviewOpen, editing); }
     property alias subscriptions: widgetSubscriptions
+    property alias batteryDevices: batteriesModel
+    BatteriesModel {
+        id: batteriesModel
+        battery: root.hub && root.hub.bar ? root.hub.bar.battery : null
+        bluetooth: root.hub && root.hub.bar ? root.hub.bar.bluetooth : null
+        active: root.ready && (widgetSubscriptions.counts.batteries > 0
+            || Object.keys(root.editorSessions).length > 0 && root.instanceRows.some(row => row.type === "batteries" && row.supported))
+    }
     property alias clockSource: widgetClock
     WidgetSubscriptions { id: widgetSubscriptions; instances: root.renderedRows; enabled: root.widgetsEnabled }
     WidgetClock { id: widgetClock; precision: widgetSubscriptions.clockPrecision }
@@ -183,24 +216,29 @@ Scope {
         onReadOnlyChanged: if (readOnly && root.editing) root.finishEditing(false)
         onFinished: success => root.completeMutation(success)
     }
-    WidgetEditWindow {
-        id: editWindow
-        foreground: root.darkGlass ? "#f5f5f7" : "#1d1d1f"
-        accent: root.dock ? root.dock.accent : "#0a84ff"; family: root.fontFamily
-        selectedId: root.selectedId; selectedType: root.selectedRow ? root.selectedRow.wtype : ""
-        selectedSize: root.selectedRow ? root.selectedRow.wsize : "small"
-        busy: root.pending || !root.editable; error: root.editError
-        outputName: root.editingOutput
-        displayChoices: root.displayChoices; selectedOutput: root.selectedRow ? root.selectedRow.woutput : ""
-        canUndo: root.canUndoDelete
-        canConfigure: !!root.dock && !!root.dock.settingsEnabled
-        onFinished: root.finishEditing(true)
-        onResizeRequested: size => { if (!root.setSize(root.selectedId, size)) root.editError = "No room for this size. Try a smaller widget or rearrange the desktop."; }
-        onMoveRequested: name => { if (!root.moveWidgetToOutput(root.selectedId, name)) root.editError = "No room on this display. Try a smaller widget or rearrange it first."; }
-        onRemoveRequested: root.removeWidget(root.selectedId)
-        onDuplicateRequested: if (!root.duplicateWidget(root.selectedId)) root.editError = "No room for another card on this display.";
-        onUndoRequested: if (!root.undoDelete()) root.editError = "Could not restore this card. Reload settings and try again.";
-        onConfigureRequested: if (root.dock) root.dock.openWidgetPrefs(root.selectedId)
+    Component {
+        id: editToolbarComponent
+        WidgetEditToolbar {
+            foreground: root.darkGlass ? "#f5f5f7" : "#1d1d1f"
+            accent: root.dock ? root.dock.accent : "#0a84ff"; family: root.fontFamily
+            selectedId: root.selectedId; selectedType: root.selectedRow ? root.selectedRow.wtype : ""
+            selectedSize: root.selectedRow ? root.selectedRow.wsize : "small"
+            busy: root.pending || !root.editable; error: root.editError
+            displayChoices: root.displayChoices; selectedOutput: root.selectedRow ? root.selectedRow.woutput : ""
+            canUndo: root.canUndoDelete
+            canConfigure: !!root.dock && !!root.dock.settingsEnabled
+            onFinished: root.finishEditing(true)
+            onResizeRequested: size => { if (!root.setSize(root.selectedId, size)) root.editError = "No room for this size. Try a smaller widget or rearrange the desktop."; }
+            onMoveRequested: name => { if (!root.moveWidgetToOutput(root.selectedId, name)) root.editError = "No room on this display. Try a smaller widget or rearrange it first."; }
+            onRemoveRequested: root.removeWidget(root.selectedId)
+            onDuplicateRequested: if (!root.duplicateWidget(root.selectedId)) root.editError = "No room for another card on this display.";
+            onUndoRequested: if (!root.undoDelete()) root.editError = "Could not restore this card. Reload settings and try again.";
+            onConfigureRequested: {
+                var id = root.selectedId;
+                root.finishEditing(false);
+                if (root.dock) root.dock.openWidgetPrefs(id);
+            }
+        }
     }
 
     // saved settings
@@ -219,7 +257,7 @@ Scope {
     readonly property real glassGrain: dock ? dock.glassGrain : 0.03
     readonly property bool darkGlass: dock ? dock.darkMode : true
 
-    // placed widgets: roles wid, wtype (weather | calendar | clock | player), wstyle, wsize, wmode (calendar: auto | light | dark), wx, wy
+    // placed widgets: roles wid, wtype (weather | calendar | clock | player | activity | batteries), wstyle, wsize, wmode (calendar: auto | light | dark), wx, wy
     property alias model: wmodel
     WidgetModel { id: wmodel; rows: root.renderedRows }
     readonly property int widgetCount: wmodel.count
@@ -348,8 +386,12 @@ Scope {
         if (typeof local !== "object" || Array.isArray(local) || Appearance.fields.some(key => local[key] !== undefined && !Appearance.valid(key, local[key]))) return false;
         if (draft.style !== undefined && Catalog.find(item.type).styles.indexOf(draft.style) < 0) return false;
         if (draft.mode !== undefined && ["auto", "light", "dark"].indexOf(draft.mode) < 0) return false;
+        if (item.type === "activity" && !ActivityData.validSettings(draft.activity === undefined ? {} : draft.activity)) return false;
+        if (item.type === "batteries" && !BatteriesData.validSettings(draft.batteries === undefined ? {} : draft.batteries)) return false;
         item.settings = item.settings || {};
-        ["style", "mode", "appearance"].forEach(key => {
+        var fields = ["style", "mode", "appearance"];
+        if (item.type === "activity" || item.type === "batteries") fields.push(item.type);
+        fields.forEach(key => {
             if (draft[key] === undefined) delete item.settings[key]; else item.settings[key] = Layout.clone(draft[key]);
         });
         return widgetPreferences.save(next);
@@ -566,12 +608,12 @@ Scope {
     }
     readonly property var wxInfo: wmo(wxCode, wxDay)
     function hourLabel(iso, first) {
-        if (first) return "Now";
+        if (first) return Language.I18n.text("ui.t_fe18013d93d2");
         var h = parseInt(iso.substr(11, 2));
         return (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? "AM" : "PM");
     }
     function dayLabel(iso, i) {
-        if (i === 0) return "Today";
+        if (i === 0) return Language.I18n.text("ui.t_2b065c7c9ce4");
         var d = new Date(parseInt(iso.substr(0, 4)), parseInt(iso.substr(5, 2)) - 1, parseInt(iso.substr(8, 2)));
         return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
     }
@@ -610,7 +652,7 @@ Scope {
         var message;
         try { message = JSON.parse(text); } catch (error) { return; }
         if (!weatherWanted || message.epoch !== weatherEpoch) return;
-        if (!message.success) { wxError = message.error || "Weather unavailable."; scheduleWeather(60000); return; }
+        if (!message.success) { wxError = message.error || Language.I18n.text("ui.t_401718624faf"); scheduleWeather(60000); return; }
         try {
             var result = message.result, o = result.forecast;
             wxLat = result.latitude; wxLon = result.longitude; wxPlace = result.place; wxLocated = result.located;
@@ -698,21 +740,25 @@ Scope {
             id: win
             required property var modelData
             property string registeredOutput: ""
+            readonly property var editor: toolbar.item
             screen: modelData
             anchors { left: true; right: true; top: true; bottom: true }
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
 
             WlrLayershell.namespace: "macwidgets"
-            WlrLayershell.layer: WlrLayer.Bottom
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            WlrLayershell.layer: root.editing ? WlrLayer.Overlay : WlrLayer.Bottom
+            WlrLayershell.keyboardFocus: root.editing && win.modelData.name === root.editingOutput ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             Component.onCompleted: { registeredOutput = modelData.name; root.registerWindow(registeredOutput, win); }
             Component.onDestruction: if (root.desktopWindows[registeredOutput] === win) root.registerWindow(registeredOutput, null)
             mask: WidgetInputMask { registry: inputRegistry }
 
-            Item {
+            FocusScope {
                 id: ui
+                objectName: "widgetArrangeScene"
                 anchors.fill: parent
+                focus: root.editing
+                Keys.onEscapePressed: root.finishEditing(true)
 
                 WidgetInputRegistry {
                     id: inputRegistry; objectName: "widgetInputs"; outputName: win.modelData.name; surfaceItem: ui
@@ -721,11 +767,16 @@ Scope {
                 }
                 MouseArea { anchors.fill: parent; enabled: root.editing; acceptedButtons: Qt.LeftButton | Qt.RightButton; onClicked: root.selectWidget("") }
 
-                Rectangle {   // slight dim while editing
+                Rectangle {
+                    objectName: "widgetArrangeBackdrop"
                     anchors.fill: parent
-                    color: "black"
-                    opacity: root.editing ? 0.16 : 0
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
+                    visible: root.editing
+                    color: root.darkGlass ? "#16171b" : "#e5e5ed"
+                    Image {
+                        anchors.fill: parent; fillMode: Image.PreserveAspectCrop; asynchronous: true
+                        source: root.editing ? root.fileUrl(root.wallpaperFor(win.modelData.name)) : ""
+                    }
+                    Rectangle { anchors.fill: parent; color: "black"; opacity: .16 }
                 }
 
                 Repeater {   // free Small-sized grid cells; Medium and Large snap across 2-cell footprints
@@ -758,6 +809,8 @@ Scope {
                         required property string wsize
                         required property string wmode
                         required property string wappearance
+                        required property string wactivity
+                        required property string wbatteries
                         required property real wx
                         required property real wy
 
@@ -786,6 +839,8 @@ Scope {
                             renderActive: root.outputActive(win.modelData.name) && ww.visible && ww.opacity > .001
                             wtype: ww.wtype; wstyle: ww.wstyle; wsize: ww.wsize; wmode: ww.wmode
                             wappearance: ww.wappearance
+                            wactivity: ww.wactivity
+                            wbatteries: ww.wbatteries
                             sx: ww.x; sy: ww.y
                             sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
                         }
@@ -801,16 +856,18 @@ Scope {
                             radius: ww.radiusPx
                             color: "transparent"
                             border.width: 2
-                            border.color: root.selectedId === ww.wid ? editWindow.accent : Qt.rgba(1, 1, 1, 0.55)
+                            border.color: root.selectedId === ww.wid ? (root.dock ? root.dock.accent : "#0a84ff") : Qt.rgba(1, 1, 1, 0.55)
                         }
                         WidgetEditHandle {
                             id: dragArea
                             anchors.fill: parent
                             enabled: root.editing && root.editable
                             targetItem: ww; coordinateItem: ui
+                            onPressedChanged: root.setDragging(ww.wid, pressed)
+                            Component.onDestruction: root.setDragging(ww.wid, false)
                             onMoveRequested: (x, y) => root.moveWidget(ww.wid, x, y)
                             onSelectRequested: root.selectWidget(ww.wid)
-                            onContextRequested: root.selectWidget(ww.wid)
+                            onContextRequested: { root.selectWidget(ww.wid); editSession.openActions(); }
                         }
                         Rectangle {   // "−" remove badge
                             visible: root.editing
@@ -823,6 +880,15 @@ Scope {
                             MouseArea { id: minusMa; anchors.fill: parent; enabled: root.editable; onClicked: root.removeWidget(ww.wid) }
                         }
                     }
+                }
+                Loader {
+                    id: toolbar; objectName: "widgetArrangeToolbar"
+                    anchors.top: parent.top; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.max(0, Math.min(760, parent.width - 24)); height: 40; z: 100
+                    active: root.editing && win.modelData.name === root.editingOutput
+                    visible: active && !root.dragging
+                    sourceComponent: editToolbarComponent
+                    onLoaded: item.activate()
                 }
             }
         }

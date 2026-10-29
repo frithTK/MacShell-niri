@@ -20,7 +20,7 @@ QtObject {
         return result;
     }
     readonly property var counts: {
-        var result = {weather: 0, player: 0, lyrics: 0, time: 0, date: 0};
+        var result = {weather: 0, player: 0, lyrics: 0, time: 0, date: 0, stats: 0, batteries: 0};
         consumers.forEach(item => {
             var definition = Catalog.find(item.type);
             if (definition) definition.data.forEach(source => {

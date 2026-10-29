@@ -1,0 +1,57 @@
+{
+  "backend": "offscreen/software",
+  "intervalSeconds": 1,
+  "warmupSeconds": 2,
+  "baseline": "Static Normal Calendar in every phase; four Large Activity cards, two Rings and two Graphs.",
+  "budgets": {
+    "cpuOneCoreDelta": 2.0,
+    "meanRssDeltaMiB": 25.0
+  },
+  "scenarios": {
+    "none": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 92.46,
+      "maxRssMiB": 92.46,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "sampler": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.5,
+      "meanRssMiB": 104.32,
+      "maxRssMiB": 104.32,
+      "maxProcesses": 2,
+      "samples": 10
+    },
+    "widgets": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 1.2,
+      "meanRssMiB": 126.11,
+      "maxRssMiB": 126.29,
+      "maxProcesses": 2,
+      "samples": 10
+    },
+    "hidden": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 91.46,
+      "maxRssMiB": 91.46,
+      "maxProcesses": 1,
+      "samples": 10
+    },
+    "removed": {
+      "seconds": 10.0,
+      "cpuOneCorePercent": 0.0,
+      "meanRssMiB": 108.21,
+      "maxRssMiB": 108.21,
+      "maxProcesses": 1,
+      "samples": 10
+    }
+  },
+  "delta": {
+    "cpuOneCorePercent": 0.7,
+    "meanRssMiB": 21.79
+  },
+  "withinBudgets": true
+}

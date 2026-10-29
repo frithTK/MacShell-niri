@@ -1,14 +1,17 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 import QtQuick.Effects
 
 ComboBox {
     id: root
+    property bool translatedLabels: false
+    property var labelForIndex: null
     implicitHeight: 34
     font.pixelSize: 12
     contentItem: Text {
         leftPadding: 12; rightPadding: 32
-        text: root.displayText; font: root.font; color: root.palette.buttonText
+        text: root.labelForIndex ? root.labelForIndex(root.currentIndex) : (root.translatedLabels ? Language.I18n.legacy(root.displayText) : root.displayText); font: root.font; color: root.palette.buttonText
         verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight
     }
     indicator: Text {
@@ -26,7 +29,7 @@ ComboBox {
         highlighted: root.highlightedIndex === index
         contentItem: Item {
             Text { x: 4; anchors.verticalCenter: parent.verticalCenter; text: "✓"; visible: row.index === root.currentIndex; font.pixelSize: 12; color: row.highlighted ? "white" : root.palette.text }
-            Text { x: 24; width: parent.width - 28; anchors.verticalCenter: parent.verticalCenter; text: root.textAt(row.index); font: root.font; elide: Text.ElideRight; color: row.highlighted ? "white" : root.palette.text }
+            Text { x: 24; width: parent.width - 28; anchors.verticalCenter: parent.verticalCenter; text: root.labelForIndex ? root.labelForIndex(row.index) : (root.translatedLabels ? Language.I18n.legacy(root.textAt(row.index)) : root.textAt(row.index)); font: root.font; elide: Text.ElideRight; color: row.highlighted ? "white" : root.palette.text }
         }
         background: Rectangle { radius: 6; color: row.highlighted ? root.palette.highlight : "transparent" }
     }

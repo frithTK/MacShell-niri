@@ -174,6 +174,17 @@ Canvas {
         } else if (k === "activity") {
             rrect(1.5, 2.5, 15, 13, 2.5); ctx.stroke();
             poly([3.7, 9, 6.2, 9, 7.6, 5.7, 10.2, 12.3, 11.7, 9, 14.3, 9], false);
+        } else if (k === "laptop") {
+            rrect(3, 3.5, 12, 8.5, 1.2); ctx.stroke();
+            poly([3, 12, 1.5, 14.5, 16.5, 14.5, 15, 12], false);
+        } else if (k === "keyboard") {
+            rrect(1.5, 4.5, 15, 9, 1.5); ctx.stroke();
+            for (i2 = 0; i2 < 5; i2++) { circ(4 + i2 * 2.5, 7, .55); ctx.fill(); }
+            for (i2 = 0; i2 < 4; i2++) { circ(4.5 + i2 * 2.8, 9.5, .55); ctx.fill(); }
+            line(6, 11.5, 12, 11.5);
+        } else if (k === "mouse") {
+            rrect(4.5, 1.5, 9, 15, 4.3); ctx.stroke();
+            line(9, 3.5, 9, 6.5);
         } else if (k === "monitor") {
             rrect(2, 3, 14, 9.4, 1.8); ctx.stroke();
             line(6.4, 15.4, 11.6, 15.4); line(9, 12.4, 9, 15.4);

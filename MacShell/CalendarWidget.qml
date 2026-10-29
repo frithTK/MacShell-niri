@@ -14,6 +14,7 @@
 // The item's own x / y are its position on the screen, which is how the glass knows which part of the wallpaper
 // sits behind it (it follows the widget while it is dragged).
 import QtQuick
+import "Locale" as Language
 import QtQuick.Effects
 
 Item {
@@ -80,9 +81,9 @@ Item {
         onTriggered: { var d = new Date(); if (d.toDateString() !== w.now.toDateString()) w.now = d; }
     }
     onActiveChanged: if (active && !managedClock && !preview) now = new Date()
-    readonly property var monthNames: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-    readonly property var dayNames: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-    readonly property var letters: ["S", "M", "T", "W", "T", "F", "S"]
+    readonly property var monthNames: Array.from({length: 12}, (_, index) => Language.I18n.formatLocale.standaloneMonthName(index, Locale.LongFormat))
+    readonly property var dayNames: Array.from({length: 7}, (_, index) => Language.I18n.formatLocale.dayName(index, Locale.LongFormat))
+    readonly property var letters: Array.from({length: 7}, (_, index) => Language.I18n.formatLocale.dayName(index, Locale.ShortFormat))
     readonly property var cal: {
         var d = w.now, y = d.getFullYear(), m = d.getMonth();
         var first = new Date(y, m, 1).getDay();

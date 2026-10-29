@@ -6,6 +6,7 @@
 // saved to ~/.config/macshell/clock.json the moment it changes (survives crashes and restarts); the Clock widget and
 // the lock screen read the same file, so a running timer / stopwatch shows there too.
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
@@ -67,10 +68,10 @@ Scope {
     function repeatText(days) {
         if (!days || days.length === 0) return "";
         var d = days.slice().sort();
-        if (d.length === 7) return "every day";
-        if (d.join() === "1,2,3,4,5") return "weekdays";
-        if (d.join() === "0,6") return "weekends";
-        var n = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        if (d.length === 7) return Language.I18n.text("ui.t_ed28f6cae0fa");
+        if (d.join() === "1,2,3,4,5") return Language.I18n.text("clock.weekdays");
+        if (d.join() === "0,6") return Language.I18n.text("clock.weekends");
+        var n = Array.from({length: 7}, (_, index) => Language.I18n.formatLocale.dayName(index, Locale.ShortFormat));
         return d.map(function (i) { return n[i]; }).join(", ");
     }
 
@@ -179,9 +180,9 @@ Scope {
         var off = tzOff[tz]; if (off === undefined) off = localOff;
         var c = cityDate(tz), l = new Date(nowMs);
         var dd = Math.round((new Date(c.getFullYear(), c.getMonth(), c.getDate()) - new Date(l.getFullYear(), l.getMonth(), l.getDate())) / 86400000);
-        var day = dd === 0 ? "Today" : (dd > 0 ? "Tomorrow" : "Yesterday");
+        var day = Language.I18n.text(dd === 0 ? "clock.today" : dd > 0 ? "clock.tomorrow" : "clock.yesterday");
         var diff = (off - localOff) / 60, hrs = Math.abs(diff);
-        var hs = (hrs % 1 === 0 ? hrs : hrs.toFixed(1)) + (hrs === 1 ? "HR" : "HRS");
+        var hs = Language.I18n.formatNumber(hrs, hrs % 1 === 0 ? 0 : 1) + " " + Language.I18n.text(hrs === 1 ? "clock.hour_short" : "clock.hours_short");
         return day + ", " + (diff >= 0 ? "+" : "-") + hs;
     }
     readonly property var cityChoices: [
@@ -216,13 +217,13 @@ Scope {
         var d = new Date(nowMs);
         if (timer.state === "running" && nowMs >= timer.endAt) {
             var t = Object.assign({}, timer); t.state = "idle"; t.left = t.total; timer = t;
-            ring({ kind: "timer", label: t.label || "Timer", time: fmtDur(t.total) });
+            ring({ kind: "timer", label: t.label || "", defaultLabel: !t.label, time: fmtDur(t.total) });
             save();
         }
         if (snoozes.length > 0) {
             var keep = [];
             for (var s = 0; s < snoozes.length; s++) {
-                if (snoozes[s].at <= nowMs) ring({ kind: "alarm", label: snoozes[s].label, time: fmtHM(d.getHours(), d.getMinutes()) });
+                if (snoozes[s].at <= nowMs) ring({ kind: "alarm", label: snoozes[s].label, defaultLabel: snoozes[s].defaultLabel, time: fmtHM(d.getHours(), d.getMinutes()) });
                 else keep.push(snoozes[s]);
             }
             if (keep.length !== snoozes.length) { snoozes = keep; save(); }
@@ -235,7 +236,7 @@ Scope {
             var al = a[i];
             if (!al.on || al.h !== d.getHours() || al.m !== d.getMinutes()) continue;
             if (al.days.length > 0 && al.days.indexOf(d.getDay()) < 0) continue;
-            ring({ kind: "alarm", label: al.label || "Alarm", time: fmtHM(al.h, al.m) + (ampm(al.h) ? " " + ampm(al.h) : "") });
+            ring({ kind: "alarm", label: al.label || "", defaultLabel: !al.label, time: fmtHM(al.h, al.m) + (ampm(al.h) ? " " + ampm(al.h) : "") });
             if (al.days.length === 0) { var c = Object.assign({}, al); c.on = false; a[i] = c; changed = true; }
         }
         if (changed) { alarms = a; save(); }
@@ -254,10 +255,13 @@ Scope {
     }
     function snooze() {
         if (!ringing) return;
-        var s = snoozes.slice(); s.push({ at: Date.now() + 9 * 60000, label: ringing.label }); snoozes = s;
+        var s = snoozes.slice(); s.push({ at: Date.now() + 9 * 60000, label: ringing.label, defaultLabel: ringing.defaultLabel }); snoozes = s;
         stopRing();
     }
     function repeatTimer() { var ms = timer.total; stopRing(); startTimer(ms, timer.label); }
+    function defaultRingLabel(r) {
+        return !r.label || r.defaultLabel === true || (r.defaultLabel === undefined && r.label === (r.kind === "timer" ? "Timer" : "Alarm"));
+    }
     Process { id: ringProc }
     Timer { id: ringLimit; interval: 5 * 60000; onTriggered: root.stopRing() }
 
@@ -305,25 +309,26 @@ Scope {
                 x: 66; anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - 66 - btns.width - 16
                 spacing: 1
-                Text { text: root.ringing ? (root.ringing.kind === "timer" ? "Timer" : "Alarm") : ""; color: bannerCard.fg; font.family: root.fam; font.pixelSize: 14; font.weight: Font.DemiBold }
-                Text { width: parent.width; elide: Text.ElideRight; text: root.ringing ? (root.ringing.kind === "timer" ? (root.ringing.label === "Timer" ? "Done" : root.ringing.label) : root.ringing.time + (root.ringing.label && root.ringing.label !== "Alarm" ? " · " + root.ringing.label : "")) : ""; color: bannerCard.fg2; font.family: root.fam; font.pixelSize: 13 }
+                Text { text: root.ringing ? (root.ringing.kind === "timer" ? Language.I18n.text("ui.t_cdeec2b374c1") : Language.I18n.text("ui.t_f3b679573579")) : ""; color: bannerCard.fg; font.family: root.fam; font.pixelSize: 14; font.weight: Font.DemiBold }
+                Text { objectName: "clockRingMessage"; width: parent.width; elide: Text.ElideRight; text: root.ringing ? (root.ringing.kind === "timer" ? (root.defaultRingLabel(root.ringing) ? Language.I18n.text("common.done") : root.ringing.label) : root.ringing.time + (root.defaultRingLabel(root.ringing) ? "" : " · " + root.ringing.label)) : ""; color: bannerCard.fg2; font.family: root.fam; font.pixelSize: 13 }
             }
             Column {
                 id: btns
                 anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
                 Repeater {
-                    model: root.ringing ? (root.ringing.kind === "timer" ? ["Repeat", "Stop"] : ["Snooze", "Stop"]) : []
+                    model: root.ringing ? (root.ringing.kind === "timer" ? ["repeat", "stop"] : ["snooze", "stop"]) : []
                     delegate: Rectangle {
                         required property string modelData
+                        objectName: "clockRingAction_" + modelData
                         width: 78; height: 28; radius: 14
-                        color: modelData === "Stop" ? root.orange : (bma.pressed ? Qt.rgba(0.5, 0.5, 0.5, 0.45) : Qt.rgba(0.5, 0.5, 0.5, 0.28))
-                        Text { anchors.centerIn: parent; text: parent.modelData; color: parent.modelData === "Stop" ? "black" : bannerCard.fg; font.family: root.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
+                        color: modelData === "stop" ? root.orange : (bma.pressed ? Qt.rgba(0.5, 0.5, 0.5, 0.45) : Qt.rgba(0.5, 0.5, 0.5, 0.28))
+                        Text { anchors.centerIn: parent; text: Language.I18n.legacy(({stop: "Stop", snooze: "Snooze", repeat: "Repeat"})[parent.modelData]); color: parent.modelData === "stop" ? "black" : bannerCard.fg; font.family: root.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
                         MouseArea {
                             id: bma; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (parent.modelData === "Stop") root.stopRing();
-                                else if (parent.modelData === "Snooze") root.snooze();
+                                if (parent.modelData === "stop") root.stopRing();
+                                else if (parent.modelData === "snooze") root.snooze();
                                 else root.repeatTimer();
                             }
                         }
@@ -430,7 +435,7 @@ Scope {
                         x: 2; anchors.verticalCenter: parent.verticalCenter
                         Repeater {
                             id: segRep
-                            model: ["World Clock", "Alarms", "Stopwatch", "Timers"]
+                            model: [Language.I18n.text("ui.t_9d55c499e694"), Language.I18n.text("ui.t_f700e2fb4728"), Language.I18n.text("ui.t_cb880222ede3"), Language.I18n.text("ui.t_cca94c56deb8")]
                             delegate: Item {
                                 required property string modelData
                                 required property int index
@@ -525,7 +530,7 @@ Scope {
                             Column {
                                 y: 148; width: parent.width
                                 spacing: 2
-                                Text { anchors.horizontalCenter: parent.horizontalCenter; text: cc.modelData.name; color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
+                                Text { anchors.horizontalCenter: parent.horizontalCenter; text: Language.I18n.cityName(cc.modelData.tz, cc.modelData.name); color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
                                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.cityDayText(cc.modelData.tz); color: pal.text2; font.family: root.fam; font.pixelSize: 11 }
                                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.fmtHM(cc.d.getHours(), cc.d.getMinutes()) + (root.use24h ? "" : " " + root.ampm(cc.d.getHours())); color: pal.text2; font.family: root.fam; font.pixelSize: 13 }
                             }
@@ -545,7 +550,7 @@ Scope {
                 Text {
                     visible: root.cities.length === 0
                     anchors.centerIn: parent
-                    text: "No World Clocks"; color: pal.text3; font.family: root.fam; font.pixelSize: 22
+                    text: Language.I18n.text("ui.t_0ad45dc92910"); color: pal.text3; font.family: root.fam; font.pixelSize: 22
                 }
             }
         }
@@ -591,7 +596,7 @@ Scope {
                             }
                             Text {
                                 x: 13; y: 66
-                                text: (ar.modelData.label || "Alarm") + (ar.modelData.days.length ? ", " + root.repeatText(ar.modelData.days) : "")
+                                text: (ar.modelData.label || Language.I18n.text("ui.t_f3b679573579")) + (ar.modelData.days.length ? ", " + root.repeatText(ar.modelData.days) : "")
                                 color: ar.modelData.on ? pal.text2 : pal.text3
                                 font.family: root.fam; font.pixelSize: 13
                             }
@@ -614,8 +619,8 @@ Scope {
                     parent: alPage
                     anchors.centerIn: parent
                     spacing: 8
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No Alarms"; color: pal.text3; font.family: root.fam; font.pixelSize: 22 }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Click + to add an alarm."; color: pal.text3; font.family: root.fam; font.pixelSize: 13 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: Language.I18n.text("ui.t_bbe576ff8caf"); color: pal.text3; font.family: root.fam; font.pixelSize: 22 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: Language.I18n.text("ui.t_5dbd7b01e5b5"); color: pal.text3; font.family: root.fam; font.pixelSize: 13 }
                 }
             }
             }
@@ -640,13 +645,13 @@ Scope {
                     y: swTxt.y + swTxt.height + 26
                     spacing: parent.width * 0.32
                     RoundBtn {
-                        label: root.sw.running ? "Lap" : "Reset"
+                        label: root.sw.running ? Language.I18n.text("ui.t_a2baa08ca9b1") : Language.I18n.text("ui.t_daee7606b339")
                         enabledBtn: root.sw.running || root.sw.acc > 0
                         fill: Qt.rgba(0.5, 0.5, 0.5, 0.25); ink: pal.text
                         onClicked: root.sw.running ? root.swLap() : root.swReset()
                     }
                     RoundBtn {
-                        label: root.sw.running ? "Stop" : "Start"
+                        label: root.sw.running ? Language.I18n.text("ui.t_cae7d57bc067") : Language.I18n.text("ui.t_e4bb9f1ece9a")
                         fill: root.sw.running ? Qt.rgba(1, 0.27, 0.23, 0.28) : Qt.rgba(0.19, 0.82, 0.35, 0.28)
                         ink: root.sw.running ? "#FF453A" : "#30D158"
                         onClicked: root.sw.running ? root.swStop() : root.swStart()
@@ -675,7 +680,7 @@ Scope {
                         readonly property real t: laps.lapTimes[index] || 0
                         readonly property color c: (index > 0 || !root.swActive) && t === laps.best ? "#30D158" : ((index > 0 || !root.swActive) && t === laps.worst ? "#FF453A" : pal.text)
                         Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: pal.sep }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Lap " + (laps.count - parent.index); color: parent.c; font.family: root.fam; font.pixelSize: 15 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_36b2c4665913") + (laps.count - parent.index); color: parent.c; font.family: root.fam; font.pixelSize: 15 }
                         Text { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: root.fmtSw(parent.t); color: parent.c; font.family: root.fam; font.pixelSize: 15; font.features: { "tnum": 1 } }
                     }
                 }
@@ -720,7 +725,7 @@ Scope {
                                     onValueChanged: tp.parts[parent.index] = value
                                     Component.onCompleted: tp.parts[parent.index] = start
                                 }
-                                Text { anchors.verticalCenter: parent.verticalCenter; width: 46; text: parent.modelData.u; color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
+                                Text { anchors.verticalCenter: parent.verticalCenter; width: 46; text: Language.I18n.legacy(parent.modelData.u); color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
                             }
                         }
                     }
@@ -728,20 +733,20 @@ Scope {
                         anchors.horizontalCenter: parent.horizontalCenter
                         y: wheels.y + wheels.height + 14
                         width: 300; height: 34; radius: 8; color: pal.ctrl
-                        Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: "Label"; color: pal.text; font.family: root.fam; font.pixelSize: 13 }
+                        Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_0e66373f45dc"); color: pal.text; font.family: root.fam; font.pixelSize: 13 }
                         TextInput {
                             id: tLabel
                             anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
                             width: 200; horizontalAlignment: TextInput.AlignRight
                             color: pal.text2; font.family: root.fam; font.pixelSize: 13
                             text: ""
-                            Text { anchors.right: parent.right; visible: parent.text === ""; text: "Timer"; color: pal.text3; font: parent.font }
+                            Text { anchors.right: parent.right; visible: parent.text === ""; text: Language.I18n.text("ui.t_cdeec2b374c1"); color: pal.text3; font: parent.font }
                         }
                     }
                     RoundBtn {
                         anchors.horizontalCenter: parent.horizontalCenter
                         y: wheels.y + wheels.height + 66
-                        label: "Start"
+                        label: Language.I18n.text("ui.t_e4bb9f1ece9a")
                         fill: Qt.rgba(0.19, 0.82, 0.35, 0.28); ink: "#30D158"
                         onClicked: root.startTimer(((tp.parts[0] || 0) * 3600 + (tp.parts[1] || 0) * 60 + (tp.parts[2] || 0)) * 1000, tLabel.text)
                     }
@@ -751,7 +756,7 @@ Scope {
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 18
                         spacing: 10
                         visible: root.recents.length > 0
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Recents"; color: pal.text2; font.family: root.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_41a86988751a"); color: pal.text2; font.family: root.fam; font.pixelSize: 12; font.weight: Font.DemiBold }
                         Repeater {
                             model: root.recents
                             delegate: Rectangle {
@@ -800,9 +805,9 @@ Scope {
                         anchors.horizontalCenter: parent.horizontalCenter
                         y: ring.y + ring.height + 22
                         spacing: Math.max(80, ring.width - 160)
-                        RoundBtn { label: "Cancel"; fill: Qt.rgba(0.5, 0.5, 0.5, 0.25); ink: pal.text; onClicked: root.cancelTimer() }
+                        RoundBtn { label: Language.I18n.text("common.cancel"); fill: Qt.rgba(0.5, 0.5, 0.5, 0.25); ink: pal.text; onClicked: root.cancelTimer() }
                         RoundBtn {
-                            label: root.timer.state === "running" ? "Pause" : "Resume"
+                            label: root.timer.state === "running" ? Language.I18n.text("ui.t_858e4ba7a29f") : Language.I18n.text("ui.t_d640c7421da0")
                             fill: root.timer.state === "running" ? Qt.rgba(1, 0.62, 0.04, 0.26) : Qt.rgba(0.19, 0.82, 0.35, 0.28)
                             ink: root.timer.state === "running" ? root.orange : "#30D158"
                             onClicked: root.timer.state === "running" ? root.pauseTimer() : root.resumeTimer()
@@ -825,7 +830,7 @@ Scope {
                 readonly property var ed: win.editing
                 property var days: ed ? ed.days.slice() : []
                 property bool pm: ed ? ed.h >= 12 : false
-                Text { x: 20; y: 16; text: sa.ed ? "Edit Alarm" : "Add Alarm"; color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
+                Text { x: 20; y: 16; text: sa.ed ? Language.I18n.text("ui.t_f2dc46a595f3") : Language.I18n.text("ui.t_547fc2ea687c"); color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     y: tw.y + tw.height / 2 - 18
@@ -852,7 +857,7 @@ Scope {
                     y: tw.y + tw.height + 14
                     spacing: 6
                     Repeater {
-                        model: ["S", "M", "T", "W", "T", "F", "S"]
+                        model: Array.from({length: 7}, (_, index) => Language.I18n.formatLocale.dayName(index, Locale.ShortFormat))
                         delegate: Rectangle {
                             required property string modelData
                             required property int index
@@ -876,14 +881,14 @@ Scope {
                     anchors.horizontalCenter: parent.horizontalCenter
                     y: tw.y + tw.height + 58
                     width: 320; height: 32; radius: 8; color: pal.ctrl
-                    Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: "Label"; color: pal.text; font.family: root.fam; font.pixelSize: 13 }
+                    Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_0e66373f45dc"); color: pal.text; font.family: root.fam; font.pixelSize: 13 }
                     TextInput {
                         id: aLabel
                         anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
                         width: 220; horizontalAlignment: TextInput.AlignRight
                         text: sa.ed ? sa.ed.label : ""
                         color: pal.text2; font.family: root.fam; font.pixelSize: 13
-                        Text { anchors.right: parent.right; visible: parent.text === ""; text: "Alarm"; color: pal.text3; font: parent.font }
+                        Text { anchors.right: parent.right; visible: parent.text === ""; text: Language.I18n.text("ui.t_f3b679573579"); color: pal.text3; font: parent.font }
                     }
                 }
                 Row {
@@ -891,16 +896,17 @@ Scope {
                     anchors.bottom: parent.bottom; anchors.bottomMargin: 14
                     spacing: 8
                     Repeater {
-                        model: ["Cancel", "Save"]
+                        model: ["cancel", "save"]
                         delegate: Rectangle {
                             required property string modelData
+                            objectName: "clockAlarmAction_" + modelData
                             width: 84; height: 28; radius: 7
-                            color: modelData === "Save" ? root.accent : pal.ctrl
-                            Text { anchors.centerIn: parent; text: parent.modelData; color: parent.modelData === "Save" ? "white" : pal.text; font.family: root.fam; font.pixelSize: 13 }
+                            color: modelData === "save" ? root.accent : pal.ctrl
+                            Text { anchors.centerIn: parent; text: parent.modelData === "save" ? Language.I18n.text("ui.t_1509f561f241") : Language.I18n.text("common.cancel"); color: parent.modelData === "save" ? "white" : pal.text; font.family: root.fam; font.pixelSize: 13 }
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
-                                    if (parent.modelData === "Save") {
+                                    if (parent.modelData === "save") {
                                         var h = root.use24h ? hT.value : (hT.value + (pT.value === 1 ? 12 : 0));
                                         if (sa.ed) root.updateAlarm(sa.ed.id, h, mT.value, aLabel.text, sa.days);
                                         else root.addAlarm(h, mT.value, aLabel.text, sa.days);
@@ -930,18 +936,18 @@ Scope {
                         color: pal.text; font.family: root.fam; font.pixelSize: 13
                         focus: true
                         Component.onCompleted: forceActiveFocus()
-                        Text { visible: parent.text === ""; text: "Search cities"; color: pal.text3; font: parent.font }
+                        Text { visible: parent.text === ""; text: Language.I18n.text("ui.t_86800df7f740"); color: pal.text3; font: parent.font }
                     }
                 }
                 ListView {
                     x: 6; y: 54; width: parent.width - 12; height: parent.height - 64
                     clip: true
-                    model: root.cityChoices.filter(function (c) { return q.text === "" || c[0].toLowerCase().indexOf(q.text.toLowerCase()) >= 0; })
+                    model: root.cityChoices.filter(function (c) { return q.text === "" || (c[0] + " " + Language.I18n.cityName(c[1], c[0])).toLowerCase().indexOf(q.text.toLowerCase()) >= 0; })
                     delegate: Rectangle {
                         required property var modelData
                         width: ListView.view.width; height: 32; radius: 6
                         color: cma2.containsMouse ? root.accent : "transparent"
-                        Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: parent.modelData[0]; color: cma2.containsMouse ? "white" : pal.text; font.family: root.fam; font.pixelSize: 13 }
+                        Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.cityName(parent.modelData[1], parent.modelData[0]); color: cma2.containsMouse ? "white" : pal.text; font.family: root.fam; font.pixelSize: 13 }
                         MouseArea { id: cma2; anchors.fill: parent; hoverEnabled: true; onClicked: { root.addCity(parent.modelData[0], parent.modelData[1]); win.sheet = ""; } }
                     }
                 }

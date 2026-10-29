@@ -1,4 +1,4 @@
-// One desktop widget's content (Weather / Calendar / Clock / Player). Used by MacWidgets.qml for the desktop layer and by
+// One desktop widget's content (Weather / Calendar / Clock / Player / Activity / Batteries). Used by MacWidgets.qml for the desktop layer and by
 // MacBar.qml to mirror the widgets into the Liquid Glass backdrop, so a menu refracts them together with the live windows.
 import QtQuick
 import Quickshell.Services.Mpris
@@ -13,6 +13,8 @@ Item {
     property string wsize: "small"
     property string wmode: "auto"
     property string wappearance: "{}"
+    property string wactivity: "{}"
+    property string wbatteries: "{}"
     readonly property var localAppearance: JSON.parse(wappearance)
     readonly property var look: Appearance.resolve(wtype, wstyle, localAppearance, wmode, host.fontFamily, host.darkGlass, host.playerScale)
     readonly property var visual: visualLoader.item
@@ -54,6 +56,13 @@ Item {
             lyrics: host.lyricsLines, lyricsState: host.lyricsState, lyricsSynced: host.lyricsSynced};
     }
     onLivePlayerDataChanged: if (livePlayerData !== null) playerData = livePlayerData
+    property var activityData: ({sample: {}, history: [], stale: true, appearance: {}})
+    readonly property var liveActivityData: renderActive && wtype === "activity" && host.stats ? ({
+        sample: host.stats.sample, history: host.stats.history, stale: host.stats.stale, appearance: host.activityAppearance}) : null
+    onLiveActivityDataChanged: if (liveActivityData !== null) activityData = liveActivityData
+    property var batteryData: []
+    readonly property var liveBatteryData: renderActive && wtype === "batteries" ? host.batteryDevices.entries : null
+    onLiveBatteryDataChanged: if (liveBatteryData !== null) batteryData = liveBatteryData
     property real sx: 0                  // position on the screen (the glass uses it to find the wallpaper behind the widget)
     property real sy: 0
     property string sname: ""            // screen name
@@ -184,9 +193,42 @@ Item {
                 onGlassFailed: host.glassState = "failed"
             }
         }
+        Component {
+            id: activityVisual
+            ActivityWidget {
+                style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
+                settings: JSON.parse(v.wactivity)
+                sample: v.activityData.sample; history: v.activityData.history; stale: v.activityData.stale
+                appearance: v.activityData.appearance
+                screenX: v.sx; screenY: v.sy
+                glassReady: host.glassState === "ready" && v.renderActive
+                shaderUrl: "file://" + host.glassShaderOut; wallUrl: host.fileUrl(host.wallpaperFor(v.sname))
+                screenW: v.sw; screenH: v.sh
+                glassOpacity: host.glassOpacity; glassBlur: host.glassBlur; glassLiquid: host.glassLiquid
+                glassRim: host.glassRim; glassGrain: host.glassGrain; darkGlass: v.look.dark
+                editing: host.editing; interactive: v.interactive && !host.editing
+                onOpenRequested: host.openActivity(v.sname)
+                onGlassFailed: host.glassState = "failed"
+            }
+        }
+        Component {
+            id: batteriesVisual
+            BatteriesWidget {
+                style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
+                settings: JSON.parse(v.wbatteries); entries: v.batteryData
+                screenX: v.sx; screenY: v.sy
+                glassReady: host.glassState === "ready" && v.renderActive
+                shaderUrl: "file://" + host.glassShaderOut; wallUrl: host.fileUrl(host.wallpaperFor(v.sname))
+                screenW: v.sw; screenH: v.sh
+                glassOpacity: host.glassOpacity; glassBlur: host.glassBlur; glassLiquid: host.glassLiquid
+                glassRim: host.glassRim; glassGrain: host.glassGrain; darkGlass: v.look.dark
+                editing: host.editing
+                onGlassFailed: host.glassState = "failed"
+            }
+        }
         Loader {
             id: visualLoader
             anchors.fill: parent
-            sourceComponent: v.definition ? ({WeatherWidget: weatherVisual, CalendarWidget: calendarVisual, ClockWidget: clockVisual, PlayerWidget: playerVisual})[v.definition.component] || null : null
+            sourceComponent: v.definition ? ({WeatherWidget: weatherVisual, CalendarWidget: calendarVisual, ClockWidget: clockVisual, PlayerWidget: playerVisual, ActivityWidget: activityVisual, BatteriesWidget: batteriesVisual})[v.definition.component] || null : null
         }
 }

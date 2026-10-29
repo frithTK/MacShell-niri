@@ -15,6 +15,57 @@ ORIGIN = {'name': 'DP-1', 'make': 'Demo', 'model': 'Display', 'serial': 'one', '
 
 
 class WidgetLayoutTests(unittest.TestCase):
+    def test_batteries_settings_round_trip_and_validate(self):
+        values = migrate(self.legacy(), ORIGIN)
+        item = values['widgets'][0]
+        item.update(type='batteries')
+        chosen = ['laptop', 'bluetooth:AA:BB:CC:DD:EE:01']
+        item['settings'] = dict(style='normal', size='large', batteries=dict(mode='selected', devices=chosen, future=False))
+        normalized, errors = normalize(values, strict=True)
+        self.assertFalse(errors); self.assertEqual(normalized['widgets'][0], item)
+        state = self.save_legacy()
+        result = self.store.commit(values, state['token'])
+        self.assertTrue(result['success'])
+        self.assertEqual(self.store.load()['values']['widgets'][0]['settings']['batteries']['devices'], chosen)
+        for options in ({}, {'mode': 'selected', 'devices': []}, {'devices': ['bluetooth-path:/org/bluez/hci0/device_1']}):
+            item['settings']['batteries'] = options
+            self.assertFalse(normalize(values, strict=True)[1])
+        for options in (None, [], {'mode': 'other'}, {'devices': 'laptop'}, {'devices': [False]}, {'devices': ['other']},
+                        {'devices': ['laptop', 'laptop']}, {'devices': ['bluetooth:aa:bb:cc:dd:ee:01']}, {'devices': ['laptop'] * 17}):
+            item['settings']['batteries'] = options
+            self.assertIn('widgets', normalize(values, strict=True)[1], options)
+
+    def test_activity_settings_validate_without_losing_extensions(self):
+        values = migrate(self.legacy(), ORIGIN)
+        item = values['widgets'][0]
+        item.update(type='activity')
+        item['settings'] = dict(style='normal', size='large', activity=dict(metrics=['disk', 'cpu'], view='graphs', future=False))
+        normalized, errors = normalize(values, strict=True)
+        self.assertFalse(errors)
+        self.assertEqual(normalized['widgets'][0], item)
+        for settings in ({}, {'activity': {}}, {'activity': {'metrics': ['network']}}):
+            item['settings'] = settings
+            self.assertFalse(normalize(values, strict=True)[1])
+        for activity in (None, [], {'metrics': []}, {'metrics': ['cpu', 'cpu']}, {'metrics': ['cpu', False]},
+                         {'metrics': ['gpu']}, {'metrics': 'cpu'}, {'view': 'unknown'}):
+            item['settings'] = {'activity': activity}
+            self.assertIn('widgets', normalize(values, strict=True)[1], activity)
+
+    def test_activity_addition_does_not_write_old_layout_on_read(self):
+        state = self.save_legacy()
+        self.assertTrue(self.store.commit(state['values'], state['token'])['success'])
+        before = self.path.read_bytes()
+        state = self.store.load()
+        self.assertEqual(self.path.read_bytes(), before)
+        values = copy.deepcopy(state['values'])
+        source = copy.deepcopy(values['widgets'][0])
+        source.update(id='activity', type='activity', settings={'activity': {'metrics': ['cpu'], 'view': 'rings'}})
+        values['widgets'].append(source)
+        result = self.store.commit(values, state['token'])
+        self.assertTrue(result['success'])
+        self.assertEqual(result['state']['values']['widgets'][:-1], state['values']['widgets'])
+        self.assertEqual(self.store.load()['values']['widgets'][-1], source)
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

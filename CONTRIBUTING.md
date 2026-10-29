@@ -21,6 +21,8 @@ Changes in a checkout do not update the installed desktop. Keep installation, ac
 
 ## Portable checks
 
+Portable checks also validate RU/EN catalog parity, duplicate IDs, plural forms, named parameters and literal call IDs. New UI uses Locale/I18n with stable IDs; actions, window identities and stored values stay independent of translated labels. See [localization contracts and source data](docs/LOCALIZATION.md).
+
 The backend suite needs Linux, Python 3.11+, PyGObject/Gio, Pillow, GStreamer/GstVideo introspection with the base/good plug-ins, `dbus-daemon`, `ffmpeg`/`ffprobe` and `desktop-file-validate`. Ubuntu package names are recorded in the [CI workflow](.github/workflows/ci.yml). When PyGObject is installed by the OS package manager, use the matching system Python.
 
 ```bash
@@ -36,6 +38,8 @@ python3 -m unittest discover -s tests -p 'test_bluetooth.py' -v
 ```
 
 ## QML interaction checks
+
+Localization probes: `check-system-language-native.py --capture /tmp/language-preview` chooses/saves Russian through real Settings, visits every pane, checks another open app, retained state, emoji search and stable alarm Save/snooze/Stop, then starts a new process with the saved locale. Settings/cache/home are private and playback is forbidden. `check-maclock-language.py` (included in full validation) checks production LockScreen offscreen in preview and asserts real lock/PAM remain inactive while shared preferences change RU/EN. `check-notifications-native.py` clicks owned mock cards, including synchronous dismissal. Run GUI probes sequentially.
 
 With Qt 6.9+ Declarative, Quick Controls, Quick Effects and Quick Test installed (`RectangularShadow` requires Qt 6.9):
 
@@ -58,6 +62,10 @@ bash scripts/validate.sh
 The full suite includes both check scripts above, niri configuration validation, QML and shader compilation and isolated Quickshell adapter/service checks. It writes generated files to temporary directories and does not activate the installed desktop.
 
 `python3 scripts/check-widget-lifecycle.py` uses real MacWidgets/WidgetVisual components with deterministic owned Weather/LRCLIB workers, fake media and a logical output offscreen. It covers shared desktop/mirror subscriptions, frozen snapshots, clock/position/refresh stopping, fullscreen/overview, global disable/enable, late responses and 20 mount/unmount cycles. It confirms that worker PIDs exit after the last consumer, without network or user-media access. Full validation includes it.
+
+`python3 scripts/check-activity-widget-native.py` exercises S/M/L Activity cards through the real shell, transactional writer and shared `/proc` sampler with isolated settings and unavailable device buses. It checks metrics Apply/conflict, independent duplication, shared mirrors, operation with the menu bar disabled, details on the card's output, source release/restart, fullscreen/overview and stale data. It deliberately opens temporary cards and popovers in the active Wayland session. `check-widget-input-native.py` also verifies actual compositor clicks on Activity and releases its native input region after removal. `bash scripts/preview-activity-widget.sh` captures every size in both themes with demonstration data and no sampler.
+
+`python3 scripts/check-batteries-widget-native.py` tests Batteries through the real desktop, editor and writer in niri with isolated laptop/Bluetooth inputs. It covers unknown/zero/full charge, duplicate addresses/names, device Apply/Cancel/conflict, independent duplication, mirror sharing, device/adapter/service loss and recovery, disabled desktop editing, fullscreen/overview and 20 mount cycles. Discovery attempts fail the fixture; it does not touch real devices. The native input check separately confirms Batteries is click-through outside Arrange. `bash scripts/preview-batteries-widget.sh` captures both themes with sample data. `python3 scripts/measure-batteries-widget.py --output /tmp/batteries-cost.json` measures four Large cards against a static existing Calendar, using synthetic shared data rather than devices.
 
 For optional real-Wayland menu geometry checks with Qt Test available, run `python3 scripts/check-bar-native.py`. It opens temporary panels, uses isolated settings and unavailable D-Bus/niri endpoints, and clicks only its own controls. It checks menus across three zones and compact application-menu navigation; it does not establish hardware availability or physical multi-monitor behavior. Do not run it as an idle background check on someone else's active desktop.
 
@@ -84,6 +92,12 @@ For UxPlay 1.73.7 PIN compatibility, see the [external runtime patch and reprodu
 AirDrop uses a [pinned Owly adapter](native/owly/README.md). `bash scripts/build-airdrop-backend.sh` only builds it. `python3 scripts/check-airdrop-native.py --binary /path/to/owly` checks actual TLS transfers in an isolated user/network namespace with a veth pair; it needs `ip` and `unshare`, and does not acquire a host radio. CI also tests the Shared-only guard before Acquire. Exclusive/Active monitor are blocked after a real Wi-Fi/call interruption; never test that guard by acquiring the user's radio. Physical iPhone checks use a supported Shared setup, with explicit user participation.
 
 Installer changes must preserve existing user files and recoverable backups. Check installation and rollback in temporary paths. MacLock authentication, screen capture, audio routing and hardware controls also need focused real-session validation; automated fixtures do not establish that a particular device or PAM configuration works.
+
+`python3 scripts/check-calculator-native.py --capture docs/images` checks the real Calculator window, buttons/keyboard, Russian utility search, Dock opening, separate window identities, UI release and all four Clock sections. It captures three Calculator modes in both themes. Calculator QML regressions cover bounded expression parsing, mathematical errors, units, session history/memory and clipboard signals.
+
+`python3 scripts/check-widget-arrange-native.py --capture docs/images` exercises production layer promotion above open Settings/Calculator, the opaque wallpaper fallback, the embedded 40px toolbar, hiding it during dragging, both themes and release on exit. It confirms that entering/selecting/exiting does not save positions. `check-widget-input-native.py` additionally checks actual compositor input, optional actions and Escape/Done focus restoration. Native UI checks must run sequentially so their surfaces cannot cover one another. All these probes use temporary preferences and unavailable device services.
+
+`python3 scripts/check-currency-native.py --capture docs/images` checks Currency with an owned local HTTP server, private settings/cache and an accelerated request watchdog. It covers online and cached cross-rates, dates, actual typing/Swap/Refresh, both themes, offline/invalid responses, cancellation, timeout, stale generations and five reopen cycles. `--live` instead performs a fresh HTTPS conversion against the real Frankfurter provider and removes its temporary cache afterward. These native checks open owned Calculator windows and should run sequentially. Python tests cover bounded responses, validation, private atomic caching and rate rollback; QML tests include live preview, dated history and preserving an Ans-based input across rate updates.
 
 ## Pull requests
 

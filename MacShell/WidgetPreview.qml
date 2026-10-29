@@ -1,6 +1,8 @@
 import QtQuick
 import "WidgetCatalog.js" as Catalog
 import "WidgetAppearance.js" as Appearance
+import "ActivityWidgetData.js" as ActivityData
+import "BatteriesData.js" as BatteriesData
 
 Item {
     id: root
@@ -11,6 +13,8 @@ Item {
     property string family: "Inter"
     property string mode: "auto"
     property var appearance: ({})
+    property var activity: ({})
+    property var batteries: ({})
     readonly property var look: Appearance.resolve(widgetType, widgetStyle, appearance, mode, family, dark, .8)
     readonly property var definition: Catalog.find(widgetType)
     readonly property var footprint: Catalog.dimensions(widgetSize)
@@ -51,8 +55,23 @@ Item {
             playing: false; position: 74; length: 216; tintOverride: root.look.tint === "transparent" ? "#746ba5" : root.look.tint
         }
     }
+    Component {
+        id: activityPreview
+        ActivityWidget {
+            anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
+            preview: true; darkGlass: root.look.dark; settings: root.activity
+            sample: ActivityData.demoSample(1060, 60); history: ActivityData.demoHistory(); stale: false
+        }
+    }
+    Component {
+        id: batteriesPreview
+        BatteriesWidget {
+            anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
+            preview: true; darkGlass: root.look.dark; settings: root.batteries; entries: BatteriesData.demoFor(root.batteries)
+        }
+    }
     Loader {
         id: loader; anchors.fill: parent
-        sourceComponent: root.definition ? ({WeatherWidget: weather, CalendarWidget: calendar, ClockWidget: clock, PlayerWidget: player})[root.definition.component] || null : null
+        sourceComponent: root.definition ? ({WeatherWidget: weather, CalendarWidget: calendar, ClockWidget: clock, PlayerWidget: player, ActivityWidget: activityPreview, BatteriesWidget: batteriesPreview})[root.definition.component] || null : null
     }
 }

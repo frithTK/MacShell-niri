@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 
 Scope {
@@ -11,7 +12,7 @@ Scope {
     property string state: "off"
     property string error: ""
     readonly property bool enabled: state === "on"
-    readonly property string label: !available ? "Requires wlsunset" : state === "starting" ? "Applying…" : state === "error" ? "Unable to apply" : enabled ? appliedTemperature + " K" : "Off"
+    readonly property string label: !available ? Language.I18n.text("ui.t_4070e998d386") : state === "starting" ? Language.I18n.text("ui.t_3329a9bb48b9") : state === "error" ? Language.I18n.text("ui.t_751dd3a51496") : enabled ? appliedTemperature + " K" : Language.I18n.text("ui.t_ca7981b46ecf")
     function configure() { service.send("configure", {enabled: desired, temperature: temperature}); }
     function retry() { debounce.stop(); configure(); }
     onDesiredChanged: { debounce.stop(); configure(); }

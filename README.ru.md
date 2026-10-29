@@ -109,7 +109,9 @@ bash install.sh --check
 
 ## Руководства
 
-[Виджеты](docs/WIDGETS.md) · [Меню-бар](docs/BAR_LAYOUT.md) · [Activity](docs/ACTIVITY_SETTINGS.md) · [Control Center](docs/CONTROL_CENTER.md) · [MacLock](MacLock/README.md)
+**Язык и регион** в настройках переключает русский/английский интерфейс оболочки и MacLock сразу. Язык приложений применяется после выхода и нового входа; региональные форматы выбираются отдельно. [Руководство](docs/LOCALIZATION.md).
+
+[Виджеты](docs/WIDGETS.md) · [Утилиты](docs/UTILITIES.md) · [Меню-бар](docs/BAR_LAYOUT.md) · [Activity](docs/ACTIVITY_SETTINGS.md) · [Control Center](docs/CONTROL_CENTER.md) · [MacLock](MacLock/README.md)
 
 Для [AirPlay](docs/CONTROL_CENTER.md#повтор-экрана--airplay) и [AirDrop](docs/AIRDROP.md) нужны дополнительные компоненты. Настройка и совместимость — в руководствах.
 

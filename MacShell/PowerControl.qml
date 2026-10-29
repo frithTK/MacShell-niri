@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 
 Scope {
@@ -13,7 +14,7 @@ Scope {
     property string error: ""
     property bool gameHold: false
     function label(value) {
-        return ({"power-saver": "Low Power", balanced: "Balanced", performance: "Performance"})[value] || value || "Unavailable";
+        return Language.I18n.legacy(({"power-saver": Language.I18n.text("ui.t_71afced6badd"), balanced: "Balanced", performance: "Performance"})[value] || value || "Unavailable");
     }
     function supported(value) { return available && profiles.indexOf(value) >= 0 && (value !== "performance" || inhibited === ""); }
     function select(value) { if (!busy && supported(value)) { error = ""; busy = true; service.send("select", {profile: value}); } }
@@ -29,7 +30,7 @@ Scope {
                 root.gameHold = m.gameHold; root.error = m.error || "";
             } else if (m.type === "unavailable") {
                 root.available = false; root.busy = false; root.profile = ""; root.profiles = [];
-                root.gameHold = false; root.error = m.error || "Power profiles service unavailable.";
+                root.gameHold = false; root.error = m.error || Language.I18n.text("ui.t_852258313277");
             } else if (m.type === "error") { root.busy = false; root.error = m.error; }
         }
         onReadyChanged: if (!ready) { root.available = false; root.busy = false; root.gameHold = false; }

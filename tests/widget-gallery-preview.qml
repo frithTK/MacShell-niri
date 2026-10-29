@@ -40,13 +40,13 @@ ShellRoot {
         readonly property bool dark: Quickshell.env("MACSHELL_PREVIEW_LIGHT") !== "1"
         readonly property bool editorOnly: Quickshell.env("MACSHELL_PREVIEW_EDITOR") === "1"
         readonly property bool appearanceOnly: Quickshell.env("MACSHELL_PREVIEW_APPEARANCE") === "1"
-        width: 580; height: appearanceOnly ? 840 : demo.readOnly ? 860 : 720; visible: !editorOnly
+        width: editorOnly ? 760 : 580; height: editorOnly ? 56 : appearanceOnly ? 840 : demo.readOnly ? 860 : 720; visible: true
         color: dark ? "#1e1e1e" : "#f5f5f7"
         Rectangle { anchors.fill: parent; color: window.color }
         ScrollView {
             anchors.fill: parent; anchors.margins: 24; contentWidth: availableWidth
             Port.WidgetGallery {
-                visible: !window.appearanceOnly
+                visible: !window.appearanceOnly && !window.editorOnly
                 width: parent.width; controller: demo; confirmRecovery: demo.readOnly
                 adding: Quickshell.env("MACSHELL_PREVIEW_ADD") === "1"
                 focusInstanceId: Quickshell.env("MACSHELL_PREVIEW_DISPLAYS") === "1" ? "demo-player" : ""
@@ -62,13 +62,15 @@ ShellRoot {
         }
         Timer {
             interval: 700; running: true
-            onTriggered: (window.editorOnly ? editSample.contentItem : window.contentItem).grabToImage(result => {
+            onTriggered: window.contentItem.grabToImage(result => {
                 result.saveToFile(Quickshell.env("MACSHELL_PREVIEW_CAPTURE")); Qt.quit();
             })
         }
     }
-    Port.WidgetEditWindow {
+    Port.WidgetEditToolbar {
         id: editSample
+        parent: window.contentItem
+        x: 12; y: 8; width: parent.width - 24; height: 40
         visible: window.editorOnly
         foreground: window.dark ? "#f5f5f7" : "#1d1d1f"
         selectedId: "demo-player"; selectedType: "player"; selectedSize: "medium"

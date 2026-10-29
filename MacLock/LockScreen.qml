@@ -1,6 +1,7 @@
 // What one monitor shows while locked. The primary monitor gets the full macOS layout (clock, Now Playing,
 // avatar + password); the others show the wallpaper and the clock only, but still forward typing.
 import QtQuick
+import "Locale" as Language
 import QtQuick.Effects
 import QtMultimedia
 import Quickshell
@@ -268,7 +269,7 @@ Item {
         if (d < 1) return "now";
         if (d < 60) return d + "m ago";
         var dt = new Date(t);
-        return ls.st.use24h ? pad2(dt.getHours()) + ":" + pad2(dt.getMinutes()) : Qt.formatTime(dt, "h:mm AP");
+        return ls.st.use24h ? pad2(dt.getHours()) + ":" + pad2(dt.getMinutes()) : Language.I18n.formatTime(dt, "h:mm AP");
     }
     property real nowMs2: Date.now()
     Timer { interval: 30000; repeat: true; running: ls.lockNotifs.length > 0; onTriggered: ls.nowMs2 = Date.now() }
@@ -321,14 +322,14 @@ Item {
                 x: 78 * ls.u; y: 14 * ls.u
                 width: parent.width - x - 16 * ls.u
                 Text {
-                    text: ls.liveKind === "timer" && liveCard.tm ? (liveCard.tm.label || "Timer") + (liveCard.tm.state === "paused" ? " · Paused" : "")
-                        : (ls.liveKind === "sw" ? "Stopwatch" : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? "Timer" : "Alarm") : ""))
+                    text: ls.liveKind === "timer" && liveCard.tm ? (liveCard.tm.label || Language.I18n.text("ui.t_cdeec2b374c1")) + (liveCard.tm.state === "paused" ? Language.I18n.text("ui.t_961dace9826f") : "")
+                        : (ls.liveKind === "sw" ? Language.I18n.text("ui.t_cb880222ede3") : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? Language.I18n.text("ui.t_cdeec2b374c1") : Language.I18n.text("ui.t_f3b679573579")) : ""))
                     color: "#FF9F0A"; font.family: ls.fam; font.pixelSize: 13 * ls.u; font.weight: Font.DemiBold
                 }
                 Text {
                     text: ls.liveKind === "timer" && liveCard.tm ? ls.fmtDur(liveCard.remain)
                         : (ls.liveKind === "sw" ? ls.fmtDur(liveCard.swMs).replace(/^(\d\d:\d\d)$/, "$1")
-                        : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? "Done" : ls.clockSt.ringing.time) : ""))
+                        : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? Language.I18n.text("common.done") : ls.clockSt.ringing.time) : ""))
                     color: "white"; font.family: ls.fam; font.pixelSize: 30 * ls.u; font.weight: Font.Medium
                     font.features: { "tnum": 1 }
                 }
@@ -339,13 +340,13 @@ Item {
                 x: 16 * ls.u; anchors.bottom: parent.bottom; anchors.bottomMargin: 12 * ls.u
                 spacing: 8 * ls.u
                 Repeater {
-                    model: ls.liveKind === "ring" ? (ls.clockSt.ringing.kind === "timer" ? ["Stop"] : ["Snooze", "Stop"]) : []
+                    model: ls.liveKind === "ring" ? (ls.clockSt.ringing.kind === "timer" ? ["stop"] : ["snooze", "stop"]) : []
                     delegate: Rectangle {
                         required property string modelData
                         width: (liveCard.width - 40 * ls.u) / (ls.clockSt.ringing.kind === "timer" ? 1 : 2); height: 30 * ls.u; radius: height / 2
-                        color: modelData === "Stop" ? "#FF9F0A" : Qt.rgba(1, 1, 1, ringBtn.pressed ? 0.32 : 0.2)
-                        Text { anchors.centerIn: parent; text: parent.modelData; color: parent.modelData === "Stop" ? "black" : "white"; font.family: ls.fam; font.pixelSize: 13 * ls.u; font.weight: Font.DemiBold }
-                        MouseArea { id: ringBtn; anchors.fill: parent; onClicked: Quickshell.execDetached(["qs", "-c", "MacShell", "ipc", "call", "clock", parent.modelData === "Stop" ? "stop" : "snooze"]) }
+                        color: modelData === "stop" ? "#FF9F0A" : Qt.rgba(1, 1, 1, ringBtn.pressed ? 0.32 : 0.2)
+                        Text { anchors.centerIn: parent; text: Language.I18n.legacy(parent.modelData === "stop" ? Language.I18n.text("ui.t_cae7d57bc067") : Language.I18n.text("ui.t_52102940fe58")); color: parent.modelData === "stop" ? "black" : "white"; font.family: ls.fam; font.pixelSize: 13 * ls.u; font.weight: Font.DemiBold }
+                        MouseArea { id: ringBtn; anchors.fill: parent; onClicked: Quickshell.execDetached(["qs", "-c", "MacShell-niri", "ipc", "call", "clock", parent.modelData]) }
                     }
                 }
             }
@@ -380,7 +381,7 @@ Item {
                     id: flyOff
                     property real to: 0
                     NumberAnimation { target: nc; property: "dragX"; to: flyOff.to; duration: 260; easing.type: Easing.OutCubic }
-                    ScriptAction { script: { nc.gone = true; Quickshell.execDetached(["qs", "-c", "MacShell", "ipc", "call", "notifications", "dismiss", String(nc.nid)]); } }
+                    ScriptAction { script: { nc.gone = true; Quickshell.execDetached(["qs", "-c", "MacShell-niri", "ipc", "call", "notifications", "dismiss", String(nc.nid)]); } }
                 }
 
                 Glass { anchors.fill: parent; src: glassTex; frame: ls; cornerR: 20 * ls.u; thickness: 20; tint: 0.40; shadowAmt: 0.3 }
@@ -397,7 +398,7 @@ Item {
                     x: 60 * ls.u; anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - x - 70 * ls.u
                     Text { width: parent.width; elide: Text.ElideRight; text: nc.app; color: "white"; font.family: ls.fam; font.pixelSize: 14 * ls.u; font.weight: Font.DemiBold }
-                    Text { text: "Notification"; color: Qt.rgba(1, 1, 1, 0.72); font.family: ls.fam; font.pixelSize: 13 * ls.u }
+                    Text { text: Language.I18n.text("ui.t_7d31b8331399"); color: Qt.rgba(1, 1, 1, 0.72); font.family: ls.fam; font.pixelSize: 13 * ls.u }
                 }
                 Text {
                     anchors.right: parent.right; anchors.rightMargin: 14 * ls.u; y: 13 * ls.u
@@ -449,7 +450,7 @@ Item {
             width: parent.width; height: 26 * ls.u
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter; anchors.verticalCenter: parent.verticalCenter
-                text: (ls.lockNotifs.length - 4) + " more notification" + (ls.lockNotifs.length - 4 === 1 ? "" : "s")
+                        text: Language.I18n.plural("notifications.more", ls.lockNotifs.length - 4)
                 color: Qt.rgba(1, 1, 1, 0.75); font.family: ls.fam; font.pixelSize: 12 * ls.u; font.weight: Font.Medium
             }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: ls.askPassword() }
@@ -486,7 +487,7 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             renderType: Text.NativeRendering
             anchors.horizontalCenter: parent.horizontalCenter
-            text: Qt.formatDate(ls.st.now, ls.ckShortDate ? "ddd MMM d" : "dddd, MMMM d")
+            text: Language.I18n.formatDate(ls.st.now, ls.ckShortDate ? "ddd MMM d" : "dddd, MMMM d")
             color: Qt.rgba(1, 1, 1, 0.92)
             font.family: ls.ckFont === "serif" && ls.ckFontOk ? "Noto Serif Display" : ls.fam
             font.pixelSize: (ls.ckShortDate ? 23 : 25) * ls.u; font.weight: Font.DemiBold
@@ -517,7 +518,7 @@ Item {
                 scaleIn: 1.03; scaleOut: 0.97
                 // 12- or 24-hour, as set in MacShell (no AM/PM, like the macOS / iOS lock screen)
                 // (Qt's "h" only goes 12-hour together with AP, so the hour is computed here)
-                text: ls.st.use24h ? Qt.formatTime(ls.st.now, "H:mm") : ((ls.st.now.getHours() % 12) || 12) + Qt.formatTime(ls.st.now, ":mm")
+                text: ls.st.use24h ? Language.I18n.formatTime(ls.st.now, "H:mm") : ((ls.st.now.getHours() % 12) || 12) + Language.I18n.formatTime(ls.st.now, ":mm")
                 color: "white"
                 font.family: ls.ckFamily; font.pixelSize: ls.clockPx; font.weight: Font.Bold
                 font.variableAxes: ls.ckFamily === "Roboto Flex"
@@ -1292,8 +1293,8 @@ Item {
             anchors.centerIn: parent
             horizontalAlignment: Text.AlignHCenter
             visible: ls.lyrStatus === "loading" || ls.lyrStatus === "none" || ls.lyrStatus === "instrumental" || ls.lyrStatus === "offline"
-            text: ls.lyrStatus === "loading" ? "Loading lyrics…" : (ls.lyrStatus === "instrumental" ? "Instrumental"
-                  : (ls.lyrStatus === "offline" ? "Lyrics are unavailable right now" : "No lyrics for this song"))
+            text: ls.lyrStatus === "loading" ? Language.I18n.text("ui.t_d693046c6992") : (ls.lyrStatus === "instrumental" ? Language.I18n.text("ui.t_05082dc1436b")
+                  : (ls.lyrStatus === "offline" ? Language.I18n.text("ui.t_3ccacf6dadca") : Language.I18n.text("ui.t_2272685b99c2")))
             color: Qt.rgba(1, 1, 1, 0.55)
             font.family: ls.fam; font.pixelSize: 20 * ls.u; font.weight: Font.DemiBold
         }
@@ -1442,7 +1443,7 @@ Item {
             Text {
                 anchors.left: parent.left; anchors.leftMargin: 16 * ls.u
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Enter Password"
+                text: Language.I18n.text("ui.t_3d81652794e5")
                 color: Qt.rgba(1, 1, 1, 0.62)
                 font.family: ls.fam; font.pixelSize: 14 * ls.u
                 opacity: ls.st.pass.length === 0 ? 1 : 0
@@ -1580,9 +1581,10 @@ Item {
 
         // hint / error line (blur-morphs between "Enter your password…" and "Incorrect password")
         MorphText {
+            objectName: "lockPasswordHint"
             horizontalAlignment: Text.AlignHCenter
             anchors.horizontalCenter: parent.horizontalCenter
-            text: ls.st.message !== "" ? ls.st.message : "Enter your password to unlock"
+            text: ls.st.message !== "" ? Language.I18n.legacy(ls.st.message) : Language.I18n.text("ui.t_bb25ff970f65")
             color: ls.st.message !== "" ? Qt.rgba(1, 0.78, 0.76, 0.95) : Qt.rgba(1, 1, 1, 0.55)
             font.family: ls.fam; font.pixelSize: 12 * ls.u
             opacity: ls.st.engaged || ls.st.message !== "" ? 1 : 0

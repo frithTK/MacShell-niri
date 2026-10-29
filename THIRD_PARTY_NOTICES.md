@@ -8,6 +8,8 @@ The credits images in `MacShell/assets/credits/` are inherited from upstream. Sc
 
 ## Runtime dependencies and services
 
+Localized emoji, currency and city data includes Unicode CLDR 48 at revision `acd6d88ae493633240e19a87a721076a8a75c310`, under the [Unicode License v3](docs/licenses/unicode-cldr.txt). The generated subset and source hashes are in `MacShell/Locale/UnicodeData.js`.
+
 Quickshell, Qt, niri, GStreamer, PipeWire and the other system programs used by this project retain their own licenses. They are installed separately, not downloaded or bundled by `install.sh`.
 
 Optional AirPlay integration controls [Doubletake](https://github.com/omarroth/doubletake) through a private JSON control socket and [UxPlay](https://github.com/FDH2/UxPlay) through its command line and process events. Both are separate programs with their own licenses; their implementation and binaries are not included in this repository.

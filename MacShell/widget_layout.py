@@ -7,8 +7,29 @@ import re
 from preference_store import LIMIT, PreferenceStore
 
 STYLES = {'weather': ('liquid', 'normal'), 'calendar': ('liquid', 'normal'),
-          'clock': ('liquid', 'light', 'dark'), 'player': ('liquid', 'light', 'dark')}
+          'clock': ('liquid', 'light', 'dark'), 'player': ('liquid', 'light', 'dark'),
+          'activity': ('liquid', 'normal'), 'batteries': ('liquid', 'normal')}
 SIZES = ('small', 'medium', 'large')
+
+
+def valid_activity(value):
+    if not isinstance(value, dict):
+        return False
+    metrics = value.get('metrics', ['cpu', 'memory', 'network', 'disk'])
+    return (isinstance(metrics, list) and 1 <= len(metrics) <= 4
+            and all(isinstance(key, str) and key in ('cpu', 'memory', 'network', 'disk') for key in metrics)
+            and len(set(metrics)) == len(metrics) and value.get('view', 'rings') in ('rings', 'graphs'))
+
+
+def valid_batteries(value):
+    if not isinstance(value, dict):
+        return False
+    devices = value.get('devices', [])
+    return (value.get('mode', 'auto') in ('auto', 'selected') and isinstance(devices, list) and len(devices) <= 16
+            and all(isinstance(key, str) and len(key) <= 200 and (key == 'laptop'
+                or re.fullmatch(r'bluetooth:(?:[0-9A-F]{2}:){5}[0-9A-F]{2}', key)
+                or re.fullmatch(r'bluetooth-path:/org/bluez/[A-Za-z0-9_/]+', key)) for key in devices)
+            and len(set(devices)) == len(devices))
 
 
 def valid_appearance(value):
@@ -186,6 +207,10 @@ def normalize(source, strict=False):
             valid = valid and all(type(position.get(key)) is int and 0 <= position[key] <= 4096 for key in ('column', 'row'))
             valid = valid and settings.get('style', 'liquid') in STYLES[record['type']] and settings.get('size', 'small') in SIZES and settings.get('mode', 'auto') in ('auto', 'light', 'dark')
             valid = valid and valid_appearance(settings.get('appearance', {}))
+            if record['type'] == 'activity':
+                valid = valid and valid_activity(settings.get('activity', {}))
+            if record['type'] == 'batteries':
+                valid = valid and valid_batteries(settings.get('batteries', {}))
         if not valid:
             errors['widgets'] = 'Invalid widget instance, duplicate ID, position or settings. Restore a backup or reset widgets.'
             continue

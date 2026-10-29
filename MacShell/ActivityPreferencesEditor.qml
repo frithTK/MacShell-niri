@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 import "PreferenceFields.js" as Fields
 
@@ -15,7 +16,7 @@ ControlMenu {
     property string focusKey: ""
     property int focusSerial: 0
     property string highlightedKey: ""
-    readonly property var issues: Fields.validate(controller.fields, draft)
+    readonly property var issues: Fields.validate(controller.fields, draft, value => Language.I18n.legacy(value))
     readonly property bool editable: controller.ready && !controller.readOnly && !controller.pending
     readonly property bool needsWrite: !!controller.needsRepair || !!controller.migrationPending
     readonly property var visibleFields: controller.fields.filter(field => !field.advanced || root.advanced)
@@ -90,12 +91,12 @@ ControlMenu {
     }
     contentItem: Column {
         spacing: 12
-        Text { width: parent.width; text: "Activity appearance"; color: root.foreground; font.family: root.font.family; font.pixelSize: 17; font.weight: Font.DemiBold }
-        Text { width: parent.width; text: "Preview changes here, then Apply to update the menu bar."; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+        Text { width: parent.width; text: Language.I18n.text("ui.t_14adcebc7bcc"); color: root.foreground; font.family: root.font.family; font.pixelSize: 17; font.weight: Font.DemiBold }
+        Text { width: parent.width; text: Language.I18n.text("ui.t_10715ef871f2"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         Rectangle {
             width: parent.width; height: 65; radius: 10
             color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .06)
-            Text { x: 12; y: 12; text: "Sample data · CPU 78% · Memory 72%"; color: root.secondary; font.family: root.font.family; font.pixelSize: 11 }
+            Text { x: 12; y: 12; text: Language.I18n.text("ui.t_2d7b617a2f04"); color: root.secondary; font.family: root.font.family; font.pixelSize: 11 }
             SystemStatsBar {
                 objectName: "activityAppearancePreview"
                 anchors.right: parent.right; anchors.rightMargin: 12; y: 30
@@ -103,31 +104,31 @@ ControlMenu {
                 appearance: root.draft; tooltipsEnabled: true; budget: 250
             }
         }
-        Text { width: parent.width; visible: !root.controller.ready; text: "Loading Activity settings…"; color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
+        Text { width: parent.width; visible: !root.controller.ready; text: Language.I18n.text("ui.t_227e1c9bbc33"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
         Text {
             objectName: "activityPreferencesNotice"
             width: parent.width; visible: text !== ""; wrapMode: Text.Wrap
-            text: root.conflict ? "Activity settings changed elsewhere. Reload to review the latest values before applying." : root.controller.error || root.controller.notice
+            text: root.conflict ? Language.I18n.text("ui.t_8af25e4f1674") : root.controller.error || root.controller.notice
             color: root.secondary; font.family: root.font.family; font.pixelSize: 12
         }
         Row {
             spacing: 8
-            ControlButton { objectName: "activityReload"; text: "Reload"; enabled: !root.controller.pending; onClicked: { root.rebase(); root.controller.refresh(); } }
-            ControlButton { objectName: "activityRecovery"; visible: root.controller.canRecover; text: "Restore defaults…"; enabled: !root.controller.pending; onClicked: root.confirmRecovery = true }
+            ControlButton { objectName: "activityReload"; text: Language.I18n.text("language.reload"); enabled: !root.controller.pending; onClicked: { root.rebase(); root.controller.refresh(); } }
+            ControlButton { objectName: "activityRecovery"; visible: root.controller.canRecover; text: Language.I18n.text("ui.t_15efa04829c4"); enabled: !root.controller.pending; onClicked: root.confirmRecovery = true }
         }
         Column {
             visible: root.confirmRecovery; width: parent.width; spacing: 8
-            Text { width: parent.width; text: "Restore Activity appearance defaults? The original file will be kept in a recovery copy."; wrapMode: Text.Wrap; color: root.foreground; font.family: root.font.family; font.pixelSize: 12 }
+            Text { width: parent.width; text: Language.I18n.text("ui.t_fc0ed97b6972"); wrapMode: Text.Wrap; color: root.foreground; font.family: root.font.family; font.pixelSize: 12 }
             Row {
                 spacing: 8
-                ControlButton { objectName: "activityConfirmRecovery"; text: "Restore defaults"; primary: true; enabled: !root.controller.pending; onClicked: root.controller.recover(root.controller.token) }
-                ControlButton { text: "Cancel"; enabled: !root.controller.pending; onClicked: root.confirmRecovery = false }
+                ControlButton { objectName: "activityConfirmRecovery"; text: Language.I18n.text("ui.t_602f8e637002"); primary: true; enabled: !root.controller.pending; onClicked: root.controller.recover(root.controller.token) }
+                ControlButton { text: Language.I18n.text("common.cancel"); enabled: !root.controller.pending; onClicked: root.confirmRecovery = false }
             }
         }
         Row {
             spacing: 10; visible: root.controller.ready
             ControlSwitch { objectName: "activityAdvanced"; implicitWidth: 38; checked: root.advanced; onToggled: root.advanced = checked }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: "Advanced · CPU and memory thresholds"; color: root.foreground; font.family: root.font.family; font.pixelSize: 12 }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.text("ui.t_97b1427d84e6"); color: root.foreground; font.family: root.font.family; font.pixelSize: 12 }
         }
         Repeater {
             id: rows
@@ -145,10 +146,10 @@ ControlMenu {
                     x: 10; y: 10; width: parent.width - 20; spacing: 6
                     Row {
                         width: parent.width
-                        Text { width: parent.width - 68; anchors.verticalCenter: parent.verticalCenter; text: fieldRow.modelData.label + (fieldRow.modelData.unit ? " · " + fieldRow.modelData.unit : ""); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
-                        ControlButton { objectName: "activityReset_" + fieldRow.modelData.key; text: "Reset"; implicitWidth: 60; implicitHeight: 26; enabled: root.editable; onClicked: root.resetField(fieldRow.modelData) }
+                        Text { width: parent.width - 68; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.legacy(fieldRow.modelData.label) + (fieldRow.modelData.unit ? " · " + fieldRow.modelData.unit : ""); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        ControlButton { objectName: "activityReset_" + fieldRow.modelData.key; text: Language.I18n.text("ui.t_daee7606b339"); implicitWidth: 60; implicitHeight: 26; enabled: root.editable; onClicked: root.resetField(fieldRow.modelData) }
                     }
-                    Text { width: parent.width; text: fieldRow.modelData.description; color: root.secondary; font.family: root.font.family; font.pixelSize: 11; wrapMode: Text.Wrap }
+                    Text { width: parent.width; text: Language.I18n.legacy(fieldRow.modelData.description); color: root.secondary; font.family: root.font.family; font.pixelSize: 11; wrapMode: Text.Wrap }
                     SpinBox {
                         objectName: "activityThreshold_" + fieldRow.modelData.key
                         visible: fieldRow.modelData.type === "integer"
@@ -157,17 +158,17 @@ ControlMenu {
                         value: fieldRow.modelData.type === "integer" && typeof root.draft[fieldRow.modelData.key] === "number" ? root.draft[fieldRow.modelData.key] : 0
                         editable: true
                         onValueModified: root.change(fieldRow.modelData.key, value)
-                        Accessible.name: fieldRow.modelData.label
+                        Accessible.name: Language.I18n.legacy(fieldRow.modelData.label)
                     }
                     ControlComboBox {
                         objectName: "activityChoice_" + fieldRow.modelData.key
                         visible: fieldRow.modelData.type === "choice"
                         enabled: root.editable; width: Math.min(250, parent.width)
-                        model: fieldRow.modelData.choices || []
+                        model: fieldRow.modelData.choices || []; translatedLabels: true
                         textRole: "label"
                         currentIndex: (fieldRow.modelData.choices || []).findIndex(choice => choice.value === root.draft[fieldRow.modelData.key])
                         onActivated: index => root.change(fieldRow.modelData.key, fieldRow.modelData.choices[index].value)
-                        Accessible.name: fieldRow.modelData.label
+                        Accessible.name: Language.I18n.legacy(fieldRow.modelData.label)
                     }
                     Column {
                         visible: fieldRow.modelData.type === "order"
@@ -179,8 +180,8 @@ ControlMenu {
                                 required property int index
                                 width: parent.width; spacing: 6
                                 Text { width: parent.width - 118; anchors.verticalCenter: parent.verticalCenter; text: ({cpu: "CPU", memory: "Memory", network: "Network", disk: "Disk"})[modelData]; color: root.foreground; font.family: root.font.family; font.pixelSize: 12 }
-                                ControlButton { objectName: "activityOrderUp_" + parent.modelData; text: "↑"; implicitWidth: 50; implicitHeight: 28; enabled: root.editable && parent.index > 0; Accessible.name: "Move " + parent.modelData + " up"; onClicked: root.moveMetric(parent.index, -1) }
-                                ControlButton { objectName: "activityOrderDown_" + parent.modelData; text: "↓"; implicitWidth: 50; implicitHeight: 28; enabled: root.editable && parent.index < root.draft.order.length - 1; Accessible.name: "Move " + parent.modelData + " down"; onClicked: root.moveMetric(parent.index, 1) }
+                                ControlButton { objectName: "activityOrderUp_" + parent.modelData; text: "↑"; implicitWidth: 50; implicitHeight: 28; enabled: root.editable && parent.index > 0; Accessible.name: Language.I18n.text("ui.t_c848bff204f4") + parent.modelData + " up"; onClicked: root.moveMetric(parent.index, -1) }
+                                ControlButton { objectName: "activityOrderDown_" + parent.modelData; text: "↓"; implicitWidth: 50; implicitHeight: 28; enabled: root.editable && parent.index < root.draft.order.length - 1; Accessible.name: Language.I18n.text("ui.t_c848bff204f4") + parent.modelData + Language.I18n.text("ui.t_46b52c7eaaf4"); onClicked: root.moveMetric(parent.index, 1) }
                             }
                         }
                     }
@@ -190,10 +191,10 @@ ControlMenu {
         }
         Row {
             spacing: 8
-            ControlButton { objectName: "activityResetAll"; text: "Reset section"; enabled: root.editable; onClicked: root.resetAll() }
-            ControlButton { objectName: "activityCancel"; text: "Cancel"; enabled: !root.controller.pending && root.dirty; onClicked: root.rebase() }
-            ControlButton { objectName: "activityApply"; text: root.controller.pending ? "Applying…" : "Apply"; primary: true; enabled: root.editable && (root.dirty || root.needsWrite) && !root.conflict && Object.keys(root.issues).length === 0; onClicked: root.controller.save(root.draft, root.baseToken) }
+            ControlButton { objectName: "activityResetAll"; text: Language.I18n.text("ui.t_8e4b7f18830e"); enabled: root.editable; onClicked: root.resetAll() }
+            ControlButton { objectName: "activityCancel"; text: Language.I18n.text("common.cancel"); enabled: !root.controller.pending && root.dirty; onClicked: root.rebase() }
+            ControlButton { objectName: "activityApply"; text: root.controller.pending ? Language.I18n.text("ui.t_3329a9bb48b9") : Language.I18n.text("common.apply"); primary: true; enabled: root.editable && (root.dirty || root.needsWrite) && !root.conflict && Object.keys(root.issues).length === 0; onClicked: root.controller.save(root.draft, root.baseToken) }
         }
-        Text { width: parent.width; text: "Selected metrics, update interval and devices are configured in Menu Bar → Activity Monitor."; color: root.secondary; font.family: root.font.family; font.pixelSize: 11; wrapMode: Text.Wrap }
+        Text { width: parent.width; text: Language.I18n.text("ui.t_863721027c0b"); color: root.secondary; font.family: root.font.family; font.pixelSize: 11; wrapMode: Text.Wrap }
     }
 }

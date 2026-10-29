@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import QtQuick.Controls
 
 Item {
@@ -13,7 +14,7 @@ Item {
         objectName: "menuBack"
         visible: root.backVisible
         width: 28; height: 30; anchors.verticalCenter: parent.verticalCenter
-        Accessible.name: "Back to Control Center"
+        Accessible.name: Language.I18n.text("ui.t_c9aecc5b06fe")
         background: Rectangle {
             radius: 8; color: parent.hovered || parent.activeFocus ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .10) : "transparent"
         }

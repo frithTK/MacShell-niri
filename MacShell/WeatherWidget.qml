@@ -7,6 +7,7 @@
 // The item's own x / y are its position on the screen, which is how the glass knows which part of the wallpaper
 // sits behind it (it follows the widget while it is dragged).
 import QtQuick
+import "Locale" as Language
 import "GlassTheme.js" as GlassTheme
 import QtQuick.Effects
 
@@ -325,7 +326,7 @@ Item {
         Text {
             width: parent.width
             horizontalAlignment: w.isLarge ? Text.AlignRight : Text.AlignLeft
-            text: w.cond
+            text: Language.I18n.weatherCondition(w.cond)
             elide: Text.ElideRight
             color: w.fg
             font.family: w.fam
@@ -405,7 +406,7 @@ Item {
                     x: 0
                     width: 66 * w.s
                     anchors.verticalCenter: parent.verticalCenter
-                    text: dr.modelData.d
+                    text: Language.I18n.legacy(dr.modelData.d)
                     elide: Text.ElideRight
                     color: w.fg
                     font.family: w.fam

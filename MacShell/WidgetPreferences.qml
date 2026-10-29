@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 import "WidgetLayout.js" as Layout
 
@@ -12,7 +13,7 @@ Scope {
     property bool readOnly: true
     property bool canRecover: false
     property bool awaitingDisplay: false
-    property var values: ({defaults: {tempUnit: "C", locMode: "auto", cityName: "", styles: {weather: "liquid", calendar: "liquid", clock: "liquid", player: "liquid"}, mode: "auto"}, desktopOutput: "", outputs: {}, bindings: {}, widgets: []})
+    property var values: ({defaults: {tempUnit: "C", locMode: "auto", cityName: "", styles: {weather: "liquid", calendar: "liquid", clock: "liquid", player: "liquid", activity: "liquid", batteries: "liquid"}, mode: "auto"}, desktopOutput: "", outputs: {}, bindings: {}, widgets: []})
     property string token: ""
     property string notice: ""
     property string error: ""
@@ -68,7 +69,7 @@ Scope {
                 if (root.resetWeatherRequested) Qt.callLater(root.resetWeather);
                 else if (JSON.stringify(root.origin) !== root.sentOrigin) Qt.callLater(root.refresh);
             } else if ((m.type === "result" && root.loading && !m.success) || m.type === "error") {
-                root.loading = false; root.pending = false; root.error = m.error || "Widget settings could not be loaded."; root.finished(false);
+                root.loading = false; root.pending = false; root.error = m.error || Language.I18n.text("ui.t_b5e38626b85d"); root.finished(false);
             }
         }
     }

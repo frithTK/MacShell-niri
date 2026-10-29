@@ -35,6 +35,8 @@ sed 's|import "../MacShell" as Port|import "." as Port|' tests/adapter.qml > "$c
 if ! env -u DISPLAY -u WAYLAND_DISPLAY MACSHELL_SETTINGS_HOME="$check_dir/settings" XDG_CONFIG_HOME="$check_dir/config" XDG_CACHE_HOME="$check_dir/cache" XDG_RUNTIME_DIR="$check_dir/runtime" NIRI_SOCKET="$check_dir/no-session" QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic DBUS_SESSION_BUS_ADDRESS="unix:path=$check_dir/no-bus" \
     timeout 10 "$qs_binary" -p "$check_dir/adapter" > "$check_dir/adapter.log" 2>&1; then cat "$check_dir/adapter.log"; exit 1; fi
 if ! rg -q MACSHELL_ADAPTER_PASS "$check_dir/adapter.log"; then cat "$check_dir/adapter.log"; exit 1; fi
+python3 scripts/check-preview-reload.py
+dbus-run-session -- python3 tests/fixtures/fingerprint_dbus.py
 sed 's|import "." as Port|import "." as Port|' tests/services.qml > "$check_dir/adapter/shell.qml"
 if ! env -u DISPLAY -u WAYLAND_DISPLAY QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic \
     XDG_CONFIG_HOME="$check_dir/config" XDG_CACHE_HOME="$check_dir/cache" XDG_RUNTIME_DIR="$check_dir/runtime" \
@@ -67,4 +69,5 @@ if ! env -u DISPLAY -u WAYLAND_DISPLAY QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORM
 if ! rg -q MACSHELL_WIDGET_PREFERENCES_PASS "$check_dir/widget-preferences.log"; then cat "$check_dir/widget-preferences.log"; exit 1; fi
 python3 scripts/check-widget-outputs.py
 python3 scripts/check-widget-lifecycle.py
+python3 scripts/check-maclock-language.py
 printf '%s\n' 'Control services, private D-Bus protocols, QML interactions/migrations, Activity transactions, shaders, IPC, capture buffers and installer rollback checks passed.'

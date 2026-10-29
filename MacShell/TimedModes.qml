@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 import Quickshell
 
 Scope {
@@ -14,10 +15,10 @@ Scope {
     function set(kind, mode) { service.send("set", {kind: kind, mode: mode}); }
     function toggle(kind) { set(kind, active(kind) ? "off" : "manual"); }
     function label(kind) {
-        if (!active(kind)) return "Off";
+        if (!active(kind)) return Language.I18n.text("ui.t_ca7981b46ecf");
         var v = values[kind], left = remaining[kind];
-        if (v.mode === "manual") return "Until turned off";
-        if (v.mode === "evening") return "Until " + new Date(v.utc * 1000).toLocaleString(Qt.locale(), "ddd HH:mm");
+        if (v.mode === "manual") return Language.I18n.text("ui.t_53e7119012bc");
+        if (v.mode === "evening") return Language.I18n.text("ui.t_3e84e4d04f57") + new Date(v.utc * 1000).toLocaleString(Language.I18n.formatLocale, "ddd HH:mm");
         return Math.ceil((left || 0) / 60) + " min remaining";
     }
     JsonService {

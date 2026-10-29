@@ -1,4 +1,5 @@
 import QtQuick
+import "Locale" as Language
 
 // Content only: the owning layer provides the compositor-blurred glass surface.
 Item {
@@ -8,7 +9,7 @@ Item {
     property bool muted: false
     property color foreground: "#f7f7fa"
     property string fontFamily: "Inter Variable"
-    readonly property string title: kind === "brightness" ? "Brightness" : kind === "microphone" ? "Microphone" : "Volume"
+    readonly property string title: kind === "brightness" ? Language.I18n.text("ui.t_ec811d30a89c") : kind === "microphone" ? Language.I18n.text("ui.t_186352a881d0") : Language.I18n.text("audio.volume")
     readonly property real maximumValue: kind === "volume" ? 1.5 : 1
     readonly property real level: Math.max(0, Math.min(maximumValue, value))
     readonly property int percentage: Math.round(level * 100)
@@ -32,7 +33,7 @@ Item {
     Text {
         objectName: "osdValue"
         x: parent.width - 84; y: 17; width: 64
-        text: osd.muted ? "Muted" : osd.percentage + "%"
+        text: osd.muted ? Language.I18n.text("ui.t_2346f214ad56") : osd.percentage + "%"
         font.family: osd.fontFamily; font.pixelSize: 13; font.weight: Font.DemiBold
         color: osd.foreground; horizontalAlignment: Text.AlignRight
     }

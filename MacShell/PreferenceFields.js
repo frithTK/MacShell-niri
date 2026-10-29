@@ -6,7 +6,8 @@ function defaults(fields) {
     fields.forEach(field => values[field.key] = clone(field.default));
     return values;
 }
-function validate(fields, values) {
+function validate(fields, values, translate) {
+    var tr = translate || function(value) { return value; };
     var errors = {};
     fields.forEach(field => {
         var value = values[field.key], valid = true;
@@ -17,17 +18,18 @@ function validate(fields, values) {
         else if (field.type === "order")
             valid = Array.isArray(value) && value.length === field.choices.length
                 && field.choices.every(choice => value.indexOf(choice.value) >= 0);
-        if (!valid) errors[field.key] = field.label + " has an invalid value.";
+        if (!valid) errors[field.key] = tr(field.label) + tr(" has an invalid value.");
         else if (field.lessThan && value >= values[field.lessThan])
-            errors[field.key] = field.label + " must be below the critical threshold.";
+            errors[field.key] = tr(field.label) + tr(" must be below the critical threshold.");
     });
     return errors;
 }
-function search(fields, query) {
+function search(fields, query, translate) {
+    var tr = translate || function(value) { return value; };
     var words = query.trim().toLowerCase().split(/\s+/);
     if (!query.trim()) return [];
     return fields.filter(field => {
-        var text = (field.key + " " + field.label + " " + field.description + " " + field.keywords).toLowerCase();
+        var text = (field.key + " " + field.label + " " + field.description + " " + tr(field.label) + " " + tr(field.description) + " " + field.keywords).toLowerCase();
         return words.every(word => text.indexOf(word) >= 0);
     });
 }

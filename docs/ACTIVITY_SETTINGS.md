@@ -3,11 +3,11 @@
 Откройте **Settings → Activity Monitor** или **Menu Bar → Activity Monitor → Customize…**.
 
 - **Icon colors:** текущие цвета нагрузки или монохромные значки.
-- **Speed units:** десятичные kB/MB или двоичные KiB/MiB в подсказках сети и диска.
+- **Speed units:** десятичные kB/MB или двоичные KiB/MiB в подсказках сети и диска и desktop-карточках Activity.
 - **Metric order:** порядок значков кнопками ↑/↓. Состав показателей по-прежнему выбирается в Menu Bar.
 - **Advanced:** отдельные пороги предупреждения и высокой нагрузки для CPU и памяти. Порог предупреждения должен быть меньше критического.
 
-Предпросмотр использует демонстрационные данные. **Apply** сохраняет оформление и обновляет панель; **Cancel** отменяет черновик. **Reset** сбрасывает отдельный параметр, **Reset section** — все параметры этого раздела в черновике. Изменения сброса также требуют Apply. Глобальный Reset MacShell включает новое оформление Activity.
+Предпросмотр использует демонстрационные данные. **Apply** сохраняет оформление и обновляет панель и карточки Activity; **Cancel** отменяет черновик. **Reset** сбрасывает отдельный параметр, **Reset section** — все параметры этого раздела в черновике. Изменения сброса также требуют Apply. Глобальный Reset MacShell включает новое оформление Activity.
 
 В поиске Settings доступны названия параметров, их ключи и русские ключевые слова, например `порог`, `память`, `скорость`, `палитра`. Нажмите результат или Enter: нужная строка откроется и подсветится, Advanced раскроется автоматически. **Ctrl+F** переводит фокус в поиск.
 
@@ -29,10 +29,10 @@
 
 | Параметры | Владелец и хранилище | Применение |
 | --- | --- | --- |
-| `cpuWarning`, `cpuCritical`, `memoryWarning`, `memoryCritical`, `palette`, `speedUnit`, `order` | Один `ActivityPreferences` / `activity_preferences_service.py`; `activity-appearance.json` | Проверка → Apply → состояние контроллера → SystemStatsBar |
+| `cpuWarning`, `cpuCritical`, `memoryWarning`, `memoryCritical`, `palette`, `speedUnit`, `order` | Один `ActivityPreferences` / `activity_preferences_service.py`; `activity-appearance.json` | Проверка → Apply → состояние контроллера → SystemStatsBar и ActivityWidget |
 | `statsMetrics`, `statsMemoryPercent`, `statsInterval`, `statsInterface`, `statsDevice` | Существующий MacBar; `macbar/settings.json` | Существующие controls и SystemStats |
 | Bar Layout | `BarPreferences` / `bar_layout_service.py`; `macbar/layout.json` | Общая раскладка и переопределения экранов через [редактор панели](BAR_LAYOUT.md) |
-| Widget Layout, оформление экземпляра и общие defaults | `WidgetPreferences` / `widget_layout_service.py`; `macwidgets/settings.json` | Версионируемые экземпляры, `settings.appearance`, черновик/Apply, миграция, атомарная запись и подтверждённое восстановление через [галерею](WIDGETS.md) |
+| Widget Layout, оформление экземпляра и общие defaults | `WidgetPreferences` / `widget_layout_service.py`; `macwidgets/settings.json` | Версионируемые экземпляры, `settings.appearance` и `settings.activity`, черновик/Apply, миграция, атомарная запись и подтверждённое восстановление через [галерею](WIDGETS.md) |
 
 Авторитетное описание новых параметров: [activity_preferences_schema.json](../MacShell/activity_preferences_schema.json). Python использует один нормализатор при чтении/миграции и сохранении. Проверка формы на QML использует те же ограничения из схемы; окончательное решение о записи принимает сервис.
 

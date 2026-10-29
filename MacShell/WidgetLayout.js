@@ -62,7 +62,7 @@ function settings(record, common) {
     var saved = record.settings || {};
     return {style: saved.style !== undefined ? saved.style : common.styles[record.type],
             size: saved.size !== undefined ? saved.size : "small", mode: saved.mode !== undefined ? saved.mode : common.mode,
-            appearance: saved.appearance || {}};
+            appearance: saved.appearance || {}, activity: saved.activity || {}, batteries: saved.batteries || {}};
 }
 function supported(record) { return record.version === 1 && !!Catalog.find(record.type); }
 function overlap(x, y, dims, placed, skipId) {
@@ -98,6 +98,8 @@ function placements(values, screen, profileId) {
         var appearance = settings(record, values.defaults);
         placed.push({wid: record.id, wtype: record.type, wstyle: appearance.style, wsize: appearance.size, wmode: appearance.mode,
                      wappearance: JSON.stringify(appearance.appearance),
+                     wactivity: JSON.stringify(appearance.activity),
+                     wbatteries: JSON.stringify(appearance.batteries),
                      wx: position.x, wy: position.y, woutput: screen.name || "", wprofile: profile});
         resolved[record.id] = placed[placed.length - 1];
     }

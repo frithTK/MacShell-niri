@@ -181,5 +181,23 @@ class ReminderSchedulerTests(unittest.TestCase):
         self.scheduler.tick(next_due); self.scheduler.tick(next_due + 1)
         self.assertEqual(len(self.sent), 2)
 
+    def test_completing_during_delivery_does_not_consume_next_occurrence(self):
+        due = int(datetime(2030, 1, 1, 9, tzinfo=timezone.utc).timestamp() * 1000)
+        next_due = int(datetime(2030, 1, 2, 9, tzinfo=timezone.utc).timestamp() * 1000)
+        with patch('reminders_service.system_zone', return_value=ZoneInfo('UTC')):
+            row = self.store.set_details(self.task, 0, 'Test reminder', due, 'daily')
+        other = RemindersStore(self.path)
+        try:
+            def completing_sender(text):
+                other.update(self.task, row['revision'], 'done', True)
+                return 'delivered'
+            self.scheduler.sender = completing_sender
+            with patch('reminders_service.time.time_ns', return_value=(due + 1000) * 1000000):
+                self.scheduler.tick(due)
+            current = self.store.task(self.task)
+            self.assertEqual((current['due_at'], current['alert_state'], current['alert_token']), (next_due, 'pending', ''))
+        finally:
+            other.close()
+
 
 if __name__ == '__main__': unittest.main()

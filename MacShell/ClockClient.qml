@@ -14,7 +14,7 @@ Scope {
     readonly property string serviceError: service.error
     property string error: ""
     property var sounds: []
-    property bool showBuiltins: true
+    property bool showBuiltins: false
     property var soundRequests: ({})
     property string soundError: ""
     property string previewId: ""

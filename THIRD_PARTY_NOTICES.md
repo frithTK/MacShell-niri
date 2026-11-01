@@ -6,7 +6,9 @@ This port is based on [0-ss/MacShell](https://github.com/0-ss/MacShell) at commi
 
 The credits images in `MacShell/assets/credits/` are inherited from upstream. Screenshots in both project overviews and `docs/images/` show this port with demonstration data or a synthetic test window.
 
-Clock's bundled sounds in `MacShell/sounds/` are synthesized by `scripts/generate-clock-sounds.py` from mathematical waveforms; they contain no third-party recordings and are covered by the project's MIT license.
+The legacy Clock sound groups in `MacShell/sounds/` are synthesized by `scripts/generate-clock-sounds.py` from mathematical waveforms and are covered by the project's MIT license.
+
+The 65 recordings under `MacShell/sounds/apple/` come from the [macOS System Sounds archive](https://github.com/extratone/macOSsystemsounds/tree/f3e8dcd8d2318d099ade479ad1b9778ce4e65cc7/m4r). The archive identifies them as macOS system sounds; their provenance has not been independently verified. `MacShell/sounds/alarm.wav` and `timer.wav` are PCM conversions of its Radar and Chimes files. Apple and other rights holders retain any rights in these recordings; the project's MIT license does not grant rights to them. Permission to redistribute these recordings has not been confirmed.
 
 ## Runtime dependencies and services
 

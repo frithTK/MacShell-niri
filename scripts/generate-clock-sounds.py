@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the built-in Clock alert sounds without external assets."""
+"""Generate the legacy Clock sound groups without changing the defaults."""
 
 import math
 import json
@@ -10,10 +10,6 @@ import wave
 
 RATE = 24000
 DESTINATION = Path(__file__).resolve().parents[1] / 'MacShell/sounds'
-TONES = {
-    'timer': ([(783.99, .20), (987.77, .20), (783.99, .20), (987.77, .30)], .045),
-    'alarm': ([(659.25, .18), (783.99, .18), (987.77, .18), (783.99, .28)], .035),
-}
 SOUND_GROUPS = {
     'chime': ('Chime', [0, 4, 7, 12], .18, .05),
     'melody': ('Melody', [0, 7, 4, 12, 7], .20, .025),
@@ -37,12 +33,6 @@ def render(notes, gap):
 
 def main():
     DESTINATION.mkdir(parents=True, exist_ok=True)
-    for name, (notes, gap) in TONES.items():
-        with wave.open(str(DESTINATION / (name + '.wav')), 'wb') as output:
-            output.setnchannels(1)
-            output.setsampwidth(2)
-            output.setframerate(RATE)
-            output.writeframes(render(notes, gap))
     manifest = []
     for category, (label, intervals, duration, gap) in SOUND_GROUPS.items():
         for index in range(10):

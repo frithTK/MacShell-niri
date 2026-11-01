@@ -20,7 +20,7 @@ Rectangle {
     readonly property var filtered: client.sounds.filter(sound => {
         var category = filters.currentIndex >= 0 ? filters.model[filters.currentIndex].key : "all";
         var matchesFilter = category === "all" || (category === "favorites" && sound.favorite === true) ||
-                            (category === "custom" && sound.id.startsWith("user-")) || sound.category === category;
+                            (category === "custom" && sound.id.startsWith("user-") && sound.imported !== false) || sound.category === category;
         return matchesFilter && displayName(sound).toLowerCase().indexOf(search.text.toLowerCase().trim()) >= 0;
     })
     function displayName(sound) {
@@ -56,21 +56,20 @@ Rectangle {
         model: [{key: "all", label: Language.I18n.text("clock.sound_all")},
                 {key: "favorites", label: Language.I18n.text("clock.sound_favorites")},
                 {key: "custom", label: Language.I18n.text("clock.sound_custom")},
+                {key: "apple", label: Language.I18n.text("clock.sound_apple")},
                 {key: "chime", label: Language.I18n.text("clock.sound_chime")},
                 {key: "melody", label: Language.I18n.text("clock.sound_melody")},
                 {key: "gentle", label: Language.I18n.text("clock.sound_gentle")},
                 {key: "urgent", label: Language.I18n.text("clock.sound_urgent")}]
     }
-    ScrollView {
+    ListView {
         id: scroll; x: 16; y: 92; width: parent.width - 32; height: Math.max(50, parent.height - 191)
-        clip: true; contentWidth: availableWidth
-        Column {
-            width: scroll.availableWidth; spacing: 4
-            Repeater {
-                model: root.filtered
-                delegate: Rectangle {
+        clip: true; spacing: 4; boundsBehavior: Flickable.StopAtBounds
+        model: root.filtered
+        ScrollBar.vertical: ScrollBar { }
+        delegate: Rectangle {
                     required property var modelData
-                    width: scroll.availableWidth; height: 39; radius: 7; color: root.control
+                    width: scroll.width; height: 39; radius: 7; color: root.control
                     Text { x: 10; anchors.verticalCenter: parent.verticalCenter; width: favorite.x - 65; text: root.displayName(parent.modelData); textFormat: Text.PlainText; elide: Text.ElideRight; color: root.foreground; font.family: root.family; font.pixelSize: 13 }
                     Text { anchors.right: favorite.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: root.displayDuration(parent.modelData.durationMs); color: root.secondary; font.family: root.family; font.pixelSize: 11 }
                     SoundButton {
@@ -98,12 +97,10 @@ Rectangle {
                     SoundButton {
                         id: remove; objectName: "clockSoundDelete"; width: 36
                         anchors.right: parent.right; anchors.rightMargin: 3; anchors.verticalCenter: parent.verticalCenter
-                        visible: parent.modelData.id.startsWith("user-"); enabled: root.client.ready && !root.importer.busy && !root.client.busy
+                        visible: parent.modelData.id.startsWith("user-") && parent.modelData.imported !== false; enabled: root.client.ready && !root.importer.busy && !root.client.busy
                         text: "×"; Accessible.name: Language.I18n.text("clock.sound_delete") + ": " + root.displayName(parent.modelData)
                         onClicked: { confirm.soundId = parent.modelData.id; confirm.soundName = root.displayName(parent.modelData); confirm.open(); }
                     }
-                }
-            }
         }
     }
     Text {

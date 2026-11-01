@@ -23,10 +23,10 @@ ShellRoot {
             if (!clock.clockControlsReady) return;
             if (root.phase === 0) {
                 clock.open("alarms"); clock.testClockWindow.sheet = "sounds"; root.phase = 1;
-            } else if (root.phase === 1 && client.sounds.length === 40) {
+            } else if (root.phase === 1 && client.sounds.length === 65) {
                 clock.testSoundImporter.importFiles(["file://" + Quickshell.env("CLOCK_SOUND_TEST_FILE")]); root.phase = 2;
-            } else if (root.phase === 2 && client.sounds.length === 41) {
-                var imported = client.sounds.find(sound => sound.id.startsWith("user-"));
+            } else if (root.phase === 2 && client.sounds.length === 66) {
+                var imported = client.sounds.find(sound => sound.imported === true);
                 if (!imported || !client.previewSound(imported.id)) { console.error("CLOCK_SOUNDS_FAIL preview request"); Qt.exit(1); return; }
                 root.selected = imported.id;
                 root.phase = 3;
@@ -132,15 +132,15 @@ ShellRoot {
                 var confirmAgain = root.find(clock.testClockWindow.contentItem, "clockSoundConfirmDelete");
                 if (!confirmAgain) return;
                 input.mouseClick(confirmAgain, confirmAgain.width / 2, confirmAgain.height / 2, Qt.LeftButton, Qt.NoModifier, 0); root.phase = 17;
-            } else if (root.phase === 17 && client.sounds.length === 40) {
+            } else if (root.phase === 17 && client.sounds.length === 65) {
                 var visibility = root.find(clock.testClockWindow.contentItem, "clockSoundBuiltinVisibility");
                 if (!visibility) return;
                 input.mouseClick(visibility, visibility.width / 2, visibility.height / 2, Qt.LeftButton, Qt.NoModifier, 0); root.phase = 18;
-            } else if (root.phase === 18 && !client.showBuiltins && client.sounds.length === 0) {
+            } else if (root.phase === 18 && client.showBuiltins && client.sounds.length === 105) {
                 var show = root.find(clock.testClockWindow.contentItem, "clockSoundBuiltinVisibility");
                 if (!show) return;
                 input.mouseClick(show, show.width / 2, show.height / 2, Qt.LeftButton, Qt.NoModifier, 0); root.phase = 19;
-            } else if (root.phase === 19 && client.showBuiltins && client.sounds.length === 40) {
+            } else if (root.phase === 19 && !client.showBuiltins && client.sounds.length === 65) {
                 console.log("CLOCK_SOUNDS_APP_PASS"); Qt.exit(0);
             }
         }

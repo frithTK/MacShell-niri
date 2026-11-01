@@ -2,6 +2,8 @@
 *.png binary
 *.jpg binary
 *.qsb binary
+*.m4a binary
+*.wav binary
 
 # Unified diffs retain a leading space on otherwise empty context lines.
 *.patch -whitespace

@@ -12,7 +12,8 @@ TestCase {
             property bool ready: true
             property bool busy: false
             property var allSounds: [{id: "builtin-chime-01", name: "Chime 1", category: "chime"},
-                                     {id: "user-example", name: "My recording"}]
+                                     {id: "user-example", name: "My recording"},
+                                     {id: "user-packaged", name: "Radar", category: "apple", imported: false}]
             property var sounds: allSounds
             property string soundError: ""
             property string previewId: ""
@@ -42,7 +43,7 @@ TestCase {
         var importer = createTemporaryObject(importerComponent, test);
         var panel = createTemporaryObject(panelComponent, test, {client: client, importer: importer, darkMode: data.dark});
         waitForRendering(panel);
-        compare(client.refreshed, 1); compare(panel.filtered.length, 2);
+        compare(client.refreshed, 1); compare(panel.filtered.length, 3);
         var fileDialog = findChild(panel, "clockSoundFileDialog");
         verify(fileDialog.nameFilters[0].indexOf("*.aac") < 0);
         importer.aacSupported = true;
@@ -67,11 +68,16 @@ TestCase {
         mouseClick(findChild(panel, "clockSoundConfirmDelete"));
         compare(client.deleted, "user-example");
         tryCompare(confirmation, "visible", false); waitForRendering(panel);
+        filter.currentIndex = 0; search.text = "Radar";
+        tryCompare(panel, "filtered", [client.sounds[2]]); waitForRendering(panel);
+        verify(!findChild(panel, "clockSoundDelete").visible);
+        verify(!findChild(panel, "clockSoundRename").visible);
+        search.text = "";
         filter.currentIndex = 0;
         mouseClick(findChild(panel, "clockSoundBuiltinVisibility"));
-        compare(client.showBuiltins, false); compare(panel.filtered.length, 1);
+        compare(client.showBuiltins, false); compare(panel.filtered.length, 2);
         mouseClick(findChild(panel, "clockSoundBuiltinVisibility"));
-        compare(client.showBuiltins, true); compare(panel.filtered.length, 2);
+        compare(client.showBuiltins, true); compare(panel.filtered.length, 3);
         importer.busy = true; compare(findChild(panel, "clockSoundImport").enabled, false); waitForRendering(panel);
         mouseClick(findChild(panel, "clockSoundCancelImport")); verify(importer.cancelled);
     }

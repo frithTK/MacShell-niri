@@ -178,8 +178,15 @@ class SoundLibrary:
     def catalog_state(self):
         document = self._favorite_document()
         favorites = set(document['favorites'])
-        show_builtins = document.get('showBuiltins', True)
-        sounds = (self.list_builtin() if show_builtins else []) + self.list_imported()
+        show_builtins = document.get('showBuiltins', False)
+        imported = self.list_imported()
+        imported_ids = {item['id'] for item in imported}
+        packaged = self.list_apple()
+        apple_ids = {item['id'] for item in packaged}
+        apple = [dict(item, imported=False) for item in packaged if item['id'] not in imported_ids]
+        imported = [dict(item, imported=True, category='apple') if item['id'] in apple_ids else
+                    dict(item, imported=True) for item in imported]
+        sounds = apple + (self.list_builtin() if show_builtins else []) + imported
         return {'showBuiltins': show_builtins,
                 'sounds': [dict(item, favorite=item['id'] in favorites) for item in sounds]}
 
@@ -191,7 +198,7 @@ class SoundLibrary:
             with (self.directory / '.lock').open('a+b') as lock:
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
                 document = self._favorite_document()
-                if document.get('showBuiltins', True) == visible:
+                if document.get('showBuiltins', False) == visible:
                     return
                 document['showBuiltins'] = visible
                 atomic_write(self.directory / 'favorites.json',
@@ -279,9 +286,36 @@ class SoundLibrary:
                     return Path(__file__).with_name('sounds') / sound['file']
         elif re.fullmatch(r'user-[0-9a-f]{64}', identifier):
             directory = self.directory / identifier
-            sound = self._read(directory)
-            return directory / sound['file']
+            if directory.exists():
+                sound = self._read(directory)
+                return directory / sound['file']
+            for sound in self.list_apple():
+                if sound['id'] == identifier:
+                    return Path(__file__).with_name('sounds') / 'apple' / sound['file']
         raise SoundLibraryError('Sound is unavailable')
+
+    @staticmethod
+    def list_apple():
+        directory = Path(__file__).with_name('sounds') / 'apple'
+        try:
+            with (directory / 'catalog.json').open(encoding='utf-8') as source:
+                catalog = json.load(source)
+            if not isinstance(catalog, dict) or catalog.get('version') != 1 or not isinstance(catalog.get('sounds'), list):
+                raise ValueError('Invalid Apple sound catalog')
+            ids = set()
+            for sound in catalog['sounds']:
+                identifier, filename = sound['id'], sound['file']
+                if (not isinstance(identifier, str) or not re.fullmatch(r'user-[0-9a-f]{64}', identifier) or
+                        identifier in ids or not isinstance(filename, str) or
+                        not re.fullmatch(r'[A-Za-z0-9 ._-]+\.m4a', filename) or
+                        not isinstance(sound.get('name'), str) or not sound['name'] or
+                        sound.get('category') != 'apple' or type(sound.get('durationMs')) is not int or
+                        not 0 < sound['durationMs'] <= MAX_SECONDS * 1000 or not (directory / filename).is_file()):
+                    raise ValueError('Invalid Apple sound catalog entry')
+                ids.add(identifier)
+            return catalog['sounds']
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise SoundLibraryError('Invalid Apple sound catalog') from exc
 
     @staticmethod
     def list_builtin():

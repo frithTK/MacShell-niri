@@ -112,7 +112,9 @@ class ClockServiceTests(unittest.TestCase):
         client.send('set-builtins-visible', {'visible': False})
         hidden = client.read()
         self.assertFalse(hidden['showBuiltins'])
-        self.assertEqual([item['id'] for item in hidden['sounds']], [identifier])
+        self.assertEqual(len(hidden['sounds']), 66)
+        self.assertIn(identifier, [item['id'] for item in hidden['sounds']])
+        self.assertFalse(any(item['id'].startswith('builtin-') for item in hidden['sounds']))
         client.send('sounds')
         self.assertFalse(client.read()['showBuiltins'])
         client.send('set-builtins-visible', {'visible': True})
@@ -164,6 +166,28 @@ class ClockServiceTests(unittest.TestCase):
         client.send('command', envelope)
         self.assertEqual(client.read()['result'], saved['result'])
         self.assertEqual(client.read()['alarms'], [])
+
+    def test_packaged_apple_sound_can_be_saved_and_reopened(self):
+        root = Path(self.directory.name)
+        client = self.client(sound_dir=root)
+        self.assertEqual(client.read()['type'], 'ready')
+        client.send('sounds')
+        sounds = client.read()['sounds']
+        apple = next(sound for sound in sounds if sound.get('category') == 'apple' and not sound.get('imported', True))
+        client.send('load')
+        state = client.read()
+        alarm = {'id': 'apple-alarm', 'h': 12, 'm': 0, 'on': False, 'days': [],
+                 'label': '', 'soundId': apple['id']}
+        envelope = {'id': str(uuid.uuid4()), 'bootId': boot_id(), 'issuedBootMs': boot_time_ms(),
+                    'revision': state['revision'], 'action': 'patch-settings', 'args': {'patch': {'alarms': [alarm]}}}
+        client.send('command', envelope)
+        self.assertTrue(client.read()['success'])
+        self.assertEqual(client.read()['alarms'][0]['soundId'], apple['id'])
+        client.close()
+        client = self.client(sound_dir=root)
+        self.assertEqual(client.read()['type'], 'ready')
+        client.send('load')
+        self.assertEqual(client.read()['alarms'][0]['soundId'], apple['id'])
 
     @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'ffmpeg and ffprobe are required')
     def test_deleting_a_previewed_sound_stops_its_owned_player(self):
@@ -633,7 +657,7 @@ while True:
         client.send('sounds')
         catalog = client.read()
         self.assertEqual(catalog['type'], 'sounds')
-        self.assertEqual(len(catalog['sounds']), 40)
+        self.assertEqual(len(catalog['sounds']), 65)
         client.send('preview-sound', {'soundId': 'builtin-chime-01'})
         self.assertEqual(client.read()['soundId'], 'builtin-chime-01')
         deadline = time.monotonic() + 4

@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='macshell-theme-') as directory:
     # Intentionally conflicting legacy files: Settings/Dock wins only once both load.
     (root / 'settings/macbar/settings.json').write_text(json.dumps(dict(darkMode=True, clipHistory=False, autoContrast=False, wallpaperAppearance='light')))
     (root / 'settings/macdock/settings.json').write_text(json.dumps(dict(darkMode=False, dockEnabled=False)))
-    environment = dict(os.environ, QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_QUICK_CONTROLS_STYLE='Basic',
+    environment = dict(os.environ, QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_QUICK_CONTROLS_STYLE='Basic', MACSHELL_CLOCK_SERVICE='0',
                        XDG_CACHE_HOME=str(root / 'cache'), XDG_CONFIG_HOME=str(root / 'config'), MACSHELL_SETTINGS_HOME=str(root / 'settings'),
                        NIRI_SOCKET=str(root / 'no-session'), DBUS_SESSION_BUS_ADDRESS='unix:path=' + str(root / 'no-bus'),
                        DBUS_SYSTEM_BUS_ADDRESS='unix:path=' + str(root / 'no-bus'), MACSHELL_THEME_CAPTURE=str(args.capture_dir.resolve()))

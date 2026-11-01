@@ -20,8 +20,10 @@ ShellRoot {
         property var widgets: macWidgets
         property var clock: clockApp
         property var calculator: calculatorApp
+        property var notes: notesApp
+        property var reminders: remindersApp
         readonly property var translations: Language.I18n
-        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); }
+        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); }
         function openSettings(pane) { macDock.openPrefs(pane); }
         property bool barWantsGeo: false
         property bool dockWantsGeo: false
@@ -86,6 +88,8 @@ ShellRoot {
     MacWidgets { id: macWidgets; hub: sharedHub }
     ClockApp { id: clockApp; hub: sharedHub }
     CalculatorApp { id: calculatorApp; hub: sharedHub }
+    NotesApp { id: notesApp; hub: sharedHub }
+    RemindersApp { id: remindersApp; hub: sharedHub }
     ThemeCoordinator { bar: macBar; dock: macDock }
 
     IpcHandler {
@@ -165,6 +169,14 @@ ShellRoot {
         target: "calculator"
         function open(): void { calculatorApp.open(); }
         function expression(value: string): void { calculatorApp.open(value); }
+    }
+    IpcHandler {
+        target: "notes"
+        function open(): void { notesApp.open(); }
+    }
+    IpcHandler {
+        target: "reminders"
+        function open(): void { remindersApp.open(); }
     }
     IpcHandler {
         target: "utilities"

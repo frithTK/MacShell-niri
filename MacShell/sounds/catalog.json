@@ -1,0 +1,285 @@
+{
+  "version": 1,
+  "sounds": [
+    {
+      "id": "builtin-chime-01",
+      "name": "Chime 1",
+      "category": "chime",
+      "file": "chime-01.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-02",
+      "name": "Chime 2",
+      "category": "chime",
+      "file": "chime-02.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-03",
+      "name": "Chime 3",
+      "category": "chime",
+      "file": "chime-03.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-04",
+      "name": "Chime 4",
+      "category": "chime",
+      "file": "chime-04.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-05",
+      "name": "Chime 5",
+      "category": "chime",
+      "file": "chime-05.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-06",
+      "name": "Chime 6",
+      "category": "chime",
+      "file": "chime-06.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-07",
+      "name": "Chime 7",
+      "category": "chime",
+      "file": "chime-07.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-08",
+      "name": "Chime 8",
+      "category": "chime",
+      "file": "chime-08.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-09",
+      "name": "Chime 9",
+      "category": "chime",
+      "file": "chime-09.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-chime-10",
+      "name": "Chime 10",
+      "category": "chime",
+      "file": "chime-10.wav",
+      "durationMs": 920
+    },
+    {
+      "id": "builtin-melody-01",
+      "name": "Melody 1",
+      "category": "melody",
+      "file": "melody-01.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-02",
+      "name": "Melody 2",
+      "category": "melody",
+      "file": "melody-02.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-03",
+      "name": "Melody 3",
+      "category": "melody",
+      "file": "melody-03.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-04",
+      "name": "Melody 4",
+      "category": "melody",
+      "file": "melody-04.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-05",
+      "name": "Melody 5",
+      "category": "melody",
+      "file": "melody-05.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-06",
+      "name": "Melody 6",
+      "category": "melody",
+      "file": "melody-06.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-07",
+      "name": "Melody 7",
+      "category": "melody",
+      "file": "melody-07.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-08",
+      "name": "Melody 8",
+      "category": "melody",
+      "file": "melody-08.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-09",
+      "name": "Melody 9",
+      "category": "melody",
+      "file": "melody-09.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-melody-10",
+      "name": "Melody 10",
+      "category": "melody",
+      "file": "melody-10.wav",
+      "durationMs": 1125
+    },
+    {
+      "id": "builtin-gentle-01",
+      "name": "Gentle 1",
+      "category": "gentle",
+      "file": "gentle-01.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-02",
+      "name": "Gentle 2",
+      "category": "gentle",
+      "file": "gentle-02.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-03",
+      "name": "Gentle 3",
+      "category": "gentle",
+      "file": "gentle-03.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-04",
+      "name": "Gentle 4",
+      "category": "gentle",
+      "file": "gentle-04.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-05",
+      "name": "Gentle 5",
+      "category": "gentle",
+      "file": "gentle-05.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-06",
+      "name": "Gentle 6",
+      "category": "gentle",
+      "file": "gentle-06.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-07",
+      "name": "Gentle 7",
+      "category": "gentle",
+      "file": "gentle-07.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-08",
+      "name": "Gentle 8",
+      "category": "gentle",
+      "file": "gentle-08.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-09",
+      "name": "Gentle 9",
+      "category": "gentle",
+      "file": "gentle-09.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-gentle-10",
+      "name": "Gentle 10",
+      "category": "gentle",
+      "file": "gentle-10.wav",
+      "durationMs": 1380
+    },
+    {
+      "id": "builtin-urgent-01",
+      "name": "Urgent 1",
+      "category": "urgent",
+      "file": "urgent-01.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-02",
+      "name": "Urgent 2",
+      "category": "urgent",
+      "file": "urgent-02.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-03",
+      "name": "Urgent 3",
+      "category": "urgent",
+      "file": "urgent-03.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-04",
+      "name": "Urgent 4",
+      "category": "urgent",
+      "file": "urgent-04.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-05",
+      "name": "Urgent 5",
+      "category": "urgent",
+      "file": "urgent-05.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-06",
+      "name": "Urgent 6",
+      "category": "urgent",
+      "file": "urgent-06.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-07",
+      "name": "Urgent 7",
+      "category": "urgent",
+      "file": "urgent-07.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-08",
+      "name": "Urgent 8",
+      "category": "urgent",
+      "file": "urgent-08.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-09",
+      "name": "Urgent 9",
+      "category": "urgent",
+      "file": "urgent-09.wav",
+      "durationMs": 930
+    },
+    {
+      "id": "builtin-urgent-10",
+      "name": "Urgent 10",
+      "category": "urgent",
+      "file": "urgent-10.wav",
+      "durationMs": 930
+    }
+  ]
+}

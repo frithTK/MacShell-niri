@@ -2,11 +2,11 @@
 //
 //   qs -c MacShell ipc call clock open            (also: clock tab alarms|world|stopwatch|timers, clock stop, clock snooze)
 //
-// Lives inside MacShell (not its own process) so alarms and timers ring even when the window is closed. Everything is
-// saved to ~/.config/macshell/clock.json the moment it changes (survives crashes and restarts); the Clock widget and
-// the lock screen read the same file, so a running timer / stopwatch shows there too.
+// A shared service owns Clock state while the shell is running, including when the window is closed.
+// The lock screen reads the same saved state.
 import QtQuick
 import "Locale" as Language
+import "ClockDisplay.js" as ClockDisplay
 import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
@@ -17,6 +17,7 @@ Scope {
     id: root
     property var hub: null
     property bool appEnabled: true
+    readonly property alias backend: clockBackend
     readonly property var dock: hub ? hub.dock : null
     readonly property var bar: hub ? hub.bar : null
     readonly property bool darkMode: dock ? dock.darkMode : true
@@ -34,9 +35,66 @@ Scope {
     property var timer: ({ state: "idle", total: 300000, endAt: 0, left: 300000, label: "" })   // idle | running | paused
     property var sw: ({ running: false, startAt: 0, acc: 0, laps: [] })
     property var recents: []       // recent timer durations (ms), newest first
+    property var timerPresets: ({}) // sound settings for recent durations
     property var snoozes: []       // { at, label }
     property var ringing: null     // { kind: "alarm" | "timer", label, time } while it rings
     property bool loaded: false
+    readonly property bool managedClock: Quickshell.env("MACSHELL_CLOCK_SERVICE") !== "0"
+    property bool legacyStoreBlocked: true
+    readonly property bool clockControlsReady: managedClock ? (clockBackend.ready && !clockBackend.busy) : !legacyStoreBlocked
+    property bool closeSheetAfterSave: false
+    property string clockMessage: ""
+    property string timerSoundId: ""
+    property var timerSoundOptions: null
+    function soundName(sound) {
+        if (!sound.id || !sound.id.startsWith("builtin-")) return sound.name || "";
+        var key = ({chime: "clock.sound_chime", melody: "clock.sound_melody", gentle: "clock.sound_gentle", urgent: "clock.sound_urgent"})[sound.category];
+        return (key ? Language.I18n.text(key) : sound.name) + " " + Number(sound.id.slice(-2));
+    }
+    function soundChoices(current) {
+        var choices = [{key: "", label: Language.I18n.text("clock.sound_default")}, {key: "silence", label: Language.I18n.text("clock.sound_silence")}];
+        clockBackend.controller.sounds.forEach(sound => choices.push({key: sound.id, label: root.soundName(sound)}));
+        if (current && !choices.some(choice => choice.key === current)) choices.push({key: current, label: Language.I18n.text("clock.sound_missing")});
+        return choices;
+    }
+
+    ClockBackend {
+        id: clockBackend
+        enabled: root.managedClock
+        storePath: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("XDG_CONFIG_HOME") || root.home + "/.config") + "/macshell/clock.json"
+        soundDirectory: root.soundDir
+        onSnapshotChanged: {
+            if (!root.managedClock || !snapshot) return;
+            function copy(value) { return JSON.parse(JSON.stringify(value)); }
+            var state = snapshot;
+            if (!root.loaded && state.timing && state.timing.timer) {
+                root.timerSoundId = state.timing.timer.soundId || "";
+                root.timerSoundOptions = state.timing.timer.soundOptions || null;
+            }
+            var oldCities = JSON.stringify(root.cities);
+            root.alarms = copy(state.alarms || []); root.cities = copy(state.cities || []); root.timer = copy(state.timer);
+            root.sw = copy(state.sw); root.recents = copy(state.recents || []); root.timerPresets = copy(state.timerPresets || {}); root.ringing = state.ringing ? copy(state.ringing) : null;
+            root.loaded = true;
+            if (oldCities !== JSON.stringify(root.cities)) root.refreshTz();
+        }
+        onReadyChanged: if (ready) controller.refreshSounds()
+        onCompleted: (action, success, result, error) => {
+            root.clockMessage = success ? "" : Language.I18n.text("clock.operation_failed");
+            if (action === "patch-settings" && root.closeSheetAfterSave) {
+                if (success) win.sheet = "";
+                root.closeSheetAfterSave = false;
+            }
+        }
+    }
+    ClockSoundImport {
+        id: soundImporter
+        directory: root.soundDir + "/library"
+        onFinished: clockBackend.controller.refreshSounds()
+    }
+    Connections {
+        target: clockBackend.controller
+        function onSoundDeleted(soundId) { if (root.timerSoundId === soundId) root.timerSoundId = ""; }
+    }
 
     property real nowMs: Date.now()
     readonly property bool timerActive: timer.state !== "idle"
@@ -51,6 +109,7 @@ Scope {
     }
     function ampm(h) { return use24h ? "" : (h < 12 ? "AM" : "PM"); }
     function timerLeft() {
+        if (managedClock) return clockBackend.timerRemaining;
         if (timer.state === "running") return Math.max(0, timer.endAt - nowMs);
         return timer.left;
     }
@@ -60,7 +119,7 @@ Scope {
         var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
         return (h > 0 ? h + ":" + pad(m) : pad(m)) + ":" + pad(x);
     }
-    function swElapsed() { return sw.acc + (sw.running ? nowMs - sw.startAt : 0); }
+    function swElapsed() { return managedClock ? clockBackend.stopwatchElapsed : sw.acc + (sw.running ? nowMs - sw.startAt : 0); }
     function fmtSw(ms) {
         var cs = Math.floor(ms / 10) % 100, s = Math.floor(ms / 1000), m = Math.floor(s / 60) % 60, h = Math.floor(s / 3600);
         return (h > 0 ? h + ":" : "") + pad(m) + ":" + pad(s % 60) + "," + pad(cs);
@@ -81,19 +140,24 @@ Scope {
         path: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("XDG_CONFIG_HOME") || root.home + "/.config") + "/macshell/clock.json"
         printErrors: false
         onLoaded: {
+            if (root.managedClock) return;
             try {
                 var o = JSON.parse(text());
+                if (!o || typeof o !== "object" || Array.isArray(o) || (o.version !== undefined && o.version !== 0)) {
+                    root.legacyStoreBlocked = true; root.loaded = true; return;
+                }
+                root.legacyStoreBlocked = false;
                 if (o.alarms) root.alarms = o.alarms;
                 if (o.cities) root.cities = o.cities;
                 if (o.timer) root.timer = o.timer;
                 if (o.sw) root.sw = o.sw;
                 if (o.recents) root.recents = o.recents;
                 if (o.snoozes) root.snoozes = o.snoozes;
-            } catch (e) { }
+            } catch (e) { root.legacyStoreBlocked = true; }
             root.loaded = true;
             root.refreshTz();
         }
-        onLoadFailed: { root.loaded = true; root.refreshTz(); }
+        onLoadFailed: { if (!root.managedClock) { root.legacyStoreBlocked = false; root.loaded = true; root.refreshTz(); } }
     }
     FileView {
         path: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("XDG_CONFIG_HOME") || root.home + "/.config") + "/macshell/components.json"
@@ -101,25 +165,39 @@ Scope {
         onLoaded: { try { var o = JSON.parse(text()); if (o.clockEnabled !== undefined) root.appEnabled = !!o.clockEnabled; } catch (e) {} }
     }
     Timer { id: saveLater; interval: 150; onTriggered: root.saveNow() }
-    function save() { if (loaded) saveLater.restart(); }
+    function save() { if (!managedClock && !legacyStoreBlocked && loaded) saveLater.restart(); }
     function saveNow() {
-        Quickshell.execDetached(["sh", "-c", "mkdir -p \"${MACSHELL_SETTINGS_HOME:-$HOME/.config}/macshell\" && printf '%s\\n' \"$1\" > \"${MACSHELL_SETTINGS_HOME:-$HOME/.config}/macshell/clock.json.tmp\" && mv -f \"${MACSHELL_SETTINGS_HOME:-$HOME/.config}/macshell/clock.json.tmp\" \"${MACSHELL_SETTINGS_HOME:-$HOME/.config}/macshell/clock.json\"",
+        if (managedClock || legacyStoreBlocked) return;
+        Quickshell.execDetached(["sh", "-c", "mkdir -p \"${MACSHELL_SETTINGS_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}/macshell\" && printf '%s\\n' \"$1\" > \"${MACSHELL_SETTINGS_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}/macshell/clock.json.tmp\" && mv -f \"${MACSHELL_SETTINGS_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}/macshell/clock.json.tmp\" \"${MACSHELL_SETTINGS_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}/macshell/clock.json\"",
             "sh", JSON.stringify({ alarms: alarms, cities: cities, timer: timer, sw: sw, recents: recents, snoozes: snoozes, ringing: ringing }, null, 1)]);
     }
 
     // ── alarms ──
-    function addAlarm(h, m, label, days) {
-        var a = alarms.slice(); a.push({ id: uid(), h: h, m: m, label: label || "", on: true, days: days || [] });
+    function addAlarm(h, m, label, days, soundId, soundOptions) {
+        if (!clockControlsReady) return false;
+        var a = alarms.slice(); var entry = { id: uid(), h: h, m: m, label: label || "", on: true, days: days || [], soundId: soundId || "" };
+        if (soundOptions) entry.soundOptions = soundOptions;
+        a.push(entry);
         a.sort(function (x, y) { return x.h * 60 + x.m - (y.h * 60 + y.m); });
+        if (managedClock) return clockBackend.patchSettings({alarms: a});
         alarms = a; save();
+        return true;
     }
-    function updateAlarm(id, h, m, label, days) {
-        var a = alarms.map(function (x) { return x.id === id ? { id: id, h: h, m: m, label: label || "", on: true, days: days || [] } : x; });
+    function updateAlarm(id, h, m, label, days, soundId, soundOptions) {
+        if (!clockControlsReady) return false;
+        var a = alarms.map(function (x) {
+            if (x.id !== id) return x;
+            var next = Object.assign({}, x, { id: id, h: h, m: m, label: label || "", on: true, days: days || [], soundId: soundId === undefined ? (x.soundId || "") : soundId });
+            if (soundOptions !== undefined && soundOptions !== null) next.soundOptions = soundOptions;
+            return next;
+        });
         a.sort(function (x, y) { return x.h * 60 + x.m - (y.h * 60 + y.m); });
+        if (managedClock) return clockBackend.patchSettings({alarms: a});
         alarms = a; save();
+        return true;
     }
-    function setAlarmOn(id, on) { alarms = alarms.map(function (x) { if (x.id !== id) return x; var c = Object.assign({}, x); c.on = on; return c; }); save(); }
-    function deleteAlarm(id) { alarms = alarms.filter(function (x) { return x.id !== id; }); save(); }
+    function setAlarmOn(id, on) { if (!clockControlsReady) return false; var next = alarms.map(function (x) { if (x.id !== id) return x; var c = Object.assign({}, x); c.on = on; return c; }); if (managedClock) return clockBackend.patchSettings({alarms: next}); alarms = next; save(); return true; }
+    function deleteAlarm(id) { if (!clockControlsReady) return false; var next = alarms.filter(function (x) { return x.id !== id; }); if (managedClock) return clockBackend.patchSettings({alarms: next}); alarms = next; save(); return true; }
     function nextAlarmText(a) {
         // "in 7 hr 12 min" style hint for the widget
         var d = new Date(nowMs), best = -1;
@@ -132,21 +210,31 @@ Scope {
     }
 
     // ── timer ──
-    function startTimer(ms, label) {
+    function startTimer(ms, label, soundId, soundOptions) {
+        if (!clockControlsReady) return false;
         if (ms <= 0) return;
+        if (managedClock) return clockBackend.startTimer(ms, label, false, soundId === undefined ? root.timerSoundId : soundId,
+                                                         soundOptions === undefined ? root.timerSoundOptions : soundOptions);
         timer = { state: "running", total: ms, endAt: Date.now() + ms, left: ms, label: label || "" };
         var r = recents.filter(function (x) { return x !== ms; }); r.unshift(ms); recents = r.slice(0, 6);
         save();
     }
-    function pauseTimer() { if (timer.state !== "running") return; var t = Object.assign({}, timer); t.left = Math.max(0, t.endAt - Date.now()); t.state = "paused"; timer = t; save(); }
-    function resumeTimer() { if (timer.state !== "paused") return; var t = Object.assign({}, timer); t.endAt = Date.now() + t.left; t.state = "running"; timer = t; save(); }
-    function cancelTimer() { var t = Object.assign({}, timer); t.state = "idle"; t.left = t.total; timer = t; save(); }
+    function startRecent(ms) {
+        var preset = timerPresets[String(ms)];
+        if (!managedClock || !preset) return startTimer(ms, "");
+        var accepted = startTimer(ms, "", preset.soundId || "", preset.soundOptions || null);
+        if (accepted) { timerSoundId = preset.soundId || ""; timerSoundOptions = preset.soundOptions || null; }
+        return accepted;
+    }
+    function pauseTimer() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.timerAction("pause"); if (timer.state !== "running") return; var t = Object.assign({}, timer); t.left = Math.max(0, t.endAt - Date.now()); t.state = "paused"; timer = t; save(); }
+    function resumeTimer() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.timerAction("resume"); if (timer.state !== "paused") return; var t = Object.assign({}, timer); t.endAt = Date.now() + t.left; t.state = "running"; timer = t; save(); }
+    function cancelTimer() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.timerAction("cancel"); var t = Object.assign({}, timer); t.state = "idle"; t.left = t.total; timer = t; save(); }
 
     // ── stopwatch ──
-    function swStart() { sw = { running: true, startAt: Date.now(), acc: sw.acc, laps: sw.laps }; save(); }
-    function swStop() { sw = { running: false, startAt: 0, acc: sw.acc + Date.now() - sw.startAt, laps: sw.laps }; save(); }
-    function swLap() { var l = sw.laps.slice(); l.unshift(swElapsed()); sw = { running: sw.running, startAt: sw.startAt, acc: sw.acc, laps: l }; save(); }
-    function swReset() { sw = { running: false, startAt: 0, acc: 0, laps: [] }; save(); }
+    function swStart() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.stopwatchAction("start"); sw = { running: true, startAt: Date.now(), acc: sw.acc, laps: sw.laps }; save(); }
+    function swStop() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.stopwatchAction("pause"); sw = { running: false, startAt: 0, acc: sw.acc + Date.now() - sw.startAt, laps: sw.laps }; save(); }
+    function swLap() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.stopwatchAction("lap"); var l = sw.laps.slice(); l.unshift(swElapsed()); sw = { running: sw.running, startAt: sw.startAt, acc: sw.acc, laps: l }; save(); }
+    function swReset() { if (!clockControlsReady) return false; if (managedClock) return clockBackend.stopwatchAction("reset"); sw = { running: false, startAt: 0, acc: 0, laps: [] }; save(); }
 
     // ── world clock: UTC offsets come from the system tz database (DST-correct), refreshed hourly ──
     property var tzOff: ({})
@@ -201,8 +289,8 @@ Scope {
         ["Tehran", "Asia/Tehran"], ["Tokyo", "Asia/Tokyo"], ["Toronto", "America/Toronto"], ["Vancouver", "America/Vancouver"],
         ["Vienna", "Europe/Vienna"], ["Zurich", "Europe/Zurich"]
     ]
-    function addCity(name, tz) { var c = cities.slice(); c.push({ name: name, tz: tz }); cities = c; save(); refreshTz(); }
-    function removeCity(i) { var c = cities.slice(); c.splice(i, 1); cities = c; save(); }
+    function addCity(name, tz) { if (!clockControlsReady) return false; var c = cities.slice(); c.push({ name: name, tz: tz }); if (managedClock) return clockBackend.patchSettings({cities: c}); cities = c; save(); refreshTz(); return true; }
+    function removeCity(i) { if (!clockControlsReady) return false; var c = cities.slice(); c.splice(i, 1); if (managedClock) return clockBackend.patchSettings({cities: c}); cities = c; save(); return true; }
 
     // ═════════════ TICK + RINGING ═════════════
     // 1 s normally; 30 fps only while the stopwatch is on screen and running
@@ -213,7 +301,7 @@ Scope {
     }
     property string lastMinute: ""
     function check() {
-        if (!loaded) return;
+        if (!loaded || managedClock || legacyStoreBlocked) return;
         var d = new Date(nowMs);
         if (timer.state === "running" && nowMs >= timer.endAt) {
             var t = Object.assign({}, timer); t.state = "idle"; t.left = t.total; timer = t;
@@ -250,15 +338,17 @@ Scope {
         save();
     }
     function stopRing() {
+        if (managedClock) return clockBackend.eventAction("dismiss-event");
         if (!ringing) return;
         ringing = null; ringProc.running = false; ringLimit.stop(); save();
     }
     function snooze() {
+        if (managedClock) return clockBackend.eventAction("snooze");
         if (!ringing) return;
         var s = snoozes.slice(); s.push({ at: Date.now() + 9 * 60000, label: ringing.label, defaultLabel: ringing.defaultLabel }); snoozes = s;
         stopRing();
     }
-    function repeatTimer() { var ms = timer.total; stopRing(); startTimer(ms, timer.label); }
+    function repeatTimer() { if (managedClock) return clockBackend.repeatTimer(); var ms = timer.total; stopRing(); startTimer(ms, timer.label); }
     function defaultRingLabel(r) {
         return !r.label || r.defaultLabel === true || (r.defaultLabel === undefined && r.label === (r.kind === "timer" ? "Timer" : "Alarm"));
     }
@@ -310,7 +400,7 @@ Scope {
                 width: parent.width - 66 - btns.width - 16
                 spacing: 1
                 Text { text: root.ringing ? (root.ringing.kind === "timer" ? Language.I18n.text("ui.t_cdeec2b374c1") : Language.I18n.text("ui.t_f3b679573579")) : ""; color: bannerCard.fg; font.family: root.fam; font.pixelSize: 14; font.weight: Font.DemiBold }
-                Text { objectName: "clockRingMessage"; width: parent.width; elide: Text.ElideRight; text: root.ringing ? (root.ringing.kind === "timer" ? (root.defaultRingLabel(root.ringing) ? Language.I18n.text("common.done") : root.ringing.label) : root.ringing.time + (root.defaultRingLabel(root.ringing) ? "" : " · " + root.ringing.label)) : ""; color: bannerCard.fg2; font.family: root.fam; font.pixelSize: 13 }
+                Text { objectName: "clockRingMessage"; width: parent.width; elide: Text.ElideRight; text: root.ringing ? (root.ringing.kind === "timer" ? (root.defaultRingLabel(root.ringing) ? Language.I18n.text("common.done") : root.ringing.label) : ClockDisplay.ringTime(root.ringing, root.use24h) + (root.defaultRingLabel(root.ringing) ? "" : " · " + root.ringing.label)) : ""; color: bannerCard.fg2; font.family: root.fam; font.pixelSize: 13 }
             }
             Column {
                 id: btns
@@ -326,6 +416,7 @@ Scope {
                         Text { anchors.centerIn: parent; text: Language.I18n.legacy(({stop: "Stop", snooze: "Snooze", repeat: "Repeat"})[parent.modelData]); color: parent.modelData === "stop" ? "black" : bannerCard.fg; font.family: root.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
                         MouseArea {
                             id: bma; anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            enabled: root.clockControlsReady
                             onClicked: {
                                 if (parent.modelData === "stop") root.stopRing();
                                 else if (parent.modelData === "snooze") root.snooze();
@@ -350,6 +441,9 @@ Scope {
         property int tab: 1
         property string sheet: ""          // "" | "alarm" | "city"
         property var editing: null         // alarm being edited
+        onTabChanged: clockBackend.controller.stopPreview()
+        onSheetChanged: if (sheet !== "sounds") clockBackend.controller.stopPreview()
+        onVisibleChanged: if (!visible) { sheet = ""; clockBackend.controller.stopPreview(); }
 
         QtObject {
             id: pal
@@ -447,6 +541,14 @@ Scope {
                     }
                 }
                 // + (add)
+                ControlButton {
+                    objectName: "clockSoundsOpen"; anchors.right: parent.right; anchors.rightMargin: 51; anchors.verticalCenter: parent.verticalCenter
+                    width: 34; implicitWidth: 34; implicitHeight: 28; text: "♫"
+                    font.pixelSize: 16; palette.button: pal.ctrl; palette.buttonText: pal.text
+                    Accessible.name: Language.I18n.text("clock.sound_library")
+                    visible: root.managedClock; enabled: clockBackend.ready
+                    onClicked: win.sheet = "sounds"
+                }
                 Rectangle {
                     anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter
                     width: 30; height: 26; radius: 7
@@ -455,6 +557,7 @@ Scope {
                     Text { anchors.centerIn: parent; anchors.verticalCenterOffset: -1; text: "+"; color: pal.text; font.pixelSize: 22; font.weight: Font.Light }
                     MouseArea {
                         id: addMa; anchors.fill: parent; hoverEnabled: true
+                        enabled: root.clockControlsReady
                         onClicked: { if (win.tab === 0) win.sheet = "city"; else { win.editing = null; win.sheet = "alarm"; } }
                     }
                 }
@@ -481,6 +584,29 @@ Scope {
                 }
             }
 
+            Rectangle {
+                anchors.fill: pages; z: 90
+                visible: root.managedClock && snoozeRecovery.entries.length > 0
+                color: pal.bg
+                Flickable {
+                    anchors.fill: parent; anchors.margins: 24; clip: true
+                    contentWidth: width; contentHeight: snoozeRecovery.implicitHeight
+                    ClockSnoozeRecovery { id: snoozeRecovery; width: parent.width; clock: clockBackend.controller; darkMode: root.darkMode }
+                }
+            }
+            Rectangle {
+                anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+                height: statusText.implicitHeight + 12; z: 110
+                visible: root.managedClock && (!clockBackend.ready || root.clockMessage !== "" || clockBackend.error !== "")
+                color: pal.card
+                Text {
+                    id: statusText; anchors.centerIn: parent; width: parent.width - 24
+                    text: !clockBackend.ready ? Language.I18n.text("clock.service_unavailable") : (root.clockMessage ||
+                        Language.I18n.text(clockBackend.error === "Clock sound failed; using the built-in sound" ? "clock.sound_fallback" : "clock.service_error"))
+                    color: pal.text2; font.family: root.fam; font.pixelSize: 12; elide: Text.ElideRight
+                }
+            }
+
             // ── sheets ──
             Rectangle {
                 anchors.fill: parent
@@ -492,13 +618,13 @@ Scope {
             }
             Loader {
                 anchors.horizontalCenter: parent.horizontalCenter
-                y: win.sheet !== "" ? 70 : 40
+                y: win.sheet === "alarm" ? 45 : win.sheet !== "" ? 70 : 40
                 Behavior on y { NumberAnimation { duration: 420; easing.type: Easing.OutQuint } }
                 opacity: win.sheet !== "" ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 220 } }
                 visible: opacity > 0
                 active: win.sheet !== "" || opacity > 0
-                sourceComponent: win.sheet === "city" ? sCity : sAlarm
+                sourceComponent: win.sheet === "city" ? sCity : win.sheet === "sounds" ? sSounds : sAlarm
             }
         }
 
@@ -541,7 +667,7 @@ Scope {
                                 opacity: cma.containsMouse ? 1 : 0
                                 Behavior on opacity { NumberAnimation { duration: 160 } }
                                 Text { anchors.centerIn: parent; anchors.verticalCenterOffset: -1; text: "−"; color: "white"; font.pixelSize: 16; font.bold: true }
-                                MouseArea { anchors.fill: parent; enabled: parent.opacity > 0.5; onClicked: root.removeCity(cc.index) }
+                                MouseArea { anchors.fill: parent; enabled: parent.opacity > 0.5 && root.clockControlsReady; onClicked: root.removeCity(cc.index) }
                             }
                             MouseArea { id: cma; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
                         }
@@ -568,6 +694,7 @@ Scope {
                     id: alCol
                     x: 24; y: 12
                     width: parent.width - 48
+                    ClockMissedEvents { width: parent.width; backend: clockBackend; darkMode: root.darkMode; visible: root.managedClock && entries.length > 0 }
                     Repeater {
                         model: root.alarms
                         delegate: Item {
@@ -577,7 +704,7 @@ Scope {
                             width: alCol.width; height: 92
                             Rectangle { anchors.fill: parent; anchors.topMargin: 2; anchors.bottomMargin: 2; radius: 10; color: rowMa.containsMouse ? Qt.rgba(0.5, 0.5, 0.5, 0.08) : "transparent" }
                             Rectangle { anchors.bottom: parent.bottom; x: 12; width: parent.width - 24; height: 1; color: pal.sep; visible: ar.index < root.alarms.length - 1 }
-                            MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; onClicked: { win.editing = ar.modelData; win.sheet = "alarm"; } }
+                            MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; enabled: root.clockControlsReady; onClicked: { win.editing = ar.modelData; win.sheet = "alarm"; } }
                             Row {
                                 x: 12; y: 10
                                 spacing: 4
@@ -608,14 +735,14 @@ Scope {
                                 opacity: rowMa.containsMouse || delMa.containsMouse ? 1 : 0
                                 Behavior on opacity { NumberAnimation { duration: 160 } }
                                 Text { anchors.centerIn: parent; text: "✕"; color: "white"; font.pixelSize: 11; font.bold: true }
-                                MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.deleteAlarm(ar.modelData.id) }
+                                MouseArea { id: delMa; anchors.fill: parent; hoverEnabled: true; enabled: root.clockControlsReady; onClicked: root.deleteAlarm(ar.modelData.id) }
                             }
-                            CSwitch { id: sw1; anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter; on: ar.modelData.on; onToggled: v => root.setAlarmOn(ar.modelData.id, v) }
+                            CSwitch { id: sw1; anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter; enabled: root.clockControlsReady; on: ar.modelData.on; onToggled: v => root.setAlarmOn(ar.modelData.id, v) }
                         }
                     }
                 }
                 Column {
-                    visible: root.alarms.length === 0
+                    visible: root.alarms.length === 0 && !(root.managedClock && clockBackend.timing && ((clockBackend.timing.missedAlarms && clockBackend.timing.missedAlarms.length) || (clockBackend.timing.missedSnoozes && clockBackend.timing.missedSnoozes.length)))
                     parent: alPage
                     anchors.centerIn: parent
                     spacing: 8
@@ -630,12 +757,13 @@ Scope {
         Component {
             id: pStopwatch
             Item {
+                id: stopwatchPage
                 readonly property real el: root.swElapsed()
                 Text {
                     id: swTxt
                     anchors.horizontalCenter: parent.horizontalCenter
                     y: parent.height * 0.12
-                    text: root.fmtSw(parent.el)
+                    text: root.managedClock && clockBackend.stopwatchStatus === "unavailable" ? "--:--" : root.fmtSw(parent.el)
                     color: pal.text
                     font.family: root.fam; font.pixelSize: Math.min(96, parent.width / 6.2); font.weight: Font.Light
                     font.features: { "tnum": 1 }
@@ -646,11 +774,12 @@ Scope {
                     spacing: parent.width * 0.32
                     RoundBtn {
                         label: root.sw.running ? Language.I18n.text("ui.t_a2baa08ca9b1") : Language.I18n.text("ui.t_daee7606b339")
-                        enabledBtn: root.sw.running || root.sw.acc > 0
+                        enabledBtn: root.clockControlsReady && (root.sw.running || root.sw.acc > 0)
                         fill: Qt.rgba(0.5, 0.5, 0.5, 0.25); ink: pal.text
                         onClicked: root.sw.running ? root.swLap() : root.swReset()
                     }
                     RoundBtn {
+                        enabledBtn: root.clockControlsReady
                         label: root.sw.running ? Language.I18n.text("ui.t_cae7d57bc067") : Language.I18n.text("ui.t_e4bb9f1ece9a")
                         fill: root.sw.running ? Qt.rgba(1, 0.27, 0.23, 0.28) : Qt.rgba(0.19, 0.82, 0.35, 0.28)
                         ink: root.sw.running ? "#FF453A" : "#30D158"
@@ -684,6 +813,11 @@ Scope {
                         Text { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: root.fmtSw(parent.t); color: parent.c; font.family: root.fam; font.pixelSize: 15; font.features: { "tnum": 1 } }
                     }
                 }
+                Rectangle {
+                    anchors.fill: parent; z: 5; color: pal.bg
+                    visible: !!(root.managedClock && clockBackend.timing && clockBackend.timing.stopwatch && clockBackend.timing.stopwatch.state === "recovery")
+                    ClockStateRecovery { anchors.centerIn: parent; width: Math.min(560, parent.width - 48); backend: clockBackend; kind: "stopwatch"; darkMode: root.darkMode }
+                }
             }
         }
 
@@ -707,7 +841,7 @@ Scope {
                     Row {
                         id: wheels
                         anchors.horizontalCenter: parent.horizontalCenter
-                        y: 36
+                        y: 10
                         spacing: 6
                         Repeater {
                             model: [{ n: 24, u: "hours", v: Math.floor(root.timer.total / 3600000) },
@@ -743,10 +877,36 @@ Scope {
                             Text { anchors.right: parent.right; visible: parent.text === ""; text: Language.I18n.text("ui.t_cdeec2b374c1"); color: pal.text3; font: parent.font }
                         }
                     }
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: wheels.y + wheels.height + 56; width: 300; height: 34; spacing: 6; visible: root.managedClock
+                        ControlComboBox {
+                            objectName: "clockTimerSound"; width: 250; height: 34
+                            model: root.soundChoices(root.timerSoundId); textRole: "label"
+                            currentIndex: Math.max(0, model.findIndex(item => item.key === root.timerSoundId))
+                            Accessible.name: Language.I18n.text("clock.sound_choice")
+                            palette.base: pal.ctrl; palette.buttonText: pal.text; palette.text: pal.text
+                            palette.window: pal.card; palette.highlight: root.accent
+                            onActivated: index => root.timerSoundId = model[index].key
+                        }
+                        ControlButton {
+                            objectName: "clockTimerSoundOptions"; width: 44; implicitWidth: 44; implicitHeight: 34
+                            text: "⚙"; Accessible.name: Language.I18n.text("clock.sound_options")
+                            palette.button: pal.ctrl; palette.buttonText: pal.text
+                            onClicked: timerSoundOptions.openFor(root.timerSoundOptions, root.timerSoundId, "timer")
+                        }
+                    }
+                    ClockSoundOptions {
+                        id: timerSoundOptions
+                        client: clockBackend.controller; darkMode: root.darkMode; family: root.fam
+                        onApplied: value => root.timerSoundOptions = value
+                    }
                     RoundBtn {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        y: wheels.y + wheels.height + 66
+                        y: wheels.y + wheels.height + (root.managedClock ? 104 : 66)
+                        width: root.managedClock ? 62 : 78; height: width
                         label: Language.I18n.text("ui.t_e4bb9f1ece9a")
+                        enabledBtn: root.clockControlsReady
                         fill: Qt.rgba(0.19, 0.82, 0.35, 0.28); ink: "#30D158"
                         onClicked: root.startTimer(((tp.parts[0] || 0) * 3600 + (tp.parts[1] || 0) * 60 + (tp.parts[2] || 0)) * 1000, tLabel.text)
                     }
@@ -764,7 +924,7 @@ Scope {
                                 width: rt.implicitWidth + 22; height: 26; radius: 13
                                 color: rma.pressed ? pal.ctrlSel : pal.ctrl
                                 Text { id: rt; anchors.centerIn: parent; text: root.fmtDur(parent.modelData); color: pal.text; font.family: root.fam; font.pixelSize: 12 }
-                                MouseArea { id: rma; anchors.fill: parent; onClicked: root.startTimer(parent.modelData, "") }
+                                MouseArea { id: rma; anchors.fill: parent; enabled: root.clockControlsReady; onClicked: root.startRecent(parent.modelData) }
                             }
                         }
                     }
@@ -791,7 +951,7 @@ Scope {
                             anchors.centerIn: parent
                             spacing: 4
                             Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.timer.label || ""; visible: text !== ""; color: pal.text2; font.family: root.fam; font.pixelSize: 15 }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.fmtDur(parent.parent.parent.remain); color: pal.text; font.family: root.fam; font.pixelSize: ring.width / 5; font.weight: Font.Light; font.features: { "tnum": 1 } }
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.managedClock && clockBackend.timerStatus === "unavailable" ? "--:--" : root.fmtDur(parent.parent.parent.remain); color: pal.text; font.family: root.fam; font.pixelSize: ring.width / 5; font.weight: Font.Light; font.features: { "tnum": 1 } }
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 readonly property var end: new Date(root.nowMs + parent.parent.parent.remain)
@@ -805,8 +965,9 @@ Scope {
                         anchors.horizontalCenter: parent.horizontalCenter
                         y: ring.y + ring.height + 22
                         spacing: Math.max(80, ring.width - 160)
-                        RoundBtn { label: Language.I18n.text("common.cancel"); fill: Qt.rgba(0.5, 0.5, 0.5, 0.25); ink: pal.text; onClicked: root.cancelTimer() }
+                        RoundBtn { label: Language.I18n.text("common.cancel"); enabledBtn: root.clockControlsReady; fill: Qt.rgba(0.5, 0.5, 0.5, 0.25); ink: pal.text; onClicked: root.cancelTimer() }
                         RoundBtn {
+                            enabledBtn: root.clockControlsReady
                             label: root.timer.state === "running" ? Language.I18n.text("ui.t_858e4ba7a29f") : Language.I18n.text("ui.t_d640c7421da0")
                             fill: root.timer.state === "running" ? Qt.rgba(1, 0.62, 0.04, 0.26) : Qt.rgba(0.19, 0.82, 0.35, 0.28)
                             ink: root.timer.state === "running" ? root.orange : "#30D158"
@@ -814,21 +975,37 @@ Scope {
                         }
                     }
                 }
+                Rectangle {
+                    anchors.fill: parent; z: 5; color: pal.bg
+                    visible: !!(root.managedClock && clockBackend.timing && clockBackend.timing.timer && clockBackend.timing.timer.state === "recovery")
+                    ClockStateRecovery { anchors.centerIn: parent; width: Math.min(560, parent.width - 48); backend: clockBackend; kind: "timer"; darkMode: root.darkMode }
+                }
             }
         }
 
         // ═════ sheets ═════
         Component {
+            id: sSounds
+            ClockSounds {
+                objectName: "clockSoundsPanel"
+                client: clockBackend.controller; importer: soundImporter
+                darkMode: root.darkMode; family: root.fam; availableHeight: Math.max(280, win.height - 84)
+                onDismissed: win.sheet = ""
+            }
+        }
+        Component {
             id: sAlarm
             Rectangle {
                 id: sa
-                width: 360; height: 360; radius: 14
+                width: 360; height: root.managedClock ? 410 : 360; radius: 14
                 color: pal.card
                 border.width: 1; border.color: pal.sep
                 layer.enabled: true
                 layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 1.0; shadowOpacity: 0.4; shadowVerticalOffset: 10 }
                 readonly property var ed: win.editing
                 property var days: ed ? ed.days.slice() : []
+                property string soundId: ed && ed.soundId ? ed.soundId : ""
+                property var soundOptions: ed && ed.soundOptions ? ed.soundOptions : null
                 property bool pm: ed ? ed.h >= 12 : false
                 Text { x: 20; y: 16; text: sa.ed ? Language.I18n.text("ui.t_f2dc46a595f3") : Language.I18n.text("ui.t_547fc2ea687c"); color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
                 Rectangle {
@@ -892,6 +1069,30 @@ Scope {
                     }
                 }
                 Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: tw.y + tw.height + 100; width: 320; height: 32; spacing: 6; visible: root.managedClock
+                    ControlComboBox {
+                        objectName: "clockAlarmSound"; width: 270; height: 32
+                        model: root.soundChoices(sa.soundId); textRole: "label"
+                        currentIndex: Math.max(0, model.findIndex(item => item.key === sa.soundId))
+                        Accessible.name: Language.I18n.text("clock.sound_choice")
+                        palette.base: pal.ctrl; palette.buttonText: pal.text; palette.text: pal.text
+                        palette.window: pal.card; palette.highlight: root.accent
+                        onActivated: index => sa.soundId = model[index].key
+                    }
+                    ControlButton {
+                        objectName: "clockAlarmSoundOptions"; width: 44; implicitWidth: 44; implicitHeight: 32
+                        text: "⚙"; Accessible.name: Language.I18n.text("clock.sound_options")
+                        palette.button: pal.ctrl; palette.buttonText: pal.text
+                        onClicked: alarmSoundOptions.openFor(sa.soundOptions, sa.soundId, "alarm")
+                    }
+                }
+                ClockSoundOptions {
+                    id: alarmSoundOptions
+                    client: clockBackend.controller; darkMode: root.darkMode; family: root.fam
+                    onApplied: value => sa.soundOptions = value
+                }
+                Row {
                     anchors.right: parent.right; anchors.rightMargin: 16
                     anchors.bottom: parent.bottom; anchors.bottomMargin: 14
                     spacing: 8
@@ -905,12 +1106,15 @@ Scope {
                             Text { anchors.centerIn: parent; text: parent.modelData === "save" ? Language.I18n.text("ui.t_1509f561f241") : Language.I18n.text("common.cancel"); color: parent.modelData === "save" ? "white" : pal.text; font.family: root.fam; font.pixelSize: 13 }
                             MouseArea {
                                 anchors.fill: parent
+                                enabled: parent.modelData !== "save" || root.clockControlsReady
                                 onClicked: {
                                     if (parent.modelData === "save") {
                                         var h = root.use24h ? hT.value : (hT.value + (pT.value === 1 ? 12 : 0));
-                                        if (sa.ed) root.updateAlarm(sa.ed.id, h, mT.value, aLabel.text, sa.days);
-                                        else root.addAlarm(h, mT.value, aLabel.text, sa.days);
+                                        var accepted = sa.ed ? root.updateAlarm(sa.ed.id, h, mT.value, aLabel.text, sa.days, sa.soundId, sa.soundOptions)
+                                                             : root.addAlarm(h, mT.value, aLabel.text, sa.days, sa.soundId, sa.soundOptions);
+                                        if (root.managedClock) { root.closeSheetAfterSave = !!accepted; return; }
                                     }
+                                    root.closeSheetAfterSave = false;
                                     win.sheet = "";
                                 }
                             }
@@ -948,7 +1152,7 @@ Scope {
                         width: ListView.view.width; height: 32; radius: 6
                         color: cma2.containsMouse ? root.accent : "transparent"
                         Text { x: 12; anchors.verticalCenter: parent.verticalCenter; text: Language.I18n.cityName(parent.modelData[1], parent.modelData[0]); color: cma2.containsMouse ? "white" : pal.text; font.family: root.fam; font.pixelSize: 13 }
-                        MouseArea { id: cma2; anchors.fill: parent; hoverEnabled: true; onClicked: { root.addCity(parent.modelData[0], parent.modelData[1]); win.sheet = ""; } }
+                        MouseArea { id: cma2; anchors.fill: parent; hoverEnabled: true; enabled: root.clockControlsReady; onClicked: { var accepted = root.addCity(parent.modelData[0], parent.modelData[1]); if (root.managedClock) root.closeSheetAfterSave = !!accepted; else win.sheet = ""; } }
                     }
                 }
             }

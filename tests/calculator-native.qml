@@ -6,6 +6,10 @@ property bool calculatorSaving: false
 Item {
     parent: calculatorApp.window.contentItem
     TestEvent { id: calculatorEvents }
+    Image { id: calculatorCatalogIcon; source: macBar.iconSrc(macBar.searchApps("Calculator")[0].icon) }
+    Image { id: clockCatalogIcon; source: macBar.iconSrc(macBar.searchApps("Clock")[0].icon) }
+    Image { id: calculatorDockIcon; source: macDock.iconSrc(macDock.lookup("macshell-calculator").icon) }
+    Image { id: clockDockIcon; source: macDock.iconSrc(macDock.lookup("macshell-clock").icon) }
 }
 function calculatorCheck(value, reason) { if (!value) throw new Error("CALCULATOR_FAIL phase " + calculatorPhase + ": " + reason); }
 function calculatorFind(item, name) {
@@ -31,6 +35,8 @@ Timer {
                 var hit = macBar.searchApps("калькулятор").find(app => app.id === "macshell-calculator");
                 calculatorCheck(hit && macBar.searchApps("будильник").some(app => app.id === "macshell-clock"), "Russian search entries");
                 calculatorCheck(macBar.appList.filter(app => app.id === "macshell-calculator").length === 1, "one catalog entry");
+                calculatorCheck(calculatorCatalogIcon.status === Image.Ready && clockCatalogIcon.status === Image.Ready &&
+                    calculatorDockIcon.status === Image.Ready && clockDockIcon.status === Image.Ready, "builtin icons load in catalog and Dock without a theme");
                 macBar.launchApp(hit);
             } else if (calculatorPhase === 1) {
                 calculatorCheck(win.visible && calculatorFind(win.contentItem, "calculatorExpression"), "search opens Calculator");

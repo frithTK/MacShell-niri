@@ -106,6 +106,6 @@ TestCase {
         provider.snapshot = missing;
         compare(findChild(pane, "calculatorFrom").currentIndex, -1);
         compare(findChild(pane, "calculatorFrom").displayText, "RUB");
-        compare(pane.controller.result, "—"); compare(findChild(pane, "calculatorCopy").enabled, false);
+        compare(pane.controller.result, "—"); compare(findChild(pane, "calculatorResult").enabled, false);
     }
 }

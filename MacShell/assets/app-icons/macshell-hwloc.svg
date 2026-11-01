@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+ <defs>
+  <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#b8a4ff"/><stop offset=".5" stop-color="#715ee8"/><stop offset="1" stop-color="#3b328f"/></linearGradient>
+  <linearGradient id="chip" x2="0" y2="1"><stop stop-color="#f7f4ff"/><stop offset="1" stop-color="#c4c6fa"/></linearGradient>
+  <linearGradient id="inner" x2="1" y2="1"><stop stop-color="#685ecb"/><stop offset="1" stop-color="#34347e"/></linearGradient>
+  <filter id="sh" x="-.3" y="-.3" width="1.6" height="1.6"><feGaussianBlur stdDeviation="4"/></filter>
+ </defs>
+ <rect x="12" y="14" width="232" height="232" rx="56" fill="#19135c" opacity=".2"/>
+ <rect x="12" y="10" width="232" height="232" rx="56" fill="url(#bg)"/>
+ <rect x="13" y="11" width="230" height="230" rx="55" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="2"/>
+ <rect x="62" y="65" width="132" height="132" rx="25" fill="#221b71" opacity=".4" filter="url(#sh)"/>
+ <g stroke="#dfddff" stroke-width="8" stroke-linecap="round">
+  <path d="M88 49v17m26-17v17m28-17v17m26-17v17M88 186v17m26-17v17m28-17v17m26-17v17"/>
+  <path d="M50 86h17M50 113h17M50 141h17M50 168h17m122-82h17m-17 27h17m-17 28h17m-17 27h17"/>
+ </g>
+ <rect x="63" y="61" width="130" height="130" rx="23" fill="url(#chip)"/>
+ <rect x="78" y="76" width="100" height="100" rx="14" fill="url(#inner)"/>
+ <g fill="none" stroke="#8ee8ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M100 151v-19l28-17 28 17v19M128 115V96"/>
+ </g>
+ <g fill="#f4fcff"><circle cx="128" cy="96" r="7"/><circle cx="100" cy="151" r="7"/><circle cx="156" cy="151" r="7"/><circle cx="128" cy="115" r="6"/></g>
+</svg>

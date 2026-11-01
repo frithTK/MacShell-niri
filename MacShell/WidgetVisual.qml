@@ -15,6 +15,7 @@ Item {
     property string wappearance: "{}"
     property string wactivity: "{}"
     property string wbatteries: "{}"
+    property string wtimer: "{}"
     readonly property var localAppearance: JSON.parse(wappearance)
     readonly property var look: Appearance.resolve(wtype, wstyle, localAppearance, wmode, host.fontFamily, host.darkGlass, host.playerScale)
     readonly property var visual: visualLoader.item
@@ -212,6 +213,23 @@ Item {
             }
         }
         Component {
+            id: timerVisual
+            TimerWidget {
+                style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
+                settings: JSON.parse(v.wtimer)
+                backend: host.hub && host.hub.clock && host.hub.clock.managedClock ? host.hub.clock.backend : null
+                screenX: v.sx; screenY: v.sy
+                glassReady: host.glassState === "ready" && v.renderActive
+                shaderUrl: "file://" + host.glassShaderOut; wallUrl: host.fileUrl(host.wallpaperFor(v.sname))
+                screenW: v.sw; screenH: v.sh
+                glassOpacity: host.glassOpacity; glassBlur: host.glassBlur; glassLiquid: host.glassLiquid
+                glassRim: host.glassRim; glassGrain: host.glassGrain; darkGlass: v.look.dark
+                editing: host.editing; interactive: v.interactive && !host.editing
+                onOpenClock: if (host.hub && host.hub.clock) host.hub.clock.open("timers")
+                onGlassFailed: host.glassState = "failed"
+            }
+        }
+        Component {
             id: batteriesVisual
             BatteriesWidget {
                 style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
@@ -229,6 +247,6 @@ Item {
         Loader {
             id: visualLoader
             anchors.fill: parent
-            sourceComponent: v.definition ? ({WeatherWidget: weatherVisual, CalendarWidget: calendarVisual, ClockWidget: clockVisual, PlayerWidget: playerVisual, ActivityWidget: activityVisual, BatteriesWidget: batteriesVisual})[v.definition.component] || null : null
+            sourceComponent: v.definition ? ({WeatherWidget: weatherVisual, CalendarWidget: calendarVisual, ClockWidget: clockVisual, PlayerWidget: playerVisual, ActivityWidget: activityVisual, BatteriesWidget: batteriesVisual, TimerWidget: timerVisual})[v.definition.component] || null : null
         }
 }

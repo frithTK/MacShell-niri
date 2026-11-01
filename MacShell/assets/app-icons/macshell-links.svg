@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+ <defs>
+  <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#88edee"/><stop offset=".51" stop-color="#12a9c7"/><stop offset="1" stop-color="#146599"/></linearGradient>
+  <linearGradient id="globe" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d0f3fa"/></linearGradient>
+  <filter id="sh" x="-.3" y="-.3" width="1.6" height="1.6"><feGaussianBlur stdDeviation="4"/></filter>
+ </defs>
+ <rect x="12" y="14" width="232" height="232" rx="56" fill="#073b61" opacity=".2"/>
+ <rect x="12" y="10" width="232" height="232" rx="56" fill="url(#bg)"/>
+ <rect x="13" y="11" width="230" height="230" rx="55" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="2"/>
+ <circle cx="128" cy="129" r="77" fill="#075d84" opacity=".3" filter="url(#sh)" transform="translate(0 5)"/>
+ <circle cx="128" cy="125" r="74" fill="url(#globe)"/>
+ <g fill="none" stroke="#188ca8" stroke-width="5" opacity=".85">
+  <circle cx="128" cy="125" r="61"/>
+  <ellipse cx="128" cy="125" rx="27" ry="61"/>
+  <path d="M69 104h118M69 146h118"/>
+ </g>
+ <g transform="rotate(-38 128 129)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M94 130v-11c0-12 9-21 21-21h9m38 32v11c0 12-9 21-21 21h-9" stroke="#0a658d" stroke-width="21"/>
+  <path d="M94 130v-11c0-12 9-21 21-21h9m38 32v11c0 12-9 21-21 21h-9" stroke="#f3ffff" stroke-width="11"/>
+  <path d="M113 130h30" stroke="#0a658d" stroke-width="21"/><path d="M113 130h30" stroke="#f3ffff" stroke-width="11"/>
+ </g>
+</svg>

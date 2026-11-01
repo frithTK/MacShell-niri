@@ -962,7 +962,7 @@ Scope {
     // active app
     function lookup(appId) {
         if (!appId) return null;
-        var builtin = Utilities.entry(appId, key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value));
+        var builtin = Utilities.entry(appId, key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value), Language.I18n.activeLanguage);
         if (builtin) return builtin;
         var e = DesktopEntries.byId(appId);
         if (!e && DesktopEntries.heuristicLookup) e = DesktopEntries.heuristicLookup(appId);
@@ -973,7 +973,7 @@ Scope {
     readonly property string appName: {
         if (activeAppId === "") return Language.I18n.text("ui.t_9bd88f2485ac");
         // MacShell's own windows (all "org.quickshell")
-        if (activeAppId === "org.quickshell" || activeAppId === "dev.noctalia.noctalia-qs") return (Utilities.windowId(activeTl.title) || activeTl.title === "App Store") ? Utilities.displayTitle(activeAppId, activeTl.title, value => Language.I18n.legacy(value))
+        if (activeAppId === "org.quickshell" || activeAppId === "dev.noctalia.noctalia-qs") return (Utilities.windowId(activeTl.title) || activeTl.title === "App Store") ? Utilities.displayTitle(activeAppId, activeTl.title, value => Language.I18n.legacy(value), Language.I18n.activeLanguage)
                                                      : (activeTl.title === "macshell Settings" ? Language.I18n.text("ui.t_1f87f883cc7e") : "MacShell");
         var e = lookup(activeAppId);
         return e ? e.name : activeAppId;
@@ -1600,7 +1600,9 @@ Scope {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.clipState = text.trim();
-                if (root.clipState === "ok") { clipWatchText.running = true; clipWatchImg.running = true; }
+                if (root.clipState === "ok" && root.clipHistory && root.barEnabled && root.settingsReady) {
+                    clipWatchText.running = true; clipWatchImg.running = true;
+                }
             }
         }
     }
@@ -1608,6 +1610,8 @@ Scope {
     Process { id: clipWatchImg; command: ["wl-paste", "--type", "image", "--watch", "sh", "-c", root.clipStoreCmd, "sh"] }
 
     function clipRefresh() {
+        // Dependencies may have been installed since the shell started.
+        if (clipState === "missing" && clipHistory && barEnabled && settingsReady) clipStart();
         if (clipLoading) return;
         clipLoading = true;
         clipListProc.running = true;
@@ -1820,12 +1824,13 @@ Scope {
     function iconSrc(name) {
         var fb = Quickshell.iconPath("application-x-executable", true);
         if (!name) return fb;
+        if (name.indexOf("file:") === 0 || name.indexOf("qrc:") === 0) return name;
         if (name.indexOf("/") === 0) return "file://" + name;
         var p = Quickshell.iconPath(name, true);
         return p !== "" ? p : fb;
     }
     readonly property var appList: {
-        var vals = DesktopEntries.applications.values, out = Utilities.entries(key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value))
+        var vals = DesktopEntries.applications.values, out = Utilities.entries(key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value), Language.I18n.activeLanguage)
             .filter(app => app.key !== "clock" || !root.hub || !root.hub.clock || root.hub.clock.appEnabled);
         for (var i = 0; i < vals.length; i++) if (!vals[i].noDisplay && !Utilities.find(vals[i].id)) out.push(vals[i]);
         out.sort(function (a, b) { return a.name.localeCompare(b.name); });
@@ -3523,6 +3528,7 @@ Scope {
                                 required property string wappearance
                                 required property string wactivity
                                 required property string wbatteries
+                                required property string wtimer
                                 required property real wx
                                 required property real wy
                                 z: -1
@@ -3542,6 +3548,7 @@ Scope {
                                     wappearance: mw.wappearance
                                     wactivity: mw.wactivity
                                     wbatteries: mw.wbatteries
+                                    wtimer: mw.wtimer
                                     sx: mw.x; sy: mw.y
                                     sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
                                 }

@@ -24,7 +24,9 @@
 | `clock stop` / `clock snooze` | Остановить текущий сигнал или отложить его |
 | `calculator open` | Открыть Calculator |
 | `calculator expression TEXT` | Открыть Calculator и вычислить выражение, переданное одним аргументом |
-| `utilities open NAME` | Открыть встроенную утилиту `calculator` или `clock` |
+| `notes open` | Открыть Notes |
+| `reminders open` | Открыть Reminders |
+| `utilities open NAME` | Открыть встроенную утилиту `calculator`, `clock`, `notes` или `reminders` |
 | `notifications open` / `notifications close` | Открыть или закрыть Notification Center |
 | `notifications clear` | Очистить уведомления |
 | `notifications dismiss ID` | Удалить уведомление по числовому ID |

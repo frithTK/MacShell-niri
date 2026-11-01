@@ -1,6 +1,21 @@
 # Changelog
 
+## В разработке
+
+- Добавлен локальный срез Notes: текстовые заметки, поиск, автосохранение, Undo и восстановление удалённых заметок после повторного открытия. Транзакционная база хранится отдельно от настроек; при конфликте несохранённый текст можно сохранить копией.
+- Notes можно открыть отдельным процессом из текущего checkout без обновления установленной оболочки; повтор команд после аварии службы до и после записи проверен с реальной базой.
+- Добавлены Reminders: локальные списки и задачи, поиск, отметка выполнения, редактирование и восстановление удалённых элементов после перезапуска. Поддерживаются сроки и системные уведомления при закрытом окне с сохранёнными состояниями доставки, а также ежедневный, еженедельный и ежемесячный повтор после выполнения.
+
 ## Unreleased
+
+- Added a desktop Timer widget in three sizes with shared Clock controls, per-card duration presets and confirmation before replacing an active timer.
+- Clock now uses a shared service for timers, alarms, snooze and the stopwatch. Timers include suspend, survive shell restarts and offer explicit recovery after reboot. Added built-in alert sounds and preserved legacy data during migration.
+- Clock retries a failed custom alert sound with its built-in sound and reports the fallback in the app.
+- Added Clock's sound library with 40 generated sounds, local audio import, search and preview, and sound selection for alarms and timers.
+- Added sound-library favorites, category filters and confirmed deletion that protects sounds used by alarms, active timers and pending alerts.
+- Added cancellable sound imports, renaming and duration display, and per-alert volume, fade, fragment and repeat settings; recent timer presets retain their settings.
+- Fixed Clock and MacLock to use the same settings path when `XDG_CONFIG_HOME` is set. Fixed argument forwarding to JSON service processes.
+- MacLock reads versioned Clock timers and stopwatches using a shared boot-time source, with explicit recovery and unavailable states.
 
 - Added a persistent, restart-limited MacShell session service and an independently managed MacLock service. Installation and rollback wait for the old shell and refuse changes during an active MacShell session or an active/unknown lock. Isolated niri tests cover the real session lock across shell restart; normal login and PAM acceptance remain pending.
 
@@ -14,7 +29,7 @@
 - Calculator Currency conversion with daily online reference rates from Frankfurter v2, per-pair observation dates, Refresh and offline caching. Rates load only while Currency is visible, update hourly and retain the last good snapshot on errors. Closing the window cancels requests; amounts stay local.
 - Larger Calculator keypad and display: 32px digits, 48px results, 72px main keys, larger scientific/utility labels and roomier default windows in all modes.
 - Arrange now covers open applications with the wallpaper and widgets. A compact top strip replaces the controls window, hides during dragging and offers Done/Escape, sizes and optional actions. Leaving Arrange restores desktop layering and focus without moving application windows.
-- Built-in Calculator with Basic, Scientific, offline unit conversion, keyboard/clipboard, session memory and 50-entry history. Clock and Calculator share Apps/Spotlight/Dock discovery with Russian search and separate window identities. The full utilities roadmap and T22 timer contract are documented; T23/T24 remain planned.
+- Built-in Calculator with Basic, Scientific, offline unit conversion, keyboard/clipboard, session memory and 50-entry history. Clock and Calculator share Apps/Spotlight/Dock discovery with Russian search and separate window identities. The utilities roadmap and timer contract are documented.
 - Batteries widgets in S/M/L, with automatic or per-card device selection, shared laptop/Bluetooth data, charging status and explicit unknown/disconnected states. Stable device identities avoid duplicates; adding a card never starts Bluetooth discovery.
 - Desktop Activity widgets in S/M/L, with per-card metrics, rings/graphs, sample previews and Apply/Cancel. Cards share the menu bar sampler, thresholds and units; details open on the card's display, including when the menu bar is disabled. Unused views release their subscriptions.
 

@@ -69,17 +69,21 @@ ControlMenu {
             Keys.onEscapePressed: root.press("AC")
             background: Rectangle { radius: 10; color: root.dark ? "#2c2c30" : "#ffffff"; border.color: expressionInput.activeFocus ? root.palette.highlight : root.separator }
         }
-        Row {
-            width: parent.width; spacing: 8
-            Text {
-                objectName: "calculatorResult"; width: parent.width - copyButton.width - 8; height: 68
+        Button {
+            id: resultButton; objectName: "calculatorResult"; width: parent.width; height: 68
+            enabled: root.controller.result !== "—" && root.controller.error === ""
+            padding: 0
+            Accessible.name: Language.I18n.text("ui.t_e21f935f11d7") + ": " + Language.I18n.text("ui.t_69b87fffe7a4") + resultText.text
+            onClicked: root.controller.copyRequested(root.displayResult)
+            background: Item {}
+            HoverHandler { enabled: resultButton.enabled; cursorShape: Qt.PointingHandCursor }
+            contentItem: Text {
+                id: resultText
                 text: root.displayResult + (root.controller.resultUnit ? " " + root.controller.resultUnit : "")
                 color: root.foreground; font.family: root.font.family; font.pixelSize: 48; font.weight: Font.Normal
                 horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter
                 fontSizeMode: Text.Fit; minimumPixelSize: 18; textFormat: Text.PlainText
-                Accessible.name: Language.I18n.text("ui.t_69b87fffe7a4") + text
             }
-            CalculatorButton { id: copyButton; objectName: "calculatorCopy"; text: Language.I18n.text("ui.t_e21f935f11d7"); enabled: root.controller.result !== "—" && root.controller.error === ""; anchors.verticalCenter: parent.verticalCenter; onClicked: root.controller.copyRequested(root.displayResult) }
         }
         Text { objectName: "calculatorError"; width: parent.width; visible: text !== ""; text: Language.I18n.legacy(root.controller.error); textFormat: Text.PlainText; color: root.warning; font.family: root.font.family; font.pixelSize: 15; wrapMode: Text.Wrap }
         Column {
@@ -203,6 +207,6 @@ ControlMenu {
     }
     Shortcut { sequence: "Ctrl+L"; onActivated: { expressionInput.forceActiveFocus(); expressionInput.selectAll(); } }
     Shortcut { sequence: "Ctrl+H"; onActivated: root.controller.historyOpen = !root.controller.historyOpen }
-    Shortcut { sequence: "Ctrl+C"; enabled: copyButton.enabled && expressionInput.selectedText === ""; onActivated: root.controller.copyRequested(root.controller.result) }
+    Shortcut { sequence: "Ctrl+C"; enabled: resultButton.enabled && expressionInput.selectedText === ""; onActivated: root.controller.copyRequested(root.controller.result) }
     Component.onCompleted: Qt.callLater(() => expressionInput.forceActiveFocus())
 }

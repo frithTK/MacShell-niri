@@ -2,6 +2,7 @@
 // avatar + password); the others show the wallpaper and the clock only, but still forward typing.
 import QtQuick
 import "Locale" as Language
+import "ClockDisplay.js" as ClockDisplay
 import QtQuick.Effects
 import QtMultimedia
 import Quickshell
@@ -251,17 +252,14 @@ Item {
         }
     }
     // Clock app state: a running timer / stopwatch, or an alarm ringing
-    FileView {
-        id: clockFile
-        path: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("HOME") + "/.config") + "/macshell/clock.json"
-        watchChanges: true; printErrors: false
-        onFileChanged: reload()
-    }
-    readonly property var clockSt: { try { return clockFile.loaded ? JSON.parse(clockFile.text()) : null; } catch (e) { return null; } }
+    readonly property var clockSt: ls.st.clockSt
+    readonly property var clockTiming: ClockDisplay.canonical(clockSt)
+    readonly property string timerStatus: ClockDisplay.status(clockTiming, clockTiming ? clockTiming.timer : null, st.bootClockReady, st.bootClockId)
+    readonly property string stopwatchStatus: ClockDisplay.status(clockTiming, clockTiming ? clockTiming.stopwatch : null, st.bootClockReady, st.bootClockId)
     property real nowMs: Date.now()
-    Timer { interval: 250; repeat: true; running: ls.liveKind !== ""; onTriggered: ls.nowMs = Date.now() }
+    Timer { interval: 250; repeat: true; running: (ls.liveKind === "timer" && !(ls.clockTiming && ls.clockTiming.timer)) || (ls.liveKind === "sw" && !(ls.clockTiming && ls.clockTiming.stopwatch)); onTriggered: ls.nowMs = Date.now() }
     readonly property string liveKind: !clockSt ? "" : (clockSt.ringing ? "ring" : ((clockSt.timer && clockSt.timer.state && clockSt.timer.state !== "idle") ? "timer"
-                                       : ((clockSt.sw && (clockSt.sw.running || clockSt.sw.acc > 0)) ? "sw" : "")))
+                                       : (((clockTiming && clockTiming.stopwatch && clockTiming.stopwatch.state === "recovery") || (clockSt.sw && (clockSt.sw.running || clockSt.sw.acc > 0))) ? "sw" : "")))
     function pad2(n) { return (n < 10 ? "0" : "") + n; }
     function fmtDur(ms) { var s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return (h > 0 ? h + ":" + pad2(m) : pad2(m)) + ":" + pad2(s % 60); }
     function notifAge(t) {
@@ -300,8 +298,8 @@ Item {
             clip: true
             Glass { anchors.fill: parent; src: glassTex; frame: ls; cornerR: 22 * ls.u; thickness: 20; tint: 0.42; shadowAmt: 0.35 }
             readonly property var tm: ls.clockSt ? ls.clockSt.timer : null
-            readonly property real remain: !tm ? 0 : (tm.state === "running" ? Math.max(0, tm.endAt - ls.nowMs) : tm.left)
-            readonly property real swMs: (ls.clockSt && ls.clockSt.sw) ? ls.clockSt.sw.acc + (ls.clockSt.sw.running ? ls.nowMs - ls.clockSt.sw.startAt : 0) : 0
+            readonly property real remain: ClockDisplay.timerRemaining(ls.clockSt, ls.nowMs, ls.st.bootClockReady, ls.st.bootClockId, ls.st.bootClockMs)
+            readonly property real swMs: ClockDisplay.stopwatchElapsed(ls.clockSt, ls.nowMs, ls.st.bootClockReady, ls.st.bootClockId, ls.st.bootClockMs)
             // timer ring / stopwatch glyph
             Canvas {
                 id: liveRing
@@ -322,14 +320,17 @@ Item {
                 x: 78 * ls.u; y: 14 * ls.u
                 width: parent.width - x - 16 * ls.u
                 Text {
-                    text: ls.liveKind === "timer" && liveCard.tm ? (liveCard.tm.label || Language.I18n.text("ui.t_cdeec2b374c1")) + (liveCard.tm.state === "paused" ? Language.I18n.text("ui.t_961dace9826f") : "")
-                        : (ls.liveKind === "sw" ? Language.I18n.text("ui.t_cb880222ede3") : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? Language.I18n.text("ui.t_cdeec2b374c1") : Language.I18n.text("ui.t_f3b679573579")) : ""))
+                    id: liveClockLabel
+                    width: parent.width; elide: Text.ElideRight
+                    text: ls.liveKind === "timer" && liveCard.tm ? (liveCard.tm.label || Language.I18n.text("ui.t_cdeec2b374c1")) + (ls.timerStatus === "recovery" ? " · " + Language.I18n.text("clock.recovery_required") : liveCard.tm.state === "paused" ? Language.I18n.text("ui.t_961dace9826f") : "")
+                        : (ls.liveKind === "sw" ? Language.I18n.text("ui.t_cb880222ede3") + (ls.stopwatchStatus === "recovery" ? " · " + Language.I18n.text("clock.recovery_required") : "") : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? Language.I18n.text("ui.t_cdeec2b374c1") : Language.I18n.text("ui.t_f3b679573579")) : ""))
                     color: "#FF9F0A"; font.family: ls.fam; font.pixelSize: 13 * ls.u; font.weight: Font.DemiBold
                 }
                 Text {
-                    text: ls.liveKind === "timer" && liveCard.tm ? ls.fmtDur(liveCard.remain)
-                        : (ls.liveKind === "sw" ? ls.fmtDur(liveCard.swMs).replace(/^(\d\d:\d\d)$/, "$1")
-                        : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? Language.I18n.text("common.done") : ls.clockSt.ringing.time) : ""))
+                    id: liveClockValue
+                    text: ls.liveKind === "timer" && liveCard.tm ? (ls.timerStatus === "unavailable" ? "--:--" : ls.fmtDur(liveCard.remain))
+                        : (ls.liveKind === "sw" ? (ls.stopwatchStatus === "unavailable" ? "--:--" : ls.fmtDur(liveCard.swMs).replace(/^(\d\d:\d\d)$/, "$1"))
+                        : (ls.liveKind === "ring" && ls.clockSt.ringing ? (ls.clockSt.ringing.kind === "timer" ? Language.I18n.text("common.done") : ClockDisplay.ringTime(ls.clockSt.ringing, ls.st.use24h)) : ""))
                     color: "white"; font.family: ls.fam; font.pixelSize: 30 * ls.u; font.weight: Font.Medium
                     font.features: { "tnum": 1 }
                 }

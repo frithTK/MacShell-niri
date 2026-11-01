@@ -1,7 +1,7 @@
 // Include the generated copy via install.sh --session (or --activate).
 // Only MacShell's own application windows are affected.
 window-rule {
-    match app-id=r#"^(org\.quickshell|dev\.noctalia\.noctalia-qs)$"# title=r#"^(macshell Settings|Clock|Calculator)$"#
+    match app-id=r#"^(org\.quickshell|dev\.noctalia\.noctalia-qs)$"# title=r#"^(macshell Settings|Clock|Calculator|Notes|Reminders)$"#
     open-floating true
 }
 layer-rule {

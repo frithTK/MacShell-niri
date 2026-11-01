@@ -70,4 +70,5 @@ if ! rg -q MACSHELL_WIDGET_PREFERENCES_PASS "$check_dir/widget-preferences.log";
 python3 scripts/check-widget-outputs.py
 python3 scripts/check-widget-lifecycle.py
 python3 scripts/check-maclock-language.py
+python3 scripts/check-maclock-clock.py
 printf '%s\n' 'Control services, private D-Bus protocols, QML interactions/migrations, Activity transactions, shaders, IPC, capture buffers and installer rollback checks passed.'

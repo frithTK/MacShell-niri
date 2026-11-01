@@ -54,6 +54,13 @@ ShellRoot {
         property string mediaSlot: "top"    // "top" (under the clock) | "bottom" (above the password field)
         property bool capsLock: false
         property bool use24h: true          // MacShell → Menu Bar → "24-hour clock"
+        readonly property var clockSt: {
+            try { return clockFile.loaded ? JSON.parse(clockFile.text()) : null; }
+            catch (e) { return null; }
+        }
+        readonly property bool bootClockReady: bootClock.ready
+        readonly property string bootClockId: bootClock.bootId
+        readonly property double bootClockMs: bootClock.bootMs
         // Settings → Lock Screen → Clock (MACLOCK_CLOCK='{"f":"serif",...}' overrides it, for previews)
         property var clockCfg: { try { return JSON.parse(Quickshell.env("MACLOCK_CLOCK") || "{}"); } catch (e) { return {}; } }
         property bool artBg: true           // blurred album art behind everything while the cover is enlarged (MacShell setting)
@@ -92,6 +99,29 @@ ShellRoot {
             unlocking = true;
             sound("unlock");
             unlockTimer.start();
+        }
+    }
+
+    FileView {
+        id: clockFile
+        path: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/macshell/clock.json"
+        watchChanges: true; printErrors: false
+        onFileChanged: reload()
+    }
+    BootClock {
+        id: bootClock
+        active: {
+            var state = lockState.clockSt, timing = state && state.version === 2 && state.timing;
+            if (!timing || timing.version !== 1) return false;
+            var timer = timing.timer, sw = timing.stopwatch;
+            return !!((timer && (timer.state === "running" || timer.state === "paused")) ||
+                      (sw && (sw.state === "running" || sw.state === "paused")));
+        }
+        continuous: {
+            var state = lockState.clockSt, timing = state && state.version === 2 && state.timing;
+            if (!timing || timing.version !== 1) return false;
+            return !!((timing.timer && timing.timer.state === "running") ||
+                      (timing.stopwatch && timing.stopwatch.state === "running"));
         }
     }
 

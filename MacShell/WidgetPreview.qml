@@ -15,6 +15,7 @@ Item {
     property var appearance: ({})
     property var activity: ({})
     property var batteries: ({})
+    property var timer: ({})
     readonly property var look: Appearance.resolve(widgetType, widgetStyle, appearance, mode, family, dark, .8)
     readonly property var definition: Catalog.find(widgetType)
     readonly property var footprint: Catalog.dimensions(widgetSize)
@@ -64,6 +65,13 @@ Item {
         }
     }
     Component {
+        id: timerPreview
+        TimerWidget {
+            anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
+            preview: true; darkGlass: root.look.dark; settings: root.timer
+        }
+    }
+    Component {
         id: batteriesPreview
         BatteriesWidget {
             anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
@@ -72,6 +80,6 @@ Item {
     }
     Loader {
         id: loader; anchors.fill: parent
-        sourceComponent: root.definition ? ({WeatherWidget: weather, CalendarWidget: calendar, ClockWidget: clock, PlayerWidget: player, ActivityWidget: activityPreview, BatteriesWidget: batteriesPreview})[root.definition.component] || null : null
+        sourceComponent: root.definition ? ({WeatherWidget: weather, CalendarWidget: calendar, ClockWidget: clock, PlayerWidget: player, ActivityWidget: activityPreview, BatteriesWidget: batteriesPreview, TimerWidget: timerPreview})[root.definition.component] || null : null
     }
 }

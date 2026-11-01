@@ -8,7 +8,7 @@ from preference_store import LIMIT, PreferenceStore
 
 STYLES = {'weather': ('liquid', 'normal'), 'calendar': ('liquid', 'normal'),
           'clock': ('liquid', 'light', 'dark'), 'player': ('liquid', 'light', 'dark'),
-          'activity': ('liquid', 'normal'), 'batteries': ('liquid', 'normal')}
+          'activity': ('liquid', 'normal'), 'batteries': ('liquid', 'normal'), 'timer': ('liquid', 'normal')}
 SIZES = ('small', 'medium', 'large')
 
 
@@ -30,6 +30,14 @@ def valid_batteries(value):
                 or re.fullmatch(r'bluetooth:(?:[0-9A-F]{2}:){5}[0-9A-F]{2}', key)
                 or re.fullmatch(r'bluetooth-path:/org/bluez/[A-Za-z0-9_/]+', key)) for key in devices)
             and len(set(devices)) == len(devices))
+
+
+def valid_timer(value):
+    if not isinstance(value, dict):
+        return False
+    presets = value.get('presets', [5, 15, 25])
+    return (isinstance(presets, list) and len(presets) == 3
+            and all(type(minutes) is int and 1 <= minutes <= 1440 for minutes in presets))
 
 
 def valid_appearance(value):
@@ -211,6 +219,8 @@ def normalize(source, strict=False):
                 valid = valid and valid_activity(settings.get('activity', {}))
             if record['type'] == 'batteries':
                 valid = valid and valid_batteries(settings.get('batteries', {}))
+            if record['type'] == 'timer':
+                valid = valid and valid_timer(settings.get('timer', {}))
         if not valid:
             errors['widgets'] = 'Invalid widget instance, duplicate ID, position or settings. Restore a backup or reset widgets.'
             continue

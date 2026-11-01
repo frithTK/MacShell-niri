@@ -26,7 +26,7 @@ Scope {
     function start() {
         if (!enabled || process.running) return;
         generation++;
-        process.command = ["python3", "-u", helper].concat(arguments);
+        process.command = ["python3", "-u", helper].concat(root.arguments);
         process.running = true;
     }
     onEnabledChanged: {

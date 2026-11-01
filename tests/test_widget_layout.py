@@ -15,6 +15,19 @@ ORIGIN = {'name': 'DP-1', 'make': 'Demo', 'model': 'Display', 'serial': 'one', '
 
 
 class WidgetLayoutTests(unittest.TestCase):
+    def test_timer_presets_validate_and_survive_storage(self):
+        values = migrate(self.legacy(), ORIGIN)
+        item = values['widgets'][0]
+        item.update(type='timer', settings={'timer': {'presets': [1, 25, 1440], 'future': False}})
+        self.assertFalse(normalize(values, strict=True)[1])
+        state = self.save_legacy()
+        self.assertTrue(self.store.commit(values, state['token'])['success'])
+        self.assertEqual(self.store.load()['values']['widgets'][0], item)
+        for invalid in (None, [], {'presets': []}, {'presets': [1, 2, 0]}, {'presets': [1, 2, 1441]},
+                        {'presets': [1, 2, True]}, {'presets': [1, 2, 1.5]}, {'presets': '5,15,25'}):
+            item['settings']['timer'] = invalid
+            self.assertIn('widgets', normalize(values, strict=True)[1], invalid)
+
     def test_batteries_settings_round_trip_and_validate(self):
         values = migrate(self.legacy(), ORIGIN)
         item = values['widgets'][0]

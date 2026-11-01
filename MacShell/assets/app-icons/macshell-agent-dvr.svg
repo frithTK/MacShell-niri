@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+ <defs>
+  <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#69d5ff"/><stop offset=".53" stop-color="#167ddc"/><stop offset="1" stop-color="#1a3d9f"/></linearGradient>
+  <linearGradient id="body" x2="0" y2="1"><stop stop-color="#f7fcff"/><stop offset="1" stop-color="#aacbe4"/></linearGradient>
+  <radialGradient id="lens" cx="35%" cy="25%"><stop stop-color="#90e2ff"/><stop offset=".35" stop-color="#2777ba"/><stop offset=".75" stop-color="#102d64"/><stop offset="1" stop-color="#0a173a"/></radialGradient>
+  <filter id="shadow" x="-.2" y="-.2" width="1.4" height="1.5"><feGaussianBlur stdDeviation="4"/></filter>
+ </defs>
+ <rect x="12" y="14" width="232" height="232" rx="56" fill="#091d55" opacity=".2"/>
+ <rect x="12" y="10" width="232" height="232" rx="56" fill="url(#bg)"/>
+ <rect x="13" y="11" width="230" height="230" rx="55" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="2"/>
+ <path d="M51 81h112c13 0 23 10 23 23v13l26-18c5-3 9 0 9 6v60c0 6-4 9-9 6l-26-18v13c0 13-10 23-23 23H51c-13 0-23-10-23-23v-62c0-13 10-23 23-23z" fill="#092a5f" opacity=".32" filter="url(#shadow)" transform="translate(0 6)"/>
+ <path d="M56 75h105c13 0 23 10 23 23v16l28-19c5-3 9 0 9 6v58c0 6-4 9-9 6l-28-19v16c0 13-10 23-23 23H56c-13 0-23-10-23-23V98c0-13 10-23 23-23z" fill="url(#body)"/>
+ <circle cx="108" cy="130" r="42" fill="#c5e5f4" stroke="#6aa0c8" stroke-width="3"/>
+ <circle cx="108" cy="130" r="32" fill="url(#lens)" stroke="#e7f8ff" stroke-width="3"/>
+ <circle cx="99" cy="120" r="9" fill="#bcf3ff" opacity=".75"/>
+ <circle cx="117" cy="139" r="5" fill="#4bbcff" opacity=".6"/>
+ <circle cx="160" cy="94" r="5" fill="#ef4f54"/>
+</svg>

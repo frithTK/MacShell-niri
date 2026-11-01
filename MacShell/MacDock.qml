@@ -3499,7 +3499,7 @@ Scope {
 
     function lookup(appId) {
         if (!appId) return null;
-        var builtin = Utilities.entry(appId, key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value));
+        var builtin = Utilities.entry(appId, key => { if (root.hub && root.hub.openUtility) root.hub.openUtility(key); }, value => Language.I18n.legacy(value), Language.I18n.activeLanguage);
         if (builtin) return builtin;
         var e = DesktopEntries.byId(appId);
         if (!e && DesktopEntries.heuristicLookup) e = DesktopEntries.heuristicLookup(appId);
@@ -3528,6 +3528,7 @@ Scope {
 
     function iconSrc(icon) {
         if (!icon) return Quickshell.iconPath("application-x-executable");
+        if (icon.indexOf("file:") === 0 || icon.indexOf("qrc:") === 0) return icon;
         if (icon.charAt(0) === "/") return "file://" + icon;
         return Quickshell.iconPath(icon, "application-x-executable");
     }
@@ -4769,7 +4770,7 @@ Scope {
                                     Text {
                                         id: label
                                         anchors.centerIn: parent
-                                        text: cell.isSep ? "" : ((cell.modelData.kind === "win" && cell.modelData.tl && cell.modelData.tl.title) ? Utilities.displayTitle(root.appOf(cell.modelData.tl), cell.modelData.tl.title, value => Language.I18n.legacy(value)) : cell.modelData.name)
+                                        text: cell.isSep ? "" : ((cell.modelData.kind === "win" && cell.modelData.tl && cell.modelData.tl.title) ? Utilities.displayTitle(root.appOf(cell.modelData.tl), cell.modelData.tl.title, value => Language.I18n.legacy(value), Language.I18n.activeLanguage) : cell.modelData.name)
                                         color: "white"
                                         font.pixelSize: 13
                                         font.family: root.fontFamily

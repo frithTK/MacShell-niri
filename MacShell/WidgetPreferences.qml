@@ -13,7 +13,7 @@ Scope {
     property bool readOnly: true
     property bool canRecover: false
     property bool awaitingDisplay: false
-    property var values: ({defaults: {tempUnit: "C", locMode: "auto", cityName: "", styles: {weather: "liquid", calendar: "liquid", clock: "liquid", player: "liquid", activity: "liquid", batteries: "liquid"}, mode: "auto"}, desktopOutput: "", outputs: {}, bindings: {}, widgets: []})
+    property var values: ({defaults: {tempUnit: "C", locMode: "auto", cityName: "", styles: {weather: "liquid", calendar: "liquid", clock: "liquid", player: "liquid", activity: "liquid", batteries: "liquid", timer: "liquid"}, mode: "auto"}, desktopOutput: "", outputs: {}, bindings: {}, widgets: []})
     property string token: ""
     property string notice: ""
     property string error: ""

@@ -5,6 +5,7 @@ import "WidgetAppearance.js" as Appearance
 import "WidgetCatalog.js" as Catalog
 import "ActivityWidgetData.js" as ActivityData
 import "BatteriesData.js" as BatteriesData
+import "TimerWidgetData.js" as TimerData
 
 ControlMenu {
     id: root
@@ -21,6 +22,8 @@ ControlMenu {
     readonly property var activity: draft.activity || ({})
     readonly property var activityMetrics: ActivityData.selected(activity)
     readonly property var batteries: draft.batteries || ({})
+    readonly property var timerSettings: draft.timer || ({})
+    readonly property var timerPresets: TimerData.presets(timerSettings)
     readonly property var batteryIds: batteries.devices || []
     readonly property var batteryChoices: editingType === "batteries"
         ? BatteriesData.choices(controller && controller.batteryDevices ? controller.batteryDevices.entries : [], batteryIds) : []
@@ -99,6 +102,13 @@ ControlMenu {
         if (next.indexOf(id) >= 0) next = next.filter(item => item !== id); else next.push(id);
         changeBatteries("devices", next);
     }
+    function changeTimerPreset(index, minutes) {
+        if (!editable || editingType !== "timer") return;
+        var next = clone(draft), presets = timerPresets.slice();
+        presets[index] = minutes; next.timer = next.timer || {}; next.timer.presets = presets;
+        if (!TimerData.validSettings(next.timer)) return;
+        draft = next; error = "";
+    }
     contentItem: Column {
         spacing: 12
         Rectangle {
@@ -115,8 +125,28 @@ ControlMenu {
                     appearance: root.local; family: root.font.family; dark: root.dark
                     activity: root.activity
                     batteries: root.batteries
+                    timer: root.timerSettings
                 }
             }
+        }
+        Column {
+            width: parent.width; spacing: 8; visible: root.editingType === "timer"
+            Text { width: parent.width; text: Language.I18n.text("timer_widget.presets"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Row {
+                spacing: 8
+                Repeater {
+                    model: 3
+                    delegate: SpinBox {
+                        required property int index
+                        objectName: "timerPresetSetting_" + index
+                        from: 1; to: 1440; editable: true; enabled: root.editable
+                        value: root.timerPresets[index]
+                        Accessible.name: Language.I18n.text("timer_widget.presets") + " " + (index + 1)
+                        onValueModified: root.changeTimerPreset(index, value)
+                    }
+                }
+            }
+            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("timer").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Column {
             width: parent.width; spacing: 8; visible: root.editingType === "batteries"

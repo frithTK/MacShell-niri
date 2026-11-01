@@ -91,7 +91,7 @@ TestCase {
         compare(findChild(pane, "calculatorMemory").text, "M = 6,25");
         verify(findChild(pane, "calculatorHistoryEntry_0").text.includes(" = 6,25"));
         compare(pane.input, input); compare(input.selectionStart, 1); compare(input.selectionEnd, 4);
-        mouseClick(findChild(pane, "calculatorCopy")); compare(copied.signalArguments[0][0], "6,25");
+        mouseClick(findChild(pane, "calculatorResult")); compare(copied.signalArguments[0][0], "6,25");
         pane.controller.mode = "convert"; pane.controller.changeGroup("length");
         verify(pane.controller.groups.some(item => item.label === "Длина"));
         verify(findChild(pane, "calculatorFrom").model.some(item => item.label === "Метры"));

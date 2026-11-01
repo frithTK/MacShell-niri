@@ -76,9 +76,12 @@ TestCase {
         compare(pane.controller.result, "15");
         pane.input.forceActiveFocus(); pane.input.selectAll(); keyClick(Qt.Key_8); keyClick(Qt.Key_Asterisk); keyClick(Qt.Key_9); keyClick(Qt.Key_Return);
         compare(pane.controller.result, "72");
-        mouseClick(findChild(pane, "calculatorCopy")); compare(copied.count, 1); compare(copied.signalArguments[0][0], "72");
+        mouseClick(findChild(pane, "calculatorResult")); compare(copied.count, 1); compare(copied.signalArguments[0][0], "72");
         pane.controller.mode = "convert"; pane.controller.group = "temperature"; pane.controller.from = "C"; pane.controller.to = "F";
         pane.controller.expression = "100"; pane.press("="); compare(pane.controller.result, "212");
+        mouseClick(findChild(pane, "calculatorResult")); compare(copied.count, 2); compare(copied.signalArguments[1][0], "212");
+        pane.controller.expression = "1/0"; pane.press("=");
+        verify(!findChild(pane, "calculatorResult").enabled); compare(copied.count, 2);
         pane.controller.mode = "scientific"; pane.controller.clear(); pane.press("sin"); pane.press("3"); pane.press("0"); pane.press(")"); pane.press("=");
         fuzzyCompare(pane.controller.answer, .5, 1e-12);
         pane.controller.historyOpen = true; waitForRendering(pane); mouseClick(findChild(pane, "calculatorClearHistory")); compare(pane.controller.history.length, 0);

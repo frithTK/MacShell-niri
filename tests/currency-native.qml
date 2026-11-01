@@ -20,7 +20,7 @@ IpcHandler {
     target: "currencyProbe"
     function state(): string {
         var rates = calculatorApp.currencies, state = calculatorApp.state;
-        var copy = currencyFind(calculatorApp.window.contentItem, "calculatorCopy");
+        var copy = currencyFind(calculatorApp.window.contentItem, "calculatorResult");
         return JSON.stringify({ready: macBar.settingsReady && macDock.settingsReady && macWidgets.ready,
             visible: calculatorApp.window.visible, frames: currencyFrames, width: calculatorApp.window.width, height: calculatorApp.window.height,
             enabled: rates.enabled, loading: rates.loading, available: rates.available,

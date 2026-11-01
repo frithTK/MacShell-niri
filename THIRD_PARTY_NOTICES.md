@@ -6,6 +6,8 @@ This port is based on [0-ss/MacShell](https://github.com/0-ss/MacShell) at commi
 
 The credits images in `MacShell/assets/credits/` are inherited from upstream. Screenshots in both project overviews and `docs/images/` show this port with demonstration data or a synthetic test window.
 
+Clock's bundled sounds in `MacShell/sounds/` are synthesized by `scripts/generate-clock-sounds.py` from mathematical waveforms; they contain no third-party recordings and are covered by the project's MIT license.
+
 ## Runtime dependencies and services
 
 Localized emoji, currency and city data includes Unicode CLDR 48 at revision `acd6d88ae493633240e19a87a721076a8a75c310`, under the [Unicode License v3](docs/licenses/unicode-cldr.txt). The generated subset and source hashes are in `MacShell/Locale/UnicodeData.js`.

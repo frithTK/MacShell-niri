@@ -23,6 +23,7 @@ import "WidgetAppearance.js" as Appearance
 import "WidgetVisibility.js" as Visibility
 import "ActivityWidgetData.js" as ActivityData
 import "BatteriesData.js" as BatteriesData
+import "TimerWidgetData.js" as TimerData
 
 Scope {
     id: root
@@ -388,9 +389,10 @@ Scope {
         if (draft.mode !== undefined && ["auto", "light", "dark"].indexOf(draft.mode) < 0) return false;
         if (item.type === "activity" && !ActivityData.validSettings(draft.activity === undefined ? {} : draft.activity)) return false;
         if (item.type === "batteries" && !BatteriesData.validSettings(draft.batteries === undefined ? {} : draft.batteries)) return false;
+        if (item.type === "timer" && !TimerData.validSettings(draft.timer === undefined ? {} : draft.timer)) return false;
         item.settings = item.settings || {};
         var fields = ["style", "mode", "appearance"];
-        if (item.type === "activity" || item.type === "batteries") fields.push(item.type);
+        if (item.type === "activity" || item.type === "batteries" || item.type === "timer") fields.push(item.type);
         fields.forEach(key => {
             if (draft[key] === undefined) delete item.settings[key]; else item.settings[key] = Layout.clone(draft[key]);
         });
@@ -811,6 +813,7 @@ Scope {
                         required property string wappearance
                         required property string wactivity
                         required property string wbatteries
+                        required property string wtimer
                         required property real wx
                         required property real wy
 
@@ -841,6 +844,7 @@ Scope {
                             wappearance: ww.wappearance
                             wactivity: ww.wactivity
                             wbatteries: ww.wbatteries
+                            wtimer: ww.wtimer
                             sx: ww.x; sy: ww.y
                             sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
                         }

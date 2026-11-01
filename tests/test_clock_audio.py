@@ -97,7 +97,16 @@ class ClockAudioTests(unittest.TestCase):
             data = (temp / 'output.raw').read_bytes()
             self.assertEqual(len(data), 38400)
             self.assertLess(abs(struct.unpack_from('<h', data, 0)[0]), 100)
-            self.assertGreater(abs(struct.unpack_from('<h', data, len(data) - 4)[0]), 5000)
+            # Some FFmpeg versions pad the final sample during resampling.
+            # Measure the late fade over a window instead of one edge sample.
+            early_end = int(len(data) * .15) & ~1
+            early = struct.unpack('<' + 'h' * (early_end // 2), data[:early_end])
+            start, end = int(len(data) * .75) & ~1, int(len(data) * .95) & ~1
+            late = struct.unpack('<' + 'h' * ((end - start) // 2), data[start:end])
+            early_level = sum(abs(sample) for sample in early) / len(early)
+            late_level = sum(abs(sample) for sample in late) / len(late)
+            self.assertGreater(late_level, 3000)
+            self.assertGreater(late_level, early_level * 3)
 
     def test_stopping_fragment_worker_reaps_decoder_and_player(self):
         root = Path(__file__).resolve().parents[1]

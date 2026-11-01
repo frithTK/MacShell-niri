@@ -133,6 +133,14 @@ ShellRoot {
                 if (!confirmAgain) return;
                 input.mouseClick(confirmAgain, confirmAgain.width / 2, confirmAgain.height / 2, Qt.LeftButton, Qt.NoModifier, 0); root.phase = 17;
             } else if (root.phase === 17 && client.sounds.length === 40) {
+                var visibility = root.find(clock.testClockWindow.contentItem, "clockSoundBuiltinVisibility");
+                if (!visibility) return;
+                input.mouseClick(visibility, visibility.width / 2, visibility.height / 2, Qt.LeftButton, Qt.NoModifier, 0); root.phase = 18;
+            } else if (root.phase === 18 && !client.showBuiltins && client.sounds.length === 0) {
+                var show = root.find(clock.testClockWindow.contentItem, "clockSoundBuiltinVisibility");
+                if (!show) return;
+                input.mouseClick(show, show.width / 2, show.height / 2, Qt.LeftButton, Qt.NoModifier, 0); root.phase = 19;
+            } else if (root.phase === 19 && client.showBuiltins && client.sounds.length === 40) {
                 console.log("CLOCK_SOUNDS_APP_PASS"); Qt.exit(0);
             }
         }

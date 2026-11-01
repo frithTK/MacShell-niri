@@ -11,14 +11,20 @@ TestCase {
         QtObject {
             property bool ready: true
             property bool busy: false
-            property var sounds: [{id: "builtin-chime-01", name: "Chime 1", category: "chime"},
-                                  {id: "user-example", name: "My recording"}]
+            property var allSounds: [{id: "builtin-chime-01", name: "Chime 1", category: "chime"},
+                                     {id: "user-example", name: "My recording"}]
+            property var sounds: allSounds
             property string soundError: ""
             property string previewId: ""
+            property bool showBuiltins: true
             property int refreshed: 0
             property string deleted: ""
             property string renamed: ""
             function refreshSounds() { refreshed++; }
+            function setBuiltinsVisible(value) {
+                showBuiltins = value;
+                sounds = value ? allSounds : allSounds.filter(sound => !sound.id.startsWith("builtin-"));
+            }
             function previewSound(id) { previewId = id; }
             function stopPreview() { previewId = ""; }
             function favoriteSound(id, favorite) {
@@ -61,6 +67,11 @@ TestCase {
         mouseClick(findChild(panel, "clockSoundConfirmDelete"));
         compare(client.deleted, "user-example");
         tryCompare(confirmation, "visible", false); waitForRendering(panel);
+        filter.currentIndex = 0;
+        mouseClick(findChild(panel, "clockSoundBuiltinVisibility"));
+        compare(client.showBuiltins, false); compare(panel.filtered.length, 1);
+        mouseClick(findChild(panel, "clockSoundBuiltinVisibility"));
+        compare(client.showBuiltins, true); compare(panel.filtered.length, 2);
         importer.busy = true; compare(findChild(panel, "clockSoundImport").enabled, false); waitForRendering(panel);
         mouseClick(findChild(panel, "clockSoundCancelImport")); verify(importer.cancelled);
     }

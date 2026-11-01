@@ -233,20 +233,24 @@ class ClockService(LineService):
             elif action == 'sounds':
                 if self.sound_library is None:
                     raise ValueError('Clock sounds are unavailable')
-                self.emit(type='sounds', id=request.get('id'),
-                          sounds=self.sound_library.catalog())
+                self.emit(type='sounds', id=request.get('id'), **self.sound_library.catalog_state())
+            elif action == 'set-builtins-visible':
+                if self.sound_library is None:
+                    raise ValueError('Clock sounds are unavailable')
+                self.sound_library.set_builtins_visible(request.get('data', {}).get('visible'))
+                self.emit(type='sounds', id=request.get('id'), **self.sound_library.catalog_state())
             elif action == 'favorite-sound':
                 if self.sound_library is None:
                     raise ValueError('Clock sounds are unavailable')
                 data = request.get('data', {})
                 self.sound_library.set_favorite(data.get('soundId'), data.get('favorite'))
-                self.emit(type='sounds', id=request.get('id'), sounds=self.sound_library.catalog())
+                self.emit(type='sounds', id=request.get('id'), **self.sound_library.catalog_state())
             elif action == 'rename-sound':
                 if self.sound_library is None:
                     raise ValueError('Clock sounds are unavailable')
                 data = request.get('data', {})
                 self.sound_library.rename_imported(data.get('soundId'), data.get('name'))
-                self.emit(type='sounds', id=request.get('id'), sounds=self.sound_library.catalog())
+                self.emit(type='sounds', id=request.get('id'), **self.sound_library.catalog_state())
             elif action == 'delete-sound':
                 if self.sound_library is None:
                     raise ValueError('Clock sounds are unavailable')
@@ -274,7 +278,7 @@ class ClockService(LineService):
                 if patch:
                     self.document, self.token = self.store.commit(patch, self.token, self.document['revision'])
                     self._state()
-                self.emit(type='sounds', id=request.get('id'), sounds=self.sound_library.catalog(),
+                self.emit(type='sounds', id=request.get('id'), **self.sound_library.catalog_state(),
                           warning='' if cleaned else 'Sound file cleanup failed')
             elif action == 'preview-sound':
                 if self.preview is None:

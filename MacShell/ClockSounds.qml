@@ -127,6 +127,12 @@ Rectangle {
             enabled: !root.importer.busy; onClicked: picker.open()
         }
         SoundButton { objectName: "clockSoundCancelImport"; visible: root.importer.busy; text: Language.I18n.text("common.cancel"); onClicked: root.importer.cancel() }
+        SoundButton {
+            objectName: "clockSoundBuiltinVisibility"
+            text: Language.I18n.text(root.client.showBuiltins ? "clock.sound_hide_builtin" : "clock.sound_show_builtin")
+            enabled: root.client.ready && !root.importer.busy
+            onClicked: root.client.setBuiltinsVisible(!root.client.showBuiltins)
+        }
     }
     FileDialog {
         id: picker; objectName: "clockSoundFileDialog"; title: Language.I18n.text("clock.sound_import"); fileMode: FileDialog.OpenFiles

@@ -163,7 +163,8 @@ class SoundLibrary:
                     document['version'] != 1 or not isinstance(document.get('favorites'), list) or
                     any(not isinstance(item, str) or item in ('', 'silence') or not valid_sound_id(item)
                         for item in document['favorites']) or
-                    len(set(document['favorites'])) != len(document['favorites'])):
+                    len(set(document['favorites'])) != len(document['favorites']) or
+                    ('showBuiltins' in document and type(document['showBuiltins']) is not bool)):
                 raise ValueError('Invalid favorites')
             return document
         except FileNotFoundError:
@@ -172,9 +173,33 @@ class SoundLibrary:
             raise SoundLibraryError('Invalid sound favorites') from exc
 
     def catalog(self):
-        favorites = set(self._favorite_document()['favorites'])
-        return [dict(item, favorite=item['id'] in favorites)
-                for item in self.list_builtin() + self.list_imported()]
+        return self.catalog_state()['sounds']
+
+    def catalog_state(self):
+        document = self._favorite_document()
+        favorites = set(document['favorites'])
+        show_builtins = document.get('showBuiltins', True)
+        sounds = (self.list_builtin() if show_builtins else []) + self.list_imported()
+        return {'showBuiltins': show_builtins,
+                'sounds': [dict(item, favorite=item['id'] in favorites) for item in sounds]}
+
+    def set_builtins_visible(self, visible):
+        if type(visible) is not bool:
+            raise SoundLibraryError('Invalid sound visibility')
+        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            with (self.directory / '.lock').open('a+b') as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                document = self._favorite_document()
+                if document.get('showBuiltins', True) == visible:
+                    return
+                document['showBuiltins'] = visible
+                atomic_write(self.directory / 'favorites.json',
+                             (json.dumps(document, ensure_ascii=False, allow_nan=False) + '\n').encode('utf-8'))
+        except SoundLibraryError:
+            raise
+        except OSError as exc:
+            raise SoundLibraryError('Cannot save sound visibility') from exc
 
     def set_favorite(self, identifier, favorite):
         if type(favorite) is not bool:

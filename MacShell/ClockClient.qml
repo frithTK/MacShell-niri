@@ -14,6 +14,7 @@ Scope {
     readonly property string serviceError: service.error
     property string error: ""
     property var sounds: []
+    property bool showBuiltins: true
     property var soundRequests: ({})
     property string soundError: ""
     property string previewId: ""
@@ -29,6 +30,7 @@ Scope {
         return true;
     }
     function refreshSounds() { return soundRequest("sounds", {}); }
+    function setBuiltinsVisible(visible) { return soundRequest("set-builtins-visible", {visible: visible}); }
     function previewSound(id, options, kind) { return soundRequest("preview-sound", {soundId: id, soundOptions: options || null, kind: kind || ""}); }
     function stopPreview() { return soundRequest("stop-preview", {}); }
     function favoriteSound(id, favorite) { return soundRequest("favorite-sound", {soundId: id, favorite: favorite}); }
@@ -83,6 +85,7 @@ Scope {
         onReceived: message => {
             if (message.type === "sounds") {
                 root.sounds = message.sounds || []; root.soundError = message.warning || "";
+                if (typeof message.showBuiltins === "boolean") root.showBuiltins = message.showBuiltins;
                 var completedSoundRequest = root.soundRequests[message.id];
                 if (completedSoundRequest && completedSoundRequest.action === "delete-sound") root.soundDeleted(completedSoundRequest.soundId);
                 var requests = Object.assign({}, root.soundRequests); delete requests[message.id]; root.soundRequests = requests;

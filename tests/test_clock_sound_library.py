@@ -80,6 +80,24 @@ class ClockSoundLibraryTests(unittest.TestCase):
             self.library.set_favorite('builtin-chime-01', True)
         self.assertEqual(favorites.read_bytes(), original)
 
+    def test_builtin_visibility_is_persistent_and_preserves_references(self):
+        imported, _ = self.library.import_file(self.source)
+        self.library.set_favorite('builtin-chime-01', True)
+        self.library.set_favorite(imported['id'], True)
+        self.library.set_builtins_visible(False)
+        reloaded = SoundLibrary(self.library.directory)
+        state = reloaded.catalog_state()
+        self.assertFalse(state['showBuiltins'])
+        self.assertEqual([item['id'] for item in state['sounds']], [imported['id']])
+        self.assertTrue(state['sounds'][0]['favorite'])
+        self.assertTrue(reloaded.resolve('builtin-chime-01').is_file())
+        reloaded.set_favorite(imported['id'], False)
+        self.assertFalse(reloaded.catalog_state()['showBuiltins'])
+        reloaded.set_builtins_visible(True)
+        self.assertEqual(len(reloaded.catalog()), 41)
+        self.assertTrue(next(x for x in reloaded.catalog() if x['id'] == 'builtin-chime-01')['favorite'])
+        with self.assertRaises(SoundLibraryError): reloaded.set_builtins_visible('false')
+
     def test_only_imported_sounds_can_be_deleted(self):
         imported, _ = self.library.import_file(self.source)
         with self.assertRaises(SoundLibraryError):

@@ -54,7 +54,7 @@ Scope {
     function soundChoices(current) {
         var choices = [{key: "", label: Language.I18n.text("clock.sound_default")}, {key: "silence", label: Language.I18n.text("clock.sound_silence")}];
         clockBackend.controller.sounds.forEach(sound => choices.push({key: sound.id, label: root.soundName(sound)}));
-        if (current && !choices.some(choice => choice.key === current)) choices.push({key: current, label: Language.I18n.text("clock.sound_missing")});
+        if (current && !choices.some(choice => choice.key === current)) choices.push({key: current, label: Language.I18n.text(current.startsWith("builtin-") && !clockBackend.controller.showBuiltins ? "clock.sound_hidden" : "clock.sound_missing")});
         return choices;
     }
 

@@ -107,6 +107,25 @@ class ClockAudioTests(unittest.TestCase):
             late_level = sum(abs(sample) for sample in late) / len(late)
             self.assertGreater(late_level, 3000)
             self.assertGreater(late_level, early_level * 3)
+            # A repeated fragment continues its fade from the elapsed time.
+            options['fadeElapsedMs'] = 100
+            result = subprocess.run([sys.executable, str(root / 'MacShell/clock_audio_player.py'), str(source), json.dumps(options)],
+                                    env=env, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr.decode())
+            data = (temp / 'output.raw').read_bytes()
+            middle = struct.unpack('<' + 'h' * (early_end // 2), data[:early_end])
+            middle_level = sum(abs(sample) for sample in middle) / len(middle)
+            self.assertGreater(middle_level, 3000)
+            self.assertLess(middle_level, 5000)
+
+            # Once the fade has finished, another repeat stays at full level.
+            options['fadeElapsedMs'] = 200
+            result = subprocess.run([sys.executable, str(root / 'MacShell/clock_audio_player.py'), str(source), json.dumps(options)],
+                                    env=env, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr.decode())
+            data = (temp / 'output.raw').read_bytes()
+            full = struct.unpack('<' + 'h' * (early_end // 2), data[:early_end])
+            self.assertGreater(sum(abs(sample) for sample in full) / len(full), 6000)
 
     def test_stopping_fragment_worker_reaps_decoder_and_player(self):
         root = Path(__file__).resolve().parents[1]

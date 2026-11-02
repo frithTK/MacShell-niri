@@ -50,7 +50,9 @@ def main():
             elapsed = options.get('fadeElapsedMs', 0)
             if type(elapsed) is not int or elapsed < 0:
                 return 1
-            command += ['-af', "volume='min(1,(t+" + str(elapsed / 1000) + ")/" + str(options['fadeMs'] / 1000) + ")':eval=frame"]
+            # Decoder frame sizes vary between FFmpeg versions. Limit them so
+            # frame-evaluated volume still advances during short fragments.
+            command += ['-af', "asetnsamples=n=128:p=0,volume='min(1,(t+" + str(elapsed / 1000) + ")/" + str(options['fadeMs'] / 1000) + ")':eval=frame"]
         command += ['-f', 's16le', '-ac', '2', '-ar', '48000', 'pipe:1']
         decoder = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                    stderr=subprocess.DEVNULL, preexec_fn=protect_child)

@@ -1,6 +1,6 @@
 # Changelog
 
-## В разработке
+## 1.1.0
 
 - Добавлены 65 звуков из сторонней подборки macOS; прежние синтезированные варианты по умолчанию скрыты. Личные импортированные файлы в поставку не входят. Источник и неподтверждённые права на записи указаны в THIRD_PARTY_NOTICES.md.
 - В библиотеке Clock можно скрыть встроенные звуки и затем вернуть их, не нарушая работу ранее настроенных будильников.
@@ -8,7 +8,7 @@
 - Notes можно открыть отдельным процессом из текущего checkout без обновления установленной оболочки; повтор команд после аварии службы до и после записи проверен с реальной базой.
 - Добавлены Reminders: локальные списки и задачи, поиск, отметка выполнения, редактирование и восстановление удалённых элементов после перезапуска. Поддерживаются сроки и системные уведомления при закрытом окне с сохранёнными состояниями доставки, а также ежедневный, еженедельный и ежемесячный повтор после выполнения.
 
-## Unreleased
+### More changes
 
 - Added a desktop Timer widget in three sizes with shared Clock controls, per-card duration presets and confirmation before replacing an active timer.
 - Clock now uses a shared service for timers, alarms, snooze and the stopwatch. Timers include suspend, survive shell restarts and offer explicit recovery after reboot. Added built-in alert sounds and preserved legacy data during migration.
@@ -26,12 +26,12 @@
 
 - Shared Russian/English desktop language settings across Settings, menu bar, Dock, Spotlight, controls, widgets, utilities and MacLock. Changes retain open inputs, Calculator history/memory and editor drafts; formats, currencies and emoji search use localized data. Stable IDs keep alarm Save/snooze/Stop and graph selection independent of labels.
 - User session language and regional formats in Language & Region, with installed-locale validation, atomic private preferences, conflict protection and backups. The MacShell login launcher applies locale before niri and user systemd/D-Bus startup; applications pick it up after a new sign-in.
-- Fixed notification clicks accessing a delegate after activation removed it, and cyclic palette bindings in monitoring device selectors. Reviewed the plan for session ownership, locale precedence, biometrics, timer idempotence/DST and imported audio.
+- Fixed notification clicks accessing a delegate after activation removed it, and cyclic palette bindings in monitoring device selectors.
 
 - Calculator Currency conversion with daily online reference rates from Frankfurter v2, per-pair observation dates, Refresh and offline caching. Rates load only while Currency is visible, update hourly and retain the last good snapshot on errors. Closing the window cancels requests; amounts stay local.
 - Larger Calculator keypad and display: 32px digits, 48px results, 72px main keys, larger scientific/utility labels and roomier default windows in all modes.
 - Arrange now covers open applications with the wallpaper and widgets. A compact top strip replaces the controls window, hides during dragging and offers Done/Escape, sizes and optional actions. Leaving Arrange restores desktop layering and focus without moving application windows.
-- Built-in Calculator with Basic, Scientific, offline unit conversion, keyboard/clipboard, session memory and 50-entry history. Clock and Calculator share Apps/Spotlight/Dock discovery with Russian search and separate window identities. The utilities roadmap and timer contract are documented.
+- Built-in Calculator with Basic, Scientific, offline unit conversion, keyboard/clipboard, session memory and 50-entry history. Clock and Calculator share Apps/Spotlight/Dock discovery with Russian search and separate window identities. The timer contract is documented.
 - Batteries widgets in S/M/L, with automatic or per-card device selection, shared laptop/Bluetooth data, charging status and explicit unknown/disconnected states. Stable device identities avoid duplicates; adding a card never starts Bluetooth discovery.
 - Desktop Activity widgets in S/M/L, with per-card metrics, rings/graphs, sample previews and Apply/Cancel. Cards share the menu bar sampler, thresholds and units; details open on the card's display, including when the menu bar is disabled. Unused views release their subscriptions.
 
@@ -48,6 +48,6 @@ The first full release of MacShell-niri.
 - Installation with backups and rollback, desktop snapshots and a separate Niri (MacShell) login session.
 - English/Russian guides, 24 interface screenshots, a recorded tour and automated Python/QML/native protocol checks.
 
-[Release notes](docs/releases/v1.0.0.md) · [Installation](docs/INSTALL.md) · [Установка](docs/INSTALL.ru.md) · [Performance](docs/PERFORMANCE.md)
+[Release notes](docs/releases/v1.0.0.md) · [Installation](docs/INSTALL.md) · [Установка](docs/INSTALL.ru.md)
 
 The Git history starts with this release snapshot. Original MacShell attribution and MIT notices are preserved; see [source history](docs/HISTORY.md).

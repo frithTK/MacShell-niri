@@ -30,7 +30,7 @@ This is a stronger presentation preset than the defaults. Both themes use the sa
 
 Every still starts with a native full-output capture. Menu close-ups are native region captures using the component's actual geometry; Settings/Clock close-ups use niri's window screenshot by owned window ID. Pixels are not retouched or composited. `showcase-*-{dark,light}.png` are full scenes, and `showcase-detail-*-{dark,light}.png` are close-ups. The console must report `MACSHELL_SHOWCASE_PASS` with no QML binding/type errors.
 
-The silent tour opens Control Center, Spotlight search, Applications and Activity using the shell's real transitions. The GIF is scaled to **960 × 600 at 12 fps**, with a full-scene palette and looping playback. The **1440 × 900, 30 fps MP4** preserves smooth motion and colors. Encoding changes the media format, not the UI or its animation timing. This capture workload is separate from the idle CPU measurements in [PERFORMANCE.md](PERFORMANCE.md).
+The silent tour opens Control Center, Spotlight search, Applications and Activity using the shell's real transitions. The GIF is scaled to **960 × 600 at 12 fps**, with a full-scene palette and looping playback. The **1440 × 900, 30 fps MP4** preserves smooth motion and colors. Encoding changes the media format, not the UI or its animation timing.
 
 For a short recapture:
 
@@ -116,6 +116,6 @@ Portable previews use the Qt software renderer. Native Player captures show the 
 
 ## Before publishing
 
-Inspect both themes at their original dimensions, confirm that labels and actions fit, and retain descriptive alt text in both READMEs. Publish images of the current checkout with fixture data and identify simplified previews in their captions. Resource numbers belong in [PERFORMANCE.md](PERFORMANCE.md), with measured conditions and raw results; demonstration graphs are not performance measurements.
+Inspect both themes at their original dimensions, confirm that labels and actions fit, and retain descriptive alt text in both READMEs. Publish images of the current checkout with fixture data and identify simplified previews in their captions. Demonstration graphs are not performance measurements.
 
 The README showcase was captured on 25 October 2026 for version 1.0.0 with the strong-glass presentation preset, 24 native stills and a recorded tour. Future interface changes are tracked in [the changelog](../CHANGELOG.md).

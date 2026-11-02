@@ -115,7 +115,7 @@ Then follow the [installation guide](docs/INSTALL.md) to add a **Niri (MacShell)
 
 [AirPlay](docs/CONTROL_CENTER.md#повтор-экрана--airplay) and [AirDrop](docs/AIRDROP.md) need additional components; see the guides for setup and compatibility.
 
-[Release 1.0.0](https://github.com/frithTK/MacShell-niri/releases/tag/v1.0.0) · [Performance](docs/PERFORMANCE.md) · [Roadmap](docs/CUSTOMIZATION_PROGRESS.md) · [IPC](docs/IPC.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Changes](CHANGELOG.md)
+[Releases](https://github.com/frithTK/MacShell-niri/releases) · [IPC](docs/IPC.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Changes](CHANGELOG.md)
 
 ---
 

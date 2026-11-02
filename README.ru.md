@@ -115,7 +115,7 @@ bash install.sh --check
 
 Для [AirPlay](docs/CONTROL_CENTER.md#повтор-экрана--airplay) и [AirDrop](docs/AIRDROP.md) нужны дополнительные компоненты. Настройка и совместимость — в руководствах.
 
-[Релиз 1.0.0](https://github.com/frithTK/MacShell-niri/releases/tag/v1.0.0) · [Нагрузка](docs/PERFORMANCE.md) · [Планы](docs/CUSTOMIZATION_PROGRESS.md) · [IPC](docs/IPC.md) · [Разработка](CONTRIBUTING.md) · [Безопасность](SECURITY.md) · [Изменения](CHANGELOG.md)
+[Релизы](https://github.com/frithTK/MacShell-niri/releases) · [IPC](docs/IPC.md) · [Разработка](CONTRIBUTING.md) · [Безопасность](SECURITY.md) · [Изменения](CHANGELOG.md)
 
 ---
 

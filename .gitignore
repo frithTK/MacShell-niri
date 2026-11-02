@@ -24,3 +24,16 @@ __pycache__/
 htmlcov/
 .idea/
 .vscode/
+
+# Local working notes, plans and machine-specific measurements.
+/CONTINUE_HERE.md
+/docs/CUSTOMIZATION_IMPLEMENTATION_PLAN.md
+/docs/CUSTOMIZATION_PROGRESS.md
+/docs/CUSTOMIZATION_ROADMAP.md
+/docs/MACOS_FEATURE_GAPS.md
+/docs/PLAN_REVIEW.md
+/docs/STANDARD_UTILITIES_PLAN.md
+/docs/SYSTEM_EXPERIENCE_PLAN.md
+/docs/PERFORMANCE.md
+/docs/performance/
+/docs/releases/v1.1.0-draft.md

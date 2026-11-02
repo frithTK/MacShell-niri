@@ -2,9 +2,9 @@
 
 English · [Русский](README.ru.md)
 
-A macOS-inspired desktop for **niri**, with a Dock, Spotlight and Liquid Glass.
+A macOS-inspired desktop for **niri**, with a Dock, Spotlight, Liquid Glass and built-in everyday apps.
 
-[Get started](#get-started) · [Gallery](#a-closer-look) · [Guides](#guides)
+[Features](#features) · [Get started](#get-started) · [Gallery](#a-closer-look) · [Guides](#guides)
 
 ![MacShell desktop with Liquid Glass widgets, Dock and Control Center](docs/images/showcase-cc-dark.png)
 
@@ -16,7 +16,29 @@ A macOS-inspired desktop for **niri**, with a Dock, Spotlight and Liquid Glass.
 
 [Watch in 30 fps](docs/images/showcase-demo.mp4)
 
+## Features
+
+- **Desktop:** Dock, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes.
+- **Clock:** world clocks, alarms, stopwatch and a shared timer, with a desktop Timer widget and a customizable sound library.
+- **Notes and Reminders:** local notes with search and autosave; task lists with due dates, notifications and repeating tasks.
+- **Calculator:** basic and scientific modes, unit and currency conversion.
+- **Settings and lock screen:** Russian and English interface, regional formats and a separate MacLock screen locker.
+
+See the [utilities guide](docs/UTILITIES.md) for details.
+
 ## A closer look
+
+**Notes and Reminders**
+
+| Notes | Reminders |
+| --- | --- |
+| <a href="docs/images/notes-ru-dark.png"><img src="docs/images/notes-ru-dark.png" alt="Notes" width="420"></a> | <a href="docs/images/reminders-ru-dark.png"><img src="docs/images/reminders-ru-dark.png" alt="Reminders" width="420"></a> |
+
+**Timer widget**
+
+| Dark | Light |
+| --- | --- |
+| <a href="docs/images/timer-widget-ru-dark.png"><img src="docs/images/timer-widget-ru-dark.png" alt="Timer widget, dark theme" width="420"></a> | <a href="docs/images/timer-widget-ru-light.png"><img src="docs/images/timer-widget-ru-light.png" alt="Timer widget, light theme" width="420"></a> |
 
 **Find what you need**
 

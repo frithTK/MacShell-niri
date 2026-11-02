@@ -632,6 +632,7 @@ Scope {
             { id: "network",    sec: 1, name: Language.I18n.text("ui.t_1744b96470b5"), searchName: Language.I18n.english("ui.t_1744b96470b5"),         wg: "ethernet",   c1: "#3D9BFF", c2: "#0A6CFF", keys: "ethernet ip address vpn tailscale connection" },
             { id: "battery",    sec: 1, name: Language.I18n.text("ui.t_dfcb7c1619d5"), searchName: Language.I18n.english("ui.t_dfcb7c1619d5"),         wg: "bolt",       c1: "#4CD964", c2: "#28A745", keys: "power energy charge profile performance game mode" },
             { id: "general",    sec: 2, name: Language.I18n.text("ui.t_c910d474dcd7"), searchName: Language.I18n.english("ui.t_c910d474dcd7"),         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
+            { id: "updates",    sec: 2, name: Language.I18n.text("updates.title"), searchName: Language.I18n.english("updates.title"), glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "update upgrade version packages pacman обновление обновления версия пакеты система" },
             { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
             { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font" },
             { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
@@ -1095,7 +1096,7 @@ Scope {
                     width: flick.width - 44
                     sourceComponent: ({
                         wifi: paneWifi, bluetooth: paneBt, network: paneNetwork, battery: paneBattery,
-                        general: paneGeneral, language: paneLanguage, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, dock: paneDesktopDock,
+                        general: paneGeneral, updates: paneUpdates, language: paneLanguage, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, dock: paneDesktopDock,
                         displays: paneDisplays, menubar: paneMenuBar, wallpaper: paneWallpaper,
                         notifications: paneNotif, sound: paneSound, focus: paneFocus,
                         security: paneSecurity, lockscreen: paneLock, users: paneUsers, keyboard: paneKeyboard, mouse: paneMouse, trackpad: paneTrackpad,
@@ -1122,6 +1123,104 @@ Scope {
         Component {
             id: paneSecurity
             BiometricSettings { width: parent.width; foreground: pal.text; font.family: pal.fam }
+        }
+
+        Component {
+            id: paneUpdates
+            Column {
+                id: updatesPane
+                objectName: "settingsUpdates"
+                width: parent.width
+                spacing: 12
+                property var release: ({})
+                property var packages: ({})
+                property var prepared: null
+                property bool clipboard: false
+                property string operation: ""
+                property string output: ""
+                property string notice: ""
+                readonly property bool busy: updateProcess.running
+                readonly property string helper: decodeURIComponent(Qt.resolvedUrl("update_service.py").toString().replace(/^file:\/\//, ""))
+                function run(action, arg) {
+                    if (updateProcess.running) return;
+                    notice = ""; output = ""; operation = action;
+                    updateProcess.command = ["python3", "-u", helper, action].concat(arg ? [arg] : []);
+                    updateProcess.running = true;
+                }
+                function errorMessage(code) {
+                    if (code === "release_changed") return Language.I18n.text("updates.changed");
+                    if (code === "git_missing") return Language.I18n.text("updates.missing_git");
+                    if (code === "release_mismatch" || code === "invalid_release") return Language.I18n.text("updates.bad_release");
+                    if (code === "terminal_unavailable") return Language.I18n.text("updates.terminal_error");
+                    return Language.I18n.text("updates.error");
+                }
+                function finished(code) {
+                    var result = null;
+                    try { result = JSON.parse(output); } catch (e) {}
+                    if (!result || result.error || code !== 0) { notice = errorMessage(result ? result.error : ""); return; }
+                    if (operation === "status") {
+                        release = result.release || {}; packages = result.packages || {};
+                        prepared = result.prepared || null; clipboard = !!result.clipboard;
+                    } else if (operation === "prepare") prepared = result.prepared || null;
+                    else if (operation === "install-packages") notice = Language.I18n.text("updates.packages_launched");
+                }
+                Component.onCompleted: run("status", "")
+                Process {
+                    id: updateProcess
+                    stdout: StdioCollector { onStreamFinished: updatesPane.output = text }
+                    onExited: (code, status) => updatesPane.finished(code)
+                }
+                SLabel { t: pal; text: Language.I18n.text("updates.intro") }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal
+                        title: updatesPane.busy ? Language.I18n.text(updatesPane.operation === "prepare" ? "updates.preparing" : "updates.checking") : Language.I18n.text("updates.title")
+                        SButton { objectName: "updatesCheck"; t: pal; text: Language.I18n.text("updates.check"); enabled: !updatesPane.busy; onClicked: updatesPane.run("status", "") }
+                    }
+                }
+                SLabel { t: pal; header: true; text: Language.I18n.text("updates.macshell") }
+                SCard {
+                    t: pal
+                    SRow { t: pal; visible: !!updatesPane.release.installed
+                        title: Language.I18n.text("updates.installed", {version: updatesPane.release.installed || ""}) }
+                    SRow { t: pal; visible: !!updatesPane.release.latest
+                        title: Language.I18n.text("updates.latest", {version: updatesPane.release.latest || ""}) }
+                    SRow {
+                        t: pal; visible: !!updatesPane.release.state
+                        title: updatesPane.release.state === "current" ? Language.I18n.text("updates.current") : updatesPane.release.state === "ahead" ? Language.I18n.text("updates.ahead") : updatesPane.release.state === "available" ? Language.I18n.text("updates.available") : Language.I18n.text("updates.release_error")
+                        SButton { objectName: "updatesPrepare"; t: pal; visible: updatesPane.release.state === "available"; enabled: !updatesPane.busy
+                            text: Language.I18n.text("updates.prepare"); onClicked: updatesPane.run("prepare", updatesPane.release.tag) }
+                    }
+                }
+                SCard {
+                    t: pal; visible: !!updatesPane.prepared
+                    SRow { t: pal; title: Language.I18n.text("updates.prepared", {version: updatesPane.prepared ? updatesPane.prepared.tag.slice(1) : ""}) }
+                    Text { width: parent.width - 28; x: 14; topPadding: 12; bottomPadding: 4; wrapMode: Text.WordWrap
+                        text: Language.I18n.text("updates.after_logout"); color: pal.text2; font.family: pal.fam; font.pixelSize: 12 }
+                    SRow { t: pal; title: Language.I18n.text("updates.install_command");
+                        SButton { objectName: "updatesCopy"; t: pal; visible: updatesPane.clipboard; text: Language.I18n.text("updates.copy")
+                            onClicked: Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "sh", updatesPane.prepared.command]) }
+                    }
+                    TextEdit { width: parent.width - 28; x: 14; bottomPadding: 14; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
+                        textFormat: TextEdit.PlainText; text: updatesPane.prepared ? updatesPane.prepared.command : ""; color: pal.text; font.family: "monospace"; font.pixelSize: 12 }
+                }
+                SLabel { t: pal; header: true; text: Language.I18n.text("updates.packages") }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal; title: updatesPane.packages.state === "current" ? Language.I18n.text("updates.packages_current") : updatesPane.packages.state === "available" ? Language.I18n.text("updates.packages_available", {count: updatesPane.packages.count}) : updatesPane.packages.state === "unsupported" ? Language.I18n.text("updates.packages_unsupported") : updatesPane.packages.state === "error" ? Language.I18n.text("updates.packages_error") : ""
+                        SButton { objectName: "updatesInstallPackages"; t: pal; visible: updatesPane.packages.state === "available"; enabled: !updatesPane.busy
+                            text: Language.I18n.text("updates.packages_install"); onClicked: updatesPane.run("install-packages", "") }
+                    }
+                    TextEdit { width: parent.width - 28; x: 14; bottomPadding: 14; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere
+                        visible: updatesPane.packages.state === "available"; textFormat: TextEdit.PlainText
+                        text: (updatesPane.packages.packages || []).slice(0, 20).join("\n"); color: pal.text2; font.family: "monospace"; font.pixelSize: 12 }
+                }
+                SLabel { t: pal; text: Language.I18n.text("updates.package_note") }
+                SLabel { t: pal; visible: updatesPane.packages.count > 20; text: Language.I18n.text("updates.packages_more") }
+                SLabel { t: pal; visible: updatesPane.notice !== ""; text: updatesPane.notice }
+            }
         }
 
         // ── General ──

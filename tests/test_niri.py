@@ -222,6 +222,7 @@ class InstallerTests(unittest.TestCase):
         installer.install(False)
         self.assertEqual(installer.NIRI.read_bytes(), original)
         self.assertTrue((installer.SHELL / "Niri.qml").is_file())
+        self.assertEqual((installer.SHELL / "VERSION").read_text(), (installer.SOURCE / "VERSION").read_text())
         self.assertIn("MACSHELL_SETTINGS_HOME", (installer.BIN / "macshell-niri").read_text())
         directory = Path((installer.DATA / "latest").read_text())
         manifest = json.loads((directory / "manifest.json").read_text())

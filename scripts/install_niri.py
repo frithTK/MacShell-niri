@@ -304,6 +304,7 @@ def install_unlocked(activate=False, session=False):
             for source, destination in ((SOURCE / "MacShell", SHELL), (SOURCE / "MacLock", LOCK)):
                 remove(destination)
                 shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            shutil.copy2(SOURCE / "VERSION", SHELL / "VERSION")
             (PROFILE / "settings").mkdir(parents=True, exist_ok=True)
             BIN.mkdir(parents=True, exist_ok=True)
             for name, lock in (("macshell-niri", False), ("maclock-niri", True)):

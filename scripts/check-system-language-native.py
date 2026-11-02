@@ -25,6 +25,8 @@ def main():
         root = Path(directory)
         shell = root / "shell"
         shutil.copytree(project / "MacShell", shell)
+        # This check visits every Settings pane; do not contact update servers.
+        shutil.copyfile(project / "tests/fixtures/updates_fixture.py", shell / "update_service.py")
         path = shell / "shell.qml"
         source = path.read_text().replace("import QtQuick\n", "import QtQuick\nimport QtQuick.Window\nimport QtTest\n", 1)
         path.write_text(source.replace("ShellRoot {", "ShellRoot {\n" + (project / "tests/system-language-native.qml").read_text(), 1))

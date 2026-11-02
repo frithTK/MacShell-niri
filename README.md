@@ -133,7 +133,7 @@ Then follow the [installation guide](docs/INSTALL.md) to add a **Niri (MacShell)
 
 **Language & Region** in Settings switches the Russian/English desktop and MacLock immediately. Application language applies after signing out and back in; regional formats are independent. [Language guide](docs/LOCALIZATION.md).
 
-[Widgets](docs/WIDGETS.md) · [Utilities](docs/UTILITIES.md) · [Menu bar](docs/BAR_LAYOUT.md) · [Activity](docs/ACTIVITY_SETTINGS.md) · [Control Center](docs/CONTROL_CENTER.md) · [MacLock](MacLock/README.md)
+[Widgets](docs/WIDGETS.md) · [Utilities](docs/UTILITIES.md) · [Updates](docs/UPDATES.md) · [Menu bar](docs/BAR_LAYOUT.md) · [Activity](docs/ACTIVITY_SETTINGS.md) · [Control Center](docs/CONTROL_CENTER.md) · [MacLock](MacLock/README.md)
 
 [AirPlay](docs/CONTROL_CENTER.md#повтор-экрана--airplay) and [AirDrop](docs/AIRDROP.md) need additional components; see the guides for setup and compatibility.
 

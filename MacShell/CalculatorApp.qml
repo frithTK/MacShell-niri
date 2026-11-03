@@ -36,33 +36,16 @@ Scope {
             anchors.fill: parent; radius: 12; color: root.dark ? "#1c1c1e" : "#f2f2f7"
             border.width: 1; border.color: root.dark ? "#49494f" : "#c8c8ce"
         }
-        Rectangle {
-            width: parent.width; height: 44; color: root.dark ? "#2a2a2c" : "#e8e8ed"
-            DragHandler { target: null; onActiveChanged: if (active) calculatorWindow.startSystemMove() }
-            Row {
-                x: 16; anchors.verticalCenter: parent.verticalCenter; spacing: 8
-                Repeater {
-                    model: ["#ff5f57", "#febc2e", "#28c840"]
-                    delegate: Rectangle {
-                        required property string modelData
-                        required property int index
-                        width: 14; height: 14; radius: 7; color: modelData
-                        Accessible.role: Accessible.Button
-                        objectName: "calculatorWindowControl_" + index
-                        Accessible.name: index === 0 ? root.translations.text("calculator.close")
-                            : index === 1 ? root.translations.text("calculator.minimize") : root.translations.text("calculator.maximize")
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: if (parent.index === 0) calculatorWindow.hide(); else if (parent.index === 1) calculatorWindow.showMinimized();
-                                else if (calculatorWindow.visibility === Window.Maximized) calculatorWindow.showNormal(); else calculatorWindow.showMaximized()
-                        }
-                    }
-                }
-            }
-            Text { objectName: "calculatorTitle"; anchors.centerIn: parent; text: root.translations.text("calculator.title"); textFormat: Text.PlainText; color: root.dark ? "#f5f5f7" : "#1d1d1f"; font.family: root.family; font.pixelSize: 13; font.weight: Font.DemiBold }
+        AppTitlebar {
+            id: titlebar; x: 1; width: parent.width - 2
+            window: calculatorWindow; dark: root.dark; family: root.family; title: root.translations.text("calculator.title")
+            titleObjectName: "calculatorTitle"
+            controlObjectPrefix: "calculatorWindowControl_"
+            closeLabel: root.translations.text("calculator.close"); minimizeLabel: root.translations.text("calculator.minimize"); maximizeLabel: root.translations.text("calculator.maximize")
+            onCloseRequested: calculatorWindow.hide()
         }
         ScrollView {
-            anchors.fill: parent; anchors.margins: 18; anchors.topMargin: 58; contentWidth: availableWidth; clip: true
+            anchors.fill: parent; anchors.margins: 18; anchors.topMargin: titlebar.height + 14; contentWidth: availableWidth; clip: true
             Loader {
                 width: parent.width; active: calculatorWindow.visible
                 sourceComponent: CalculatorPane { width: parent.width; controller: root.state; foreground: root.dark ? "#f5f5f7" : "#1d1d1f"; font.family: root.family }

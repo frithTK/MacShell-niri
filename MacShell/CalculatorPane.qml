@@ -14,6 +14,8 @@ ControlMenu {
     component CalculatorButton: ControlButton {
         id: button
         property int labelSize: 16
+        property bool keypad: false
+        property bool utilityKey: false
         implicitHeight: 40
         font.pixelSize: labelSize
         contentItem: Text {
@@ -22,6 +24,16 @@ ControlMenu {
             opacity: button.enabled ? 1 : .45
             font: button.font; elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+        }
+        background: Rectangle {
+            radius: button.keypad ? 18 : 9
+            color: button.primary ? (button.down ? Qt.darker(root.operationColor, 1.18) : root.operationColor)
+                : button.down ? (root.dark ? "#737378" : "#c5c5cb")
+                : button.keypad ? (button.utilityKey ? (root.dark ? "#626267" : "#d3d3d8") : (root.dark ? "#4a4a4e" : "#ffffff"))
+                : (root.dark ? "#39393d" : "#ffffff")
+            opacity: button.enabled ? 1 : .45
+            border.width: 1
+            border.color: button.activeFocus ? (root.dark ? "#b9d7ff" : "#387ac3") : (root.dark ? Qt.rgba(1, 1, 1, .08) : Qt.rgba(0, 0, 0, .08))
         }
     }
     readonly property color operationColor: dark ? "#ff9f0a" : "#c56d00"
@@ -67,7 +79,7 @@ ControlMenu {
             onTextEdited: { root.controller.evaluated = false; root.controller.expression = text; if (root.controller.mode !== "convert") root.controller.error = ""; }
             onAccepted: root.press("=")
             Keys.onEscapePressed: root.press("AC")
-            background: Rectangle { radius: 10; color: root.dark ? "#2c2c30" : "#ffffff"; border.color: expressionInput.activeFocus ? root.palette.highlight : root.separator }
+            background: Rectangle { radius: 13; color: root.dark ? "#29292d" : "#ffffff"; border.width: 1; border.color: expressionInput.activeFocus ? root.palette.highlight : root.separator }
         }
         Button {
             id: resultButton; objectName: "calculatorResult"; width: parent.width; height: 68
@@ -154,7 +166,7 @@ ControlMenu {
                     delegate: CalculatorButton {
                         required property string modelData
                         objectName: "calculatorFunction_" + modelData
-                        width: (scientificGrid.width - 24) / 4; height: 60; labelSize: 20
+                        width: (scientificGrid.width - 24) / 4; height: 60; labelSize: 20; keypad: true; utilityKey: true
                         text: modelData; onClicked: root.press(modelData)
                     }
                 }
@@ -167,7 +179,8 @@ ControlMenu {
                     delegate: CalculatorButton {
                         required property string modelData
                         objectName: "calculatorKey_" + modelData
-                        width: (basicGrid.width - 24) / 4; height: 72; labelSize: modelData === "AC" ? 24 : 32
+                        width: (basicGrid.width - 24) / 4; height: 72; labelSize: modelData === "AC" ? 24 : 32; keypad: true
+                        utilityKey: ["AC", "±", "%", "⌫"].indexOf(modelData) >= 0
                         text: modelData; primary: ["÷", "×", "−", "+", "="].indexOf(modelData) >= 0
                         palette.highlight: root.operationColor
                         Accessible.name: modelData === "±" ? Language.I18n.text("ui.t_973d9d3d2f93") : modelData === "⌫" ? Language.I18n.text("ui.t_292fffe328d0") : modelData

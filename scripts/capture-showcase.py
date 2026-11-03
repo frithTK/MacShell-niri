@@ -79,11 +79,15 @@ def player(path):
     path.write_text(source[:start] + fixture + source[end:])
 
 
-def prepare(root):
+def prepare(root, language):
     shell = root / 'shell'
     shutil.copytree(project / 'MacShell', shell, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     for name in ('home', 'config', 'cache', 'data/applications', 'niri', 'settings/macbar', 'settings/macdock', 'settings/macwidgets'):
         (root / name).mkdir(parents=True)
+    locale_dir = root / 'config/environment.d'
+    locale_dir.mkdir()
+    (locale_dir / '90-macshell-locale.conf').write_text(
+        '# MacShell locale preferences v1\n# ui=' + language + '\n# session=system\n# region=system\n')
     for kind in ('network_control', 'bluetooth_service', 'power_control', 'system_stats', 'widget_fetch'):
         shutil.copyfile(ASSETS / 'service.py', shell / (kind + '.py'))
     (shell / 'niri_capture.py').write_text('import sys\nfor line in sys.stdin:\n    pass\n')
@@ -95,7 +99,7 @@ def prepare(root):
     replace(shell / 'MacBar.qml', '    SystemClock { id: clock; precision: root.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }',
             '    QtObject { id: clock; property date date: new Date(2026, 9, 25, 9, 41) }')
     replace(shell / 'MacBar.qml', 'readonly property real volume: (sink && sink.audio) ? sink.audio.volume : 0', 'readonly property real volume: .62')
-    replace(shell / 'MacBar.qml', 'text: "Sound · " + Math.round(root.volume * 100) + "%" + (root.sink ? " · " + (root.sink.description || root.sink.name) : "")', 'text: "Sound · 62% · Speakers"')
+    replace(shell / 'MacBar.qml', 'text: Language.I18n.text("ui.t_03e9c0d3ca73") + Math.round(root.volume * 100) + "%" + (root.sink ? " · " + (root.sink.description || root.sink.name) : "")', 'text: "Sound · 62% · Speakers"')
     replace(shell / 'MacDock.qml', '    id: root\n', '    id: root\n    function demoSettings() { return prefsWindow; }\n')
     replace(shell / 'MacDock.qml', 'source: "file://" + Quickshell.env("HOME") + "/.face"', 'source: ""')
     replace(shell / 'MacDock.qml', 'property string userName: Quickshell.env("USER") || ""', 'property string userName: "Demo"')
@@ -215,12 +219,13 @@ def main():
     scenes = ['desktop', 'cc', 'spotlight', 'apps', 'stats', 'wifi', 'bt', 'vol', 'battery', 'widgets', 'appearance', 'barlayout', 'activity', 'clock', 'arrange']
     parser.add_argument('--scenes', nargs='+', choices=scenes, default=[name for name in scenes if name not in ('activity', 'arrange')])
     parser.add_argument('--themes', nargs='+', choices=('dark','light'), default=['dark','light'])
+    parser.add_argument('--language', choices=('en', 'ru'), default='en')
     parser.add_argument('--gif', action='store_true')
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='macshell-showcase-') as temporary:
         root = Path(temporary)
-        shell = prepare(root)
+        shell = prepare(root, args.language)
         environment = dict(os.environ, HOME=str(root / 'home'), XDG_CONFIG_HOME=str(root / 'config'), XDG_CACHE_HOME=str(root / 'cache'),
             XDG_DATA_HOME=str(root / 'data'), XDG_DATA_DIRS=str(root / 'data'), MACSHELL_SETTINGS_HOME=str(root / 'settings'),
             MACSHELL_NIRI_PROFILE=str(root / 'niri'), QT_QPA_PLATFORMTHEME='', QT_QUICK_CONTROLS_STYLE='Basic', QT_QPA_PLATFORM='wayland',

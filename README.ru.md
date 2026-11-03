@@ -95,7 +95,7 @@
 
 | Тёмная | Светлая |
 | --- | --- |
-| <a href="docs/images/showcase-detail-clock-dark.png"><img src="docs/images/showcase-detail-clock-dark.png" alt="Мировое время, тёмная" width="420"></a> | <a href="docs/images/showcase-detail-clock-light.png"><img src="docs/images/showcase-detail-clock-light.png" alt="Мировое время, светлая" width="420"></a> |
+| <a href="docs/images/showcase-detail-clock-ru-dark.png"><img src="docs/images/showcase-detail-clock-ru-dark.png" alt="Мировое время, тёмная" width="420"></a> | <a href="docs/images/showcase-detail-clock-ru-light.png"><img src="docs/images/showcase-detail-clock-ru-light.png" alt="Мировое время, светлая" width="420"></a> |
 
 **Меню-бар**
 

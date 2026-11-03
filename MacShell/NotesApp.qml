@@ -22,15 +22,17 @@ Scope {
         closePending = true; controller.flush();
     }
     component NotesButton: Button {
+        id: control
         implicitHeight: 32; implicitWidth: Math.max(36, label.implicitWidth + 24)
         font.family: root.family; font.pixelSize: 12
         contentItem: Text {
-            id: label; text: parent.text; color: root.foreground; opacity: parent.enabled ? 1 : .45
-            font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+            id: label; text: control.text; color: root.foreground; opacity: control.enabled ? 1 : .45
+            font: control.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
-            radius: 8; color: parent.down ? (root.dark ? "#646369" : "#c7c7cd") : (root.dark ? "#424247" : "#dedee3")
-            opacity: parent.enabled ? 1 : .5
+            radius: 8; color: control.down ? (root.dark ? "#5b5b60" : "#c9c9ce") : control.hovered ? (root.dark ? "#4c4c51" : "#eeeeef") : (root.dark ? "#3a3a3e" : "#ffffff")
+            border.width: 1; border.color: control.activeFocus ? (root.dark ? "#e8c35e" : "#b28618") : (root.dark ? "#525257" : "#d0d0d5")
+            opacity: control.enabled ? 1 : .5
         }
     }
     NotesController {
@@ -45,23 +47,12 @@ Scope {
         visible: false; color: "transparent"; flags: Qt.Window | Qt.FramelessWindowHint
         onClosing: close => { close.accepted = false; root.requestClose(); }
         Rectangle { anchors.fill: parent; radius: 12; color: root.dark ? "#1c1c1e" : "#f7f7f8"; border.width: 1; border.color: root.dark ? "#49494f" : "#c8c8ce" }
-        Rectangle {
-            id: titlebar; width: parent.width; height: 44; color: root.dark ? "#2a2a2c" : "#e8e8ed"
-            DragHandler { target: null; onActiveChanged: if (active) win.startSystemMove() }
-            Row {
-                x: 16; anchors.verticalCenter: parent.verticalCenter; spacing: 8
-                Repeater {
-                    model: ["#ff5f57", "#febc2e", "#28c840"]
-                    delegate: Rectangle {
-                        required property string modelData; required property int index
-                        width: 14; height: 14; radius: 7; color: modelData
-                        Accessible.role: Accessible.Button
-                        Accessible.name: index === 0 ? root.tr.text("notes.close") : index === 1 ? root.tr.text("notes.minimize") : root.tr.text("notes.maximize")
-                        MouseArea { anchors.fill: parent; onClicked: if (parent.index === 0) root.requestClose(); else if (parent.index === 1) win.showMinimized(); else if (win.visibility === Window.Maximized) win.showNormal(); else win.showMaximized() }
-                    }
-                }
-            }
-            Text { anchors.centerIn: parent; text: root.tr.text("notes.title"); color: root.foreground; font.family: root.family; font.pixelSize: 13; font.weight: Font.DemiBold }
+        AppTitlebar {
+            id: titlebar; x: 1; width: parent.width - 2
+            window: win; dark: root.dark; family: root.family; title: root.tr.text("notes.title")
+            controlObjectPrefix: "notesWindowControl_"
+            closeLabel: root.tr.text("notes.close"); minimizeLabel: root.tr.text("notes.minimize"); maximizeLabel: root.tr.text("notes.maximize")
+            onCloseRequested: root.requestClose()
         }
         Loader {
             anchors { left: parent.left; right: parent.right; top: titlebar.bottom; bottom: parent.bottom; margins: 1 }
@@ -70,40 +61,40 @@ Scope {
                 spacing: 0
                 Shortcut { sequence: "Ctrl+F"; enabled: win.visible && win.active; onActivated: { search.forceActiveFocus(); search.selectAll(); } }
                 Rectangle {
-                    Layout.fillHeight: true; Layout.preferredWidth: 255; color: root.dark ? "#252528" : "#eeeeef"
+                    Layout.fillHeight: true; Layout.preferredWidth: 255; color: root.dark ? "#29292c" : "#eeeeef"
+                    Rectangle { anchors.right: parent.right; height: parent.height; width: 1; color: root.dark ? "#424245" : "#d4d4d8" }
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 12; spacing: 9
                         RowLayout {
                             Layout.fillWidth: true
-                            Text { text: root.tr.text("notes.title"); color: root.foreground; font.family: root.family; font.pixelSize: 19; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                            NotesButton { objectName: "notesNew"; text: "+"; Accessible.name: root.tr.text("notes.new"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.create() }
+                            Text { text: root.tr.text("notes.title"); color: root.foreground; font.family: root.family; font.pixelSize: 21; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                            NotesButton { objectName: "notesNew"; text: "+"; font.pixelSize: 19; Accessible.name: root.tr.text("notes.new"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.create() }
                         }
-                        TextField {
+                        AppSearchField {
                             id: search; objectName: "notesSearch"; Layout.fillWidth: true; placeholderText: root.tr.text("notes.search")
-                            selectByMouse: true; Accessible.name: placeholderText; color: root.foreground; placeholderTextColor: root.secondary
-                            font.family: root.family; font.pixelSize: 12; leftPadding: 10
-                            background: Rectangle { radius: 8; color: root.dark ? "#3b3b40" : "#dedee3" }
+                            dark: root.dark; font.family: root.family; Accessible.name: placeholderText
                         }
                         ListView {
                             id: list; objectName: "notesList"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
                             model: controller.notes.filter(n => !search.text || n.body.toLocaleLowerCase().indexOf(search.text.toLocaleLowerCase()) >= 0)
                             delegate: Rectangle {
                                 required property var modelData
-                                width: ListView.view.width; height: 60; radius: 8
+                                width: ListView.view.width; height: 68; radius: 9
                                 activeFocusOnTab: true
                                 Accessible.role: Accessible.Button
                                 Accessible.name: modelData.body.split("\n")[0].trim() || root.tr.text("notes.untitled")
                                 border.width: activeFocus ? 1 : 0; border.color: root.dark ? "#f5ce67" : "#9e7400"
                                 Keys.onReturnPressed: if (!controller.busy && !controller.dirty) controller.select(modelData.id)
                                 Keys.onSpacePressed: if (!controller.busy && !controller.dirty) controller.select(modelData.id)
-                                color: controller.selectedId === modelData.id ? (root.dark ? "#57513d" : "#f5df9e") : "transparent"
+                                color: controller.selectedId === modelData.id ? (root.dark ? "#5c5238" : "#f9e8b3") : noteMouse.containsMouse ? (root.dark ? "#353538" : "#e4e4e7") : "transparent"
+                                Rectangle { x: 0; y: 12; width: 3; height: parent.height - 24; radius: 2; color: root.dark ? "#ffd05d" : "#c28b00"; visible: controller.selectedId === modelData.id }
                                 Column {
                                     anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 10 }
                                     spacing: 4
                                     Text { width: parent.width; text: modelData.body.split("\n")[0].trim() || root.tr.text("notes.untitled"); color: root.foreground; font.family: root.family; font.weight: Font.DemiBold; font.pixelSize: 13; elide: Text.ElideRight; textFormat: Text.PlainText }
                                     Text { width: parent.width; text: modelData.body.replace(/\n/g, " ").trim() || root.tr.text("notes.empty"); color: root.secondary; font.family: root.family; font.pixelSize: 11; elide: Text.ElideRight; textFormat: Text.PlainText }
                                 }
-                                MouseArea { anchors.fill: parent; enabled: !controller.busy && !controller.dirty; onClicked: controller.select(parent.modelData.id) }
+                                MouseArea { id: noteMouse; anchors.fill: parent; hoverEnabled: true; enabled: !controller.busy && !controller.dirty; cursorShape: Qt.PointingHandCursor; onClicked: controller.select(parent.modelData.id) }
                             }
                             Text { anchors.centerIn: parent; visible: list.count === 0; width: parent.width - 20; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; text: root.tr.text("notes.no_notes"); color: root.secondary; font.family: root.family }
                         }
@@ -123,7 +114,7 @@ Scope {
                             Layout.fillWidth: true
                             Text { Layout.fillWidth: true; color: root.secondary; font.family: root.family; font.pixelSize: 12; text: !controller.ready ? root.tr.text("notes.unavailable") : controller.dirty || controller.busy ? root.tr.text("notes.saving") : root.tr.text("notes.saved") }
                             NotesButton { objectName: "notesUndoDelete"; visible: !!controller.deletedNote; text: root.tr.text("notes.undo_delete"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.undoDelete() }
-                            NotesButton { objectName: "notesDelete"; text: root.tr.text("notes.delete"); enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: controller.remove() }
+                            AppIconButton { objectName: "notesDelete"; glyph: "trash"; label: root.tr.text("notes.delete"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: controller.remove() }
                         }
                         RowLayout {
                             visible: controller.error !== ""; Layout.fillWidth: true
@@ -167,7 +158,7 @@ Scope {
                             Text { anchors.centerIn: parent; visible: deletedList.count === 0; text: root.tr.text("notes.deleted_empty"); color: root.secondary; font.family: root.family }
                         }
                         Text { Layout.fillWidth: true; visible: !!controller.error; text: controller.error; color: root.dark ? "#ffb3a8" : "#a32618"; wrapMode: Text.Wrap; textFormat: Text.PlainText }
-                        NotesButton { Layout.alignment: Qt.AlignRight; text: root.tr.text("notes.done"); enabled: !controller.busy; onClicked: trashDialog.close() }
+                        NotesButton { objectName: "notesTrashDone"; Layout.alignment: Qt.AlignRight; text: root.tr.text("notes.done"); enabled: !controller.busy; onClicked: trashDialog.close() }
                     }
                 }
             }

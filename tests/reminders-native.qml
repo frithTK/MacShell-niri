@@ -9,6 +9,11 @@ property bool remindersEditShot: false
 property bool remindersFailureSent: false
 property bool remindersFailureChecked: false
 property int remindersUnknownStage: 0
+readonly property bool remindersEnglishCapture: Quickshell.env("MACSHELL_README_CAPTURE_EN") === "1"
+readonly property string remindersSampleList: remindersEnglishCapture ? "Groceries" : "Покупки"
+readonly property string remindersSampleRenamedList: remindersEnglishCapture ? "Shopping" : "Покупки домой"
+readonly property string remindersSampleTask: remindersEnglishCapture ? "Buy tea 🌿" : "Купить чай 🌿"
+readonly property string remindersSampleEditedTask: remindersEnglishCapture ? "Buy green tea 🌿" : "Купить зелёный чай 🌿"
 Item { parent: remindersApp.window.contentItem; TestEvent { id: remindersEvents } }
 Process {
     id: remindersInjectUncertain
@@ -41,11 +46,11 @@ Timer {
                 macBar.launchApp(entry);
             } else if (remindersPhase === 1) {
                 if (!c.ready || c.busy || !c.lists.length) return;
-                remindersFind(win.contentItem, "remindersNewList").text = "Покупки";
+                remindersFind(win.contentItem, "remindersNewList").text = remindersSampleList;
                 remindersClick("remindersAddList");
             } else if (remindersPhase === 2) {
                 if (c.busy || c.selectedList === "inbox") return;
-                remindersCheck(c.lists.some(l => l.name === "Покупки"), "created list");
+                remindersCheck(c.lists.some(l => l.name === remindersSampleList), "created list");
                 remindersCheck(remindersFind(win.contentItem, "remindersNewList").text === "", "saved list draft clears");
                 var createdList = c.selectedList, inboxItem = remindersFind(win.contentItem, "remindersList_inbox");
                 remindersListId = createdList;
@@ -56,7 +61,7 @@ Timer {
                 remindersCheck(customItem, "custom list control"); customItem.forceActiveFocus();
                 remindersEvents.keyClick(Qt.Key_Return, Qt.NoModifier, 0);
                 remindersCheck(c.selectedList === createdList, "keyboard restores list");
-                remindersFind(win.contentItem, "remindersNewTask").text = "Купить чай 🌿";
+                remindersFind(win.contentItem, "remindersNewTask").text = remindersSampleTask;
                 remindersClick("remindersAddTask");
             } else if (remindersPhase === 3) {
                 if (c.busy || c.tasks.length !== 1) return;
@@ -65,12 +70,14 @@ Timer {
                 remindersClick("remindersToggle_" + remindersTaskId);
             } else if (remindersPhase === 4) {
                 if (c.busy || !c.tasks[0].done) return;
-                remindersClick("remindersEdit_" + remindersTaskId);
+                var editButton = remindersFind(win.contentItem, "remindersEdit_" + remindersTaskId);
+                remindersCheck(editButton.glyph === "pencil" && editButton.Accessible.name === remindersApp.tr("edit"), "edit icon and accessible name");
+                editButton.forceActiveFocus(); remindersEvents.keyClick(Qt.Key_Space, Qt.NoModifier, 0);
             } else if (remindersPhase === 5) {
                 var edit = remindersFind(win.contentItem, "remindersEditInput");
                 if (!edit || !edit.visible) return;
                 var due = remindersFind(win.contentItem, "remindersDueInput");
-                edit.text = "Купить зелёный чай 🌿"; due.text = "2030-02-30 14:30";
+                edit.text = remindersSampleEditedTask; due.text = "2030-02-30 14:30";
                 remindersCheck(!remindersFind(win.contentItem, "remindersEditSave").enabled, "invalid date is blocked");
                 var repeat = remindersFind(win.contentItem, "remindersRepeat");
                 remindersCheck(repeat && repeat.visible && repeat.model.length === 4, "repeat control available");
@@ -94,9 +101,11 @@ Timer {
                 }
                 remindersClick("remindersEditSave");
             } else if (remindersPhase === 6) {
-                if (c.busy || c.tasks[0].title !== "Купить зелёный чай 🌿") return;
+                if (c.busy || c.tasks[0].title !== remindersSampleEditedTask) return;
                 remindersCheck(c.tasks[0].due_at === new Date(2030, 0, 2, 14, 30).getTime(), "local due time stored");
                 remindersCheck(c.tasks[0].repeat_rule === "monthly", "repeat rule stored");
+                var removeButton = remindersFind(win.contentItem, "remindersDelete_" + remindersTaskId);
+                remindersCheck(removeButton.glyph === "trash" && removeButton.Accessible.name === remindersApp.tr("remove"), "delete icon and accessible name");
                 remindersClick("remindersDelete_" + remindersTaskId);
             } else if (remindersPhase === 7) {
                 if (c.busy || !c.lastDeleted) return;
@@ -109,9 +118,9 @@ Timer {
             } else if (remindersPhase === 9) {
                 var listEdit = remindersFind(win.contentItem, "remindersListEditInput");
                 if (!listEdit || !listEdit.visible) return;
-                listEdit.text = "Покупки домой"; remindersClick("remindersListEditSave");
+                listEdit.text = remindersSampleRenamedList; remindersClick("remindersListEditSave");
             } else if (remindersPhase === 10) {
-                if (c.busy || !c.lists.some(l => l.name === "Покупки домой")) return;
+                if (c.busy || !c.lists.some(l => l.name === remindersSampleRenamedList)) return;
                 remindersClick("remindersDeleteList");
             } else if (remindersPhase === 11) {
                 var confirm = remindersFind(win.contentItem, "remindersConfirmListDelete");
@@ -162,12 +171,16 @@ Timer {
             } else if (remindersPhase === 23) {
                 var capture = Quickshell.env("MACSHELL_REMINDERS_CAPTURE");
                 if (capture && remindersShots < 2) {
+                    if (remindersEnglishCapture) sharedHub.translations.language = "en";
+                    remindersCheck(remindersFind(win.contentItem, "remindersEdit_" + remindersTaskId).Accessible.name === remindersApp.tr("edit"), "edit icon follows interface language");
+                    remindersCheck(remindersFind(win.contentItem, "remindersDeleteList").Accessible.name === remindersApp.tr("deleteList"), "list delete icon follows interface language");
                     macDock.darkMode = remindersShots === 0;
                     var theme = remindersShots === 0 ? "dark" : "light";
                     remindersSaving = true;
                     Qt.callLater(() => win.contentItem.grabToImage(result => {
                         if (!result.saveToFile(capture + "/reminders-" + theme + ".png")) { console.error("REMINDERS_FAIL screenshot"); Qt.exit(1); }
                         remindersShots++; remindersSaving = false;
+                        if (remindersEnglishCapture) sharedHub.translations.language = "ru";
                     }));
                     return;
                 }
@@ -177,7 +190,7 @@ Timer {
                 remindersCheck(!remindersFind(win.contentItem, "remindersNewTask"), "closed UI unloaded"); remindersApp.open();
             } else if (remindersPhase === 25) {
                 if (!c.ready || c.busy || c.tasks.length !== 1) return;
-                remindersCheck(c.tasks[0].title === "Купить зелёный чай 🌿" && c.tasks[0].done, "reopened task");
+                remindersCheck(c.tasks[0].title === remindersSampleEditedTask && c.tasks[0].done, "reopened task");
                 if (remindersUnknownStage === 0) { remindersInjectUncertain.running = true; remindersUnknownStage = 1; return; }
                 if (remindersUnknownStage === 1) {
                     if (remindersInjectUncertain.running || c.tasks[0].alert_state !== "uncertain") return;
@@ -203,7 +216,7 @@ Timer {
                     draft.clear(); c.load(); remindersFailureChecked = true; return;
                 }
                 if (c.error) return;
-                var search = remindersFind(win.contentItem, "remindersSearch"); search.text = "зелёный";
+                var search = remindersFind(win.contentItem, "remindersSearch"); search.text = remindersEnglishCapture ? "green" : "зелёный";
                 remindersCheck(remindersFind(win.contentItem, "remindersTasks").count === 1, "search finds task");
                 search.text = "нет такого";
                 remindersCheck(remindersFind(win.contentItem, "remindersTasks").count === 0, "search filters task");
@@ -221,6 +234,8 @@ Timer {
             } else if (remindersPhase === 29) {
                 if (c.busy || c.tasks[0].due_at === new Date(2030, 0, 2, 14, 30).getTime()) return;
                 remindersCheck(c.tasks.length === 1 && !c.tasks[0].done && c.tasks[0].due_at === new Date(2030, 1, 2, 14, 30).getTime(), "completion schedules the next occurrence");
+                remindersClick("remindersWindowControl_0");
+                remindersCheck(!win.visible, "titlebar close keeps the background service available");
                 console.log("MACSHELL_REMINDERS_PASS: lists, tasks, completion, repeats, edit, undo, restart and search"); Qt.quit(); return;
             }
             remindersPhase++;

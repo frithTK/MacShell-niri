@@ -68,7 +68,7 @@ Scope {
         onSnapshotChanged: {
             if (!root.managedClock || !snapshot) return;
             function copy(value) { return JSON.parse(JSON.stringify(value)); }
-            var state = snapshot;
+            var state = snapshot, firstSnapshot = !root.loaded;
             if (!root.loaded && state.timing && state.timing.timer) {
                 root.timerSoundId = state.timing.timer.soundId || "";
                 root.timerSoundOptions = state.timing.timer.soundOptions || null;
@@ -77,7 +77,7 @@ Scope {
             root.alarms = copy(state.alarms || []); root.cities = copy(state.cities || []); root.timer = copy(state.timer);
             root.sw = copy(state.sw); root.recents = copy(state.recents || []); root.timerPresets = copy(state.timerPresets || {}); root.ringing = state.ringing ? copy(state.ringing) : null;
             root.loaded = true;
-            if (oldCities !== JSON.stringify(root.cities)) root.refreshTz();
+            if (firstSnapshot || oldCities !== JSON.stringify(root.cities)) root.refreshTz();
         }
         onReadyChanged: if (ready) controller.refreshSounds()
         onCompleted: (action, success, result, error) => {
@@ -451,7 +451,7 @@ Scope {
             id: pal
             readonly property bool dark: root.darkMode
             readonly property color bg: dark ? "#1C1C1E" : "#F2F2F7"
-            readonly property color bar: dark ? "#2A2A2C" : "#E8E8ED"
+            readonly property color bar: dark ? "#303033" : "#E9E9EC"
             readonly property color card: dark ? "#2C2C2E" : "#FFFFFF"
             readonly property color text: dark ? "#F5F5F7" : "#1D1D1F"
             readonly property color text2: dark ? Qt.rgba(1, 1, 1, 0.55) : Qt.rgba(0, 0, 0, 0.5)
@@ -648,15 +648,20 @@ Scope {
                             required property var modelData
                             required property int index
                             readonly property var d: root.cityDate(modelData.tz)
-                            width: 160; height: 214
+                            width: 160; height: 224
+                            Rectangle {
+                                anchors.fill: parent; radius: 16
+                                color: pal.dark ? "#28282b" : "#ffffff"
+                                border.width: 1; border.color: pal.sep
+                            }
                             ClockFace {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                width: 136; height: 136
+                                y: 10; width: 136; height: 136
                                 date: cc.d
                                 night: cc.d.getHours() < 6 || cc.d.getHours() >= 18
                             }
                             Column {
-                                y: 148; width: parent.width
+                                y: 158; width: parent.width
                                 spacing: 2
                                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: Language.I18n.cityName(cc.modelData.tz, cc.modelData.name); color: pal.text; font.family: root.fam; font.pixelSize: 15; font.weight: Font.DemiBold }
                                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.cityDayText(cc.modelData.tz); color: pal.text2; font.family: root.fam; font.pixelSize: 11 }

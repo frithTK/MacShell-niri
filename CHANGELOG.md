@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Refined the built-in Notes, Reminders, Calculator and Clock interfaces with consistent window controls, updated sidebars, rounded controls and light/dark materials.
+- Replaced the Notes and Reminders edit and delete buttons with labeled, keyboard-accessible pencil and trash icons.
+- Fixed default World Clock cities loading without their time-zone offsets on the first managed-service snapshot.
+
 ## 1.1.1
 
 - Fixed Spotlight mouse selection when window information changes during a search; pointer highlighting now follows the mouse immediately.

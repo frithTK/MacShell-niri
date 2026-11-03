@@ -30,15 +30,20 @@ Scope {
     function open() { closePending = false; win.show(); win.raise(); win.requestActivate(); }
     function requestClose() { if (!controller.busy) win.hide(); else closePending = true; }
     component ActionButton: Button {
+        id: control
         implicitHeight: 32; implicitWidth: Math.max(36, label.implicitWidth + 24)
         font.family: root.family; font.pixelSize: 12
-        contentItem: Text { id: label; text: parent.text; color: root.ink; opacity: parent.enabled ? 1 : .45; font: parent.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-        background: Rectangle { radius: 8; color: parent.down ? (root.dark ? "#646369" : "#c7c7cd") : (root.dark ? "#424247" : "#dedee3"); opacity: parent.enabled ? 1 : .5 }
+        contentItem: Text { id: label; text: control.text; color: root.ink; opacity: control.enabled ? 1 : .45; font: control.font; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+        background: Rectangle {
+            radius: 8; color: control.down ? (root.dark ? "#5b5b60" : "#c9c9ce") : control.hovered ? (root.dark ? "#4c4c51" : "#eeeeef") : (root.dark ? "#3a3a3e" : "#ffffff")
+            border.width: 1; border.color: control.activeFocus ? (root.dark ? "#83bfff" : "#2273c9") : (root.dark ? "#525257" : "#d0d0d5")
+            opacity: control.enabled ? 1 : .5
+        }
     }
     component InputField: TextField {
         color: root.ink; placeholderTextColor: root.muted; font.family: root.family; font.pixelSize: 13
-        leftPadding: 10; selectByMouse: true
-        background: Rectangle { radius: 8; color: root.dark ? "#3b3b40" : "#dedee3" }
+        leftPadding: 10; selectByMouse: true; implicitHeight: 34
+        background: Rectangle { radius: 8; color: root.dark ? "#3a3a3e" : "#ffffff"; border.width: 1; border.color: parent.activeFocus ? (root.dark ? "#83bfff" : "#2273c9") : (root.dark ? "#515155" : "#d0d0d5") }
     }
     component ThemedDialog: Dialog {
         header: Text {
@@ -59,23 +64,12 @@ Scope {
         color: "transparent"; flags: Qt.Window | Qt.FramelessWindowHint
         onClosing: close => { close.accepted = false; root.requestClose(); }
         Rectangle { anchors.fill: parent; radius: 12; color: root.dark ? "#1c1c1e" : "#f7f7f8"; border.width: 1; border.color: root.dark ? "#49494f" : "#c8c8ce" }
-        Rectangle {
-            id: titlebar; width: parent.width; height: 44; color: root.dark ? "#2a2a2c" : "#e8e8ed"
-            DragHandler { target: null; onActiveChanged: if (active) win.startSystemMove() }
-            Row {
-                x: 16; anchors.verticalCenter: parent.verticalCenter; spacing: 8
-                Repeater {
-                    model: ["#ff5f57", "#febc2e", "#28c840"]
-                    delegate: Rectangle {
-                        required property string modelData; required property int index
-                        width: 14; height: 14; radius: 7; color: modelData
-                        Accessible.role: Accessible.Button
-                        Accessible.name: index === 0 ? root.tr("close") : index === 1 ? root.tr("minimize") : root.tr("maximize")
-                        MouseArea { anchors.fill: parent; onClicked: if (parent.index === 0) root.requestClose(); else if (parent.index === 1) win.showMinimized(); else if (win.visibility === Window.Maximized) win.showNormal(); else win.showMaximized() }
-                    }
-                }
-            }
-            Text { anchors.centerIn: parent; text: root.tr("title"); color: root.ink; font.family: root.family; font.pixelSize: 13; font.weight: Font.DemiBold }
+        AppTitlebar {
+            id: titlebar; x: 1; width: parent.width - 2
+            window: win; dark: root.dark; family: root.family; title: root.tr("title")
+            controlObjectPrefix: "remindersWindowControl_"
+            closeLabel: root.tr("close"); minimizeLabel: root.tr("minimize"); maximizeLabel: root.tr("maximize")
+            onCloseRequested: root.requestClose()
         }
         Loader {
             anchors { left: parent.left; right: parent.right; top: titlebar.bottom; bottom: parent.bottom; margins: 1 }
@@ -83,10 +77,11 @@ Scope {
             sourceComponent: RowLayout {
                 spacing: 0
                 Rectangle {
-                    Layout.fillHeight: true; Layout.preferredWidth: 255; color: root.dark ? "#252528" : "#eeeeef"
+                    Layout.fillHeight: true; Layout.preferredWidth: 255; color: root.dark ? "#29292c" : "#eeeeef"
+                    Rectangle { anchors.right: parent.right; height: parent.height; width: 1; color: root.dark ? "#424245" : "#d4d4d8" }
                     ColumnLayout {
                         anchors.fill: parent; anchors.margins: 12; spacing: 9
-                        Text { text: root.tr("lists"); color: root.ink; font.family: root.family; font.pixelSize: 19; font.weight: Font.DemiBold }
+                        Text { text: root.tr("lists"); color: root.ink; font.family: root.family; font.pixelSize: 21; font.weight: Font.DemiBold }
                         ListView {
                             id: listView; objectName: "remindersLists"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
                             model: controller.lists
@@ -101,12 +96,17 @@ Scope {
                                 border.width: activeFocus ? 1 : 0; border.color: root.dark ? "#83bfff" : "#2273c9"
                                 Keys.onReturnPressed: if (!controller.busy) controller.selectList(modelData.id)
                                 Keys.onSpacePressed: if (!controller.busy) controller.selectList(modelData.id)
-                                color: controller.selectedList === modelData.id ? (root.dark ? "#334e6b" : "#c6def9") : "transparent"
+                                color: controller.selectedList === modelData.id ? (root.dark ? "#364e69" : "#c6def9") : listMouse.containsMouse ? (root.dark ? "#363639" : "#e2e2e5") : "transparent"
+                                Rectangle {
+                                    x: 10; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 24; radius: 7
+                                    color: listRow.modelData.id === "inbox" ? "#0a84ff" : "#ff9f0a"
+                                    Text { anchors.centerIn: parent; text: listRow.modelData.id === "inbox" ? "✓" : "≡"; color: "white"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                                }
                                 Text {
-                                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 10 }
+                                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; leftMargin: 43; rightMargin: 10 }
                                     text: parent.modelData.id === "inbox" ? root.tr("inbox") : parent.modelData.name; color: root.ink; font.family: root.family; font.pixelSize: 13; elide: Text.ElideRight; textFormat: Text.PlainText
                                 }
-                                MouseArea { anchors.fill: parent; enabled: !controller.busy; onClicked: { listRow.forceActiveFocus(); controller.selectList(listRow.modelData.id); } }
+                                MouseArea { id: listMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; enabled: !controller.busy; onClicked: { listRow.forceActiveFocus(); controller.selectList(listRow.modelData.id); } }
                             }
                         }
                         ActionButton { objectName: "remindersTrash"; Layout.fillWidth: true; text: root.tr("trash"); enabled: controller.ready && !controller.busy; onClicked: trashDialog.open() }
@@ -129,8 +129,8 @@ Scope {
                                 text: { var list = controller.lists.find(l => l.id === controller.selectedList); return !list || list.id === "inbox" ? root.tr("inbox") : list.name; }
                                 textFormat: Text.PlainText
                             }
-                            ActionButton { objectName: "remindersRenameList"; visible: !!root.currentList && root.currentList.id !== "inbox"; text: root.tr("renameList"); enabled: controller.ready && !controller.busy; onClicked: { listEditDialog.list = root.currentList; listEditInput.text = root.currentList.name; listEditDialog.open(); listEditInput.forceActiveFocus(); } }
-                            ActionButton { objectName: "remindersDeleteList"; visible: !!root.currentList && root.currentList.id !== "inbox"; text: root.tr("deleteList"); enabled: controller.ready && !controller.busy; onClicked: { listDeleteDialog.list = root.currentList; listDeleteDialog.open(); } }
+                            AppIconButton { objectName: "remindersRenameList"; visible: !!root.currentList && root.currentList.id !== "inbox"; glyph: "pencil"; label: root.tr("renameList"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: { listEditDialog.list = root.currentList; listEditInput.text = root.currentList.name; listEditDialog.open(); listEditInput.forceActiveFocus(); } }
+                            AppIconButton { objectName: "remindersDeleteList"; visible: !!root.currentList && root.currentList.id !== "inbox"; glyph: "trash"; label: root.tr("deleteList"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: { listDeleteDialog.list = root.currentList; listDeleteDialog.open(); } }
                             ActionButton { objectName: "remindersUndoDelete"; visible: !!controller.lastDeleted && controller.lists.some(l => l.id === controller.lastDeleted.list_id); text: root.tr("restore"); enabled: controller.ready && !controller.busy; onClicked: controller.undoDelete() }
                         }
                         Text { Layout.fillWidth: true; text: root.tr("noAlerts"); color: root.muted; font.family: root.family; font.pixelSize: 12; wrapMode: Text.Wrap }
@@ -140,19 +140,31 @@ Scope {
                             Text { Layout.fillWidth: true; text: root.tr("failed") + " " + controller.error; color: root.dark ? "#ffb3a8" : "#a32618"; wrapMode: Text.Wrap; font.family: root.family; textFormat: Text.PlainText }
                             ActionButton { text: root.tr("retry"); enabled: controller.ready && !controller.busy; onClicked: controller.load() }
                         }
-                        InputField { id: search; objectName: "remindersSearch"; Layout.fillWidth: true; placeholderText: root.tr("search") }
+                        AppSearchField { id: search; objectName: "remindersSearch"; Layout.fillWidth: true; placeholderText: root.tr("search"); Accessible.name: placeholderText; dark: root.dark; font.family: root.family }
                         ListView {
                             id: taskView; objectName: "remindersTasks"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
                             model: controller.tasks.filter(t => t.list_id === controller.selectedList && (!search.text || t.title.toLocaleLowerCase().indexOf(search.text.toLocaleLowerCase()) >= 0))
                             delegate: Rectangle {
                                 id: taskRow; required property var modelData
-                                width: ListView.view.width; height: modelData.due_at === null ? 52 : 68; radius: 9; color: root.dark ? "#29292d" : "#e9e9ed"
+                                width: ListView.view.width; height: modelData.due_at === null ? 58 : 72; radius: 11; color: root.dark ? "#29292d" : "#ffffff"
+                                border.width: 1; border.color: root.dark ? "#38383c" : "#e2e2e6"
                                 RowLayout {
                                     anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
                                     ActionButton {
-                                        objectName: "remindersToggle_" + taskRow.modelData.id; text: taskRow.modelData.done ? "✓" : "○"; implicitWidth: 36
+                                        id: completion
+                                        objectName: "remindersToggle_" + taskRow.modelData.id; text: taskRow.modelData.done ? "✓" : ""; implicitWidth: 36
                                         Accessible.name: taskRow.modelData.title; Accessible.role: Accessible.CheckBox; Accessible.checked: !!taskRow.modelData.done
                                         enabled: controller.ready && !controller.busy
+                                        background: Item {}
+                                        contentItem: Item {
+                                            Rectangle {
+                                                anchors.centerIn: parent; width: 22; height: 22; radius: 11
+                                                color: taskRow.modelData.done ? "#0a84ff" : "transparent"
+                                                border.width: completion.activeFocus ? 2 : 1
+                                                border.color: taskRow.modelData.done ? "#0a84ff" : (root.dark ? "#92929a" : "#8e8e96")
+                                                Text { anchors.centerIn: parent; visible: taskRow.modelData.done; text: "✓"; color: "white"; font.pixelSize: 14; font.bold: true }
+                                            }
+                                        }
                                         onClicked: controller.update(taskRow.modelData, "done", !taskRow.modelData.done)
                                     }
                                     ColumnLayout {
@@ -161,8 +173,8 @@ Scope {
                                         Text { Layout.fillWidth: true; visible: taskRow.modelData.due_at !== null; text: ReminderTime.format(taskRow.modelData.due_at) + (taskRow.modelData.repeat_rule && taskRow.modelData.repeat_rule !== "none" ? " · " + root.repeatLabel(taskRow.modelData.repeat_rule) : "") + (taskRow.modelData.alert_state === "uncertain" ? " · " + root.tr("alertUnknown") : taskRow.modelData.alert_error === "notification_failed" ? " · " + root.tr("alertFailed") : taskRow.modelData.alert_state === "delivered" ? " · " + root.tr("alertDelivered") : ""); color: root.muted; font.family: root.family; font.pixelSize: 11; elide: Text.ElideRight }
                                     }
                                     ActionButton { objectName: "remindersResolve_" + taskRow.modelData.id; visible: taskRow.modelData.alert_state === "uncertain"; text: root.tr("resolve"); enabled: controller.ready && !controller.busy; onClicked: { alertDialog.task = taskRow.modelData; alertDialog.open(); } }
-                                    ActionButton { objectName: "remindersEdit_" + taskRow.modelData.id; text: root.tr("edit"); enabled: controller.ready && !controller.busy; onClicked: { editDialog.task = taskRow.modelData; editInput.text = taskRow.modelData.title; dueInput.text = ReminderTime.format(taskRow.modelData.due_at); repeatInput.currentIndex = Math.max(0, repeatInput.rules.indexOf(taskRow.modelData.repeat_rule || "none")); editDialog.open(); editInput.forceActiveFocus(); } }
-                                    ActionButton { objectName: "remindersDelete_" + taskRow.modelData.id; text: root.tr("remove"); enabled: controller.ready && !controller.busy; onClicked: controller.update(taskRow.modelData, "deleted", true) }
+                                    AppIconButton { objectName: "remindersEdit_" + taskRow.modelData.id; glyph: "pencil"; label: root.tr("edit"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: { editDialog.task = taskRow.modelData; editInput.text = taskRow.modelData.title; dueInput.text = ReminderTime.format(taskRow.modelData.due_at); repeatInput.currentIndex = Math.max(0, repeatInput.rules.indexOf(taskRow.modelData.repeat_rule || "none")); editDialog.open(); editInput.forceActiveFocus(); } }
+                                    AppIconButton { objectName: "remindersDelete_" + taskRow.modelData.id; glyph: "trash"; label: root.tr("remove"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: controller.update(taskRow.modelData, "deleted", true) }
                                 }
                             }
                             Text { anchors.centerIn: parent; visible: taskView.count === 0; text: root.tr("empty"); color: root.muted; font.family: root.family }

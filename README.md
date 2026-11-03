@@ -32,13 +32,13 @@ See the [utilities guide](docs/UTILITIES.md) for details.
 
 | Notes | Reminders |
 | --- | --- |
-| <a href="docs/images/notes-ru-dark.png"><img src="docs/images/notes-ru-dark.png" alt="Notes" width="420"></a> | <a href="docs/images/reminders-ru-dark.png"><img src="docs/images/reminders-ru-dark.png" alt="Reminders" width="420"></a> |
+| <a href="docs/images/notes-en-dark.png"><img src="docs/images/notes-en-dark.png" alt="Notes" width="420"></a> | <a href="docs/images/reminders-en-dark.png"><img src="docs/images/reminders-en-dark.png" alt="Reminders" width="420"></a> |
 
 **Timer widget**
 
 | Dark | Light |
 | --- | --- |
-| <a href="docs/images/timer-widget-ru-dark.png"><img src="docs/images/timer-widget-ru-dark.png" alt="Timer widget, dark theme" width="420"></a> | <a href="docs/images/timer-widget-ru-light.png"><img src="docs/images/timer-widget-ru-light.png" alt="Timer widget, light theme" width="420"></a> |
+| <a href="docs/images/timer-widget-en-dark.png"><img src="docs/images/timer-widget-en-dark.png" alt="Timer widget, dark theme" width="420"></a> | <a href="docs/images/timer-widget-en-light.png"><img src="docs/images/timer-widget-en-light.png" alt="Timer widget, light theme" width="420"></a> |
 
 **Find what you need**
 

@@ -6,10 +6,10 @@ property bool calculatorSaving: false
 Item {
     parent: calculatorApp.window.contentItem
     TestEvent { id: calculatorEvents }
-    Image { id: calculatorCatalogIcon; source: macBar.iconSrc(macBar.searchApps("Calculator")[0].icon) }
-    Image { id: clockCatalogIcon; source: macBar.iconSrc(macBar.searchApps("Clock")[0].icon) }
-    Image { id: calculatorDockIcon; source: macDock.iconSrc(macDock.lookup("macshell-calculator").icon) }
-    Image { id: clockDockIcon; source: macDock.iconSrc(macDock.lookup("macshell-clock").icon) }
+    Image { id: calculatorCatalogIcon; visible: false; source: macBar.iconSrc(macBar.searchApps("Calculator")[0].icon) }
+    Image { id: clockCatalogIcon; visible: false; source: macBar.iconSrc(macBar.searchApps("Clock")[0].icon) }
+    Image { id: calculatorDockIcon; visible: false; source: macDock.iconSrc(macDock.lookup("macshell-calculator").icon) }
+    Image { id: clockDockIcon; visible: false; source: macDock.iconSrc(macDock.lookup("macshell-clock").icon) }
 }
 function calculatorCheck(value, reason) { if (!value) throw new Error("CALCULATOR_FAIL phase " + calculatorPhase + ": " + reason); }
 function calculatorFind(item, name) {

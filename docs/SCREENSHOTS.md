@@ -2,6 +2,17 @@
 
 The README gallery uses the production QML components, captured in an isolated nested niri session at **1440 × 900**. The background, media, devices, resource readings and date are demonstration data. The glass is rendered by MacShell's real shader and compositor effects.
 
+The newer Notes, Reminders, Clock and Timer images use separate English and Russian captures. The English Notes and Reminders images use disposable data and a nested niri session; from an existing Wayland/niri session they can be reproduced with:
+
+```bash
+mkdir -p /tmp/macshell-readme-en
+MACSHELL_README_CAPTURE_EN=1 MACSHELL_NOTES_CAPTURE=/tmp/macshell-readme-en python3 scripts/check-notes-native.py
+MACSHELL_README_CAPTURE_EN=1 MACSHELL_REMINDERS_CAPTURE=/tmp/macshell-readme-en python3 scripts/check-reminders-native.py
+bash scripts/preview-timer-widget.sh en /tmp/macshell-readme-en
+```
+
+The app checks capture both themes as `notes-{dark,light}.png` and `reminders-{dark,light}.png`; the English README uses the dark captures with an `-en-` suffix. Timer previews use `timer-widget-en-{dark,light}.png`. Pass `ru` to the timer preview script for Russian images. The existing Russian app captures use the same tests without `MACSHELL_README_CAPTURE_EN`.
+
 ## Liquid Glass showcase
 
 Run deliberately from an active niri session with the repository's compatible Quickshell/Qt runtime, `niri`, `grim`, `wf-recorder` and `ffmpeg` installed:
@@ -37,6 +48,7 @@ For a short recapture:
 ```bash
 python3 scripts/capture-showcase.py --output-dir /tmp/macshell-showcase --scenes desktop cc spotlight stats --themes dark light
 python3 scripts/capture-showcase.py --output-dir /tmp/macshell-showcase --scenes desktop --themes dark --gif
+python3 scripts/capture-showcase.py --output-dir /tmp/macshell-clock-ru --scenes clock --themes dark light --language ru
 ```
 
 The READMEs reference 24 stills, the GIF and MP4. Copy only referenced showcase files from the completed run:
@@ -51,7 +63,11 @@ source = Path('/tmp/macshell-showcase')
 text = Path('README.md').read_text() + Path('README.ru.md').read_text()
 names = set(re.findall(r'docs/images/(showcase-[^"\s)]+)', text))
 for name in sorted(names):
-    shutil.copyfile(source / name, Path('docs/images') / name)
+    if '-clock-ru-' not in name:
+        shutil.copyfile(source / name, Path('docs/images') / name)
+for theme in ('dark', 'light'):
+    shutil.copyfile(Path('/tmp/macshell-clock-ru') / f'showcase-detail-clock-{theme}.png',
+                    Path('docs/images') / f'showcase-detail-clock-ru-{theme}.png')
 PY
 ```
 

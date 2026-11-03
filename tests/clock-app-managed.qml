@@ -18,6 +18,8 @@ ShellRoot {
             if (!clock.loaded || !clock.clockControlsReady) return;
             if (root.phase === 0) {
                 if (!clock.managedClock) { console.error("CLOCK_APP_FAIL mode"); Qt.exit(1); return; }
+                // Default cities must load offsets even if the first snapshot matches the initial list.
+                if (clock.tzOff["America/Los_Angeles"] === undefined || clock.tzOff["Asia/Tokyo"] === undefined) return;
                 root.phase = 1;
                 var hour = (new Date().getHours() + 2) % 24;
                 if (!clock.addAlarm(hour, 5, "Alarm test", [1, 2, 3, 4, 5, 6, 0])) { console.error("CLOCK_APP_FAIL alarm"); Qt.exit(1); }

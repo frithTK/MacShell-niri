@@ -3290,6 +3290,7 @@ Scope {
                     else pop = "";
                 }
                 function spMove(d) {
+                    resPanel.pointerSelection = false;
                     var n = spResults.length;
                     if (n > 0) spSel = (Math.min(spSel, n - 1) + d + n) % n;
                 }
@@ -7111,7 +7112,7 @@ Scope {
                                 selectedTextColor: "white"
                                 font.family: pal.fam; font.pixelSize: 17
                                 horizontalAlignment: /[\u0590-\u08ff]/.test(text) ? Text.AlignRight : Text.AlignLeft
-                                onTextChanged: { if (!ui.spFull) { ui.spQuery = text; ui.spSel = 0; ui.armed = ""; if (/^(file|find)\s+/i.test(text)) root.updateFileSearch(text.replace(/^(file|find)\s+/i, "").trim()); } }
+                                onTextChanged: { if (!ui.spFull) { resPanel.pointerSelection = false; ui.spQuery = text; ui.spSel = 0; ui.armed = ""; if (/^(file|find)\s+/i.test(text)) root.updateFileSearch(text.replace(/^(file|find)\s+/i, "").trim()); } }
                                 Keys.onPressed: event => ui.spKey(event)
                             }
                         }
@@ -7160,8 +7161,15 @@ Scope {
                         y: spRow.height + 10
                         width: spot.width
                         readonly property var items: ui.spFull ? [] : ui.spResults      // clipboard / emoji / apps have their own panels
+                        property bool pointerSelection: false
                         property int keep: 1                         // last non-empty row count, so the panel shrinks while it fades out
-                        onItemsChanged: if (items.length > 0) keep = items.length
+                        onItemsChanged: {
+                            if (items.length > 0) keep = items.length;
+                            // Keep existing delegates (and their mouse grabs) when search data changes.
+                            while (resultRows.count < items.length) resultRows.append({});
+                            while (resultRows.count > items.length) resultRows.remove(resultRows.count - 1);
+                        }
+                        ListModel { id: resultRows }
                         readonly property int selIdx: Math.max(0, Math.min(ui.spSel, items.length - 1))
                         opacity: (!ui.spFull && items.length > 0) ? 1 : 0
                         visible: opacity > 0
@@ -7179,17 +7187,17 @@ Scope {
                                 width: parent.width; height: 46; radius: 16
                                 color: (resPanel.items[resPanel.selIdx] && resPanel.items[resPanel.selIdx].confirm === true
                                         && ui.armed === resPanel.items[resPanel.selIdx].title) ? "#FF453A" : root.accent
-                                Behavior on y { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                                Behavior on y { enabled: !resPanel.pointerSelection; NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                                 Behavior on color { ColorAnimation { duration: 120 } }
                             }
                         Column {
                             width: parent.width
                             Repeater {
-                                model: resPanel.items
+                                model: resultRows
                                 delegate: Item {
                                     id: rr
-                                    required property var modelData
                                     required property int index
+                                    readonly property var modelData: resPanel.items[index] || ({})
                                     readonly property string ico: (modelData && modelData.icon) ? String(modelData.icon) : ""
                                     readonly property bool sel: index === Math.min(ui.spSel, resPanel.items.length - 1)
                                     readonly property bool armedNow: modelData.confirm === true && ui.armed === modelData.title
@@ -7236,8 +7244,11 @@ Scope {
                                     MouseArea {
                                         anchors.fill: parent
                                         hoverEnabled: true
-                                        onEntered: ui.spSel = rr.index
-                                        onClicked: ui.spActivate(rr.index)
+                                        property string pressedResult: ""
+                                        function resultKey(item) { return JSON.stringify([item.title, item.sub, item.icon, item.glyph]); }
+                                        onEntered: { resPanel.pointerSelection = true; ui.spSel = rr.index; }
+                                        onPressed: pressedResult = resultKey(rr.modelData)
+                                        onClicked: if (pressedResult === resultKey(rr.modelData)) ui.spActivate(rr.index)
                                     }
                                 }
                             }

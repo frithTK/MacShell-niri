@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed Spotlight mouse selection when window information changes during a search; pointer highlighting now follows the mouse immediately.
+- Added Settings → Updates to check stable MacShell releases and prepare an update, plus optional pacman update checks on supported systems. Installation remains a separate, user-confirmed step outside the active MacShell session.
+
 ## 1.1.0
 
 - Добавлены 65 звуков из сторонней подборки macOS; прежние синтезированные варианты по умолчанию скрыты. Личные импортированные файлы в поставку не входят. Источник и неподтверждённые права на записи указаны в THIRD_PARTY_NOTICES.md.

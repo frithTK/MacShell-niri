@@ -13,7 +13,12 @@ Scope {
     readonly property string family: hub && hub.dock ? hub.dock.fontFamily : "Inter Variable"
     readonly property string storePath: (Quickshell.env("MACSHELL_NOTES_DATA_HOME") || Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/macshell/notes/notes.sqlite3"
     property var windows: []
-    property var floated: ({})
+    property int serial: 0
+    property bool restorePending: !!hub
+    property bool sessionDirty: false
+    property int sessionRequest: 0
+    property string sessionAction: ""
+    readonly property bool sessionEnabled: !!hub && (restorePending || sessionDirty || sessionRequest !== 0)
     function tr(key) { return Texts.text(translations.activeLanguage, key); }
     function open() { createWindow(""); }
     function openNote(id) {
@@ -22,26 +27,106 @@ Scope {
         if (found) { found.show(); found.raise(); found.requestActivate(); }
         else createWindow(id);
     }
-    function createWindow(id) {
-        var item = stickyWindow.createObject(root, {noteId: id || "", createNew: !id});
-        if (item) { windows = windows.concat([item]); item.show(); item.raise(); item.requestActivate(); }
+    function createWindow(id, saved, restoring) {
+        var item = stickyWindow.createObject(root, {noteId: id || "", createNew: !id,
+            savedGeometry: saved || {}, mappingTitle: "Stickies [" + (++serial) + "]"});
+        if (item) {
+            windows = windows.concat([item]); item.show();
+            if (!restoring) { item.raise(); item.requestActivate(); }
+            scheduleSave();
+        }
     }
     function release(window) {
+        scheduleSave();
         windows = windows.filter(item => item !== window);
-        if (!windows.length) floated = ({});
         window.destroy();
     }
-    function floatNewWindows() {
-        if (!windows.length) return;
-        var seen = Object.assign({}, floated), changed = false;
-        for (var window of Niri.toplevels.values) {
-            if (window.title !== "Stickies" || Number(window.data.pid) !== Quickshell.processId || seen[window.id]) continue;
-            seen[window.id] = true; changed = true;
-            if (!window.data.floating) Niri.action(["move-window-to-floating", "--id", String(window.id)]);
-        }
-        if (changed) floated = seen;
+    function scheduleSave() {
+        if (!hub) return;
+        sessionDirty = true;
+        saveDelay.restart();
     }
-    Connections { target: Niri; function onUpdated() { root.floatNewWindows(); } }
+    function sendSession() {
+        if (!hub || !hub.notesService || !hub.notesService.ready || sessionRequest) return;
+        if (restorePending) {
+            sessionAction = "list-stickies";
+            sessionRequest = hub.notesService.send(sessionAction, {});
+        } else if (sessionDirty) {
+            if (windows.some(w => w.createNew && !w.noteId)) return;
+            var entries = windows.filter(w => !!w.noteId).map(w => Object.assign({}, w.savedGeometry, {id: w.noteId}));
+            sessionAction = "save-stickies";
+            sessionRequest = hub.notesService.send(sessionAction, {windows: entries});
+            if (sessionRequest > 0) sessionDirty = false;
+        }
+        if (sessionRequest < 0) { sessionRequest = 0; sessionDirty = true; }
+    }
+    Timer { id: saveDelay; interval: 350; onTriggered: root.sendSession() }
+    Connections {
+        target: root.hub ? root.hub.notesService : null
+        function onConnected() { root.sessionRequest = 0; root.sendSession(); }
+        function onReadyChanged() { if (!root.hub.notesService.ready && root.sessionRequest) { root.sessionRequest = 0; root.sessionDirty = true; } }
+        function onReceived(message) {
+            if (message.type !== "result" || !root.sessionRequest || message.id !== root.sessionRequest) return;
+            var action = root.sessionAction; root.sessionRequest = 0;
+            if (!message.success) {
+                console.warn("[Stickies] " + (message.error || "Could not save window layout"));
+                if (action === "save-stickies") { root.sessionDirty = true; saveRetry.restart(); }
+                return;
+            }
+            if (action === "list-stickies") {
+                for (var entry of message.result || [])
+                    if (!root.windows.some(w => w.noteId === entry.id)) root.createWindow(entry.id, entry, true);
+                root.restorePending = false;
+            }
+            if (root.sessionDirty) saveDelay.restart();
+        }
+    }
+    Timer { id: saveRetry; interval: 5000; onTriggered: root.sendSession() }
+    function syncWindows() {
+        for (var item of windows) {
+            var window = item.niriId ? Niri.windowMap[String(item.niriId)] : Niri.toplevels.values.find(w =>
+                w.title === item.mappingTitle && Number(w.data.pid) === Quickshell.processId);
+            if (!window) continue;
+            if (!item.niriId) {
+                item.niriId = window.id;
+                var saved = item.savedGeometry, workspace = Niri.workspaces.values.find(w =>
+                    w.output === saved.output && (w.idx === saved.workspace || w.name === saved.workspaceName));
+                if (!workspace && saved.output) workspace = Niri.workspaces.values.find(w => w.output === saved.output && w.active);
+                var actions = [];
+                if (!window.data.floating) actions.push({Action: {MoveWindowToFloating: {id: window.id}}});
+                if (workspace) actions.push({Action: {MoveWindowToWorkspace: {window_id: window.id, reference: {Id: workspace.id}, focus: false}}});
+                actions.push({Action: {SetWindowWidth: {id: window.id, change: {SetFixed: Math.max(260, Math.min(10000, saved.width || 340))}}}});
+                actions.push({Action: {SetWindowHeight: {id: window.id, change: {SetFixed: Math.max(200, Math.min(10000, saved.height || 300))}}}});
+                if (typeof saved.x === "number" && typeof saved.y === "number" && (!saved.output || Niri.monitorData.some(m => m.name === saved.output)))
+                    actions.push({Action: {MoveFloatingWindow: {id: window.id, x: {SetFixed: saved.x}, y: {SetFixed: saved.y}}}});
+                Niri.request(actions); item.title = "Stickies"; item.placementAttempts = 1; item.geometryDelay.restart();
+                continue;
+            }
+            if (!item.geometryDelay.running && window.data.geometryKnown && window.data.floating) {
+                if (item.placementAttempts > 0) {
+                    var targetWidth = Math.max(260, Math.min(10000, item.savedGeometry.width || 340));
+                    var targetHeight = Math.max(200, Math.min(10000, item.savedGeometry.height || 300));
+                    if (item.placementAttempts < 3 && (Math.abs(window.data.size[0] - targetWidth) > 2 || Math.abs(window.data.size[1] - targetHeight) > 2)) {
+                        item.placementAttempts++;
+                        Niri.request([{Action: {SetWindowWidth: {id: window.id, change: {SetFixed: targetWidth}}}},
+                                      {Action: {SetWindowHeight: {id: window.id, change: {SetFixed: targetHeight}}}}]);
+                        item.geometryDelay.restart(); continue;
+                    }
+                    item.placementAttempts = 0;
+                }
+                var monitor = Niri.monitorData.find(m => m.name === window.data.output);
+                var ws = Niri.workspaces.values.find(w => w.id === window.data.workspace_id);
+                var next = {width: Math.round(window.data.size[0]), height: Math.round(window.data.size[1]),
+                    x: Math.round(window.data.at[0] - (monitor ? monitor.x : 0)), y: Math.round(window.data.at[1] - (monitor ? monitor.y : 0)),
+                    output: window.data.output || "", workspace: ws ? ws.idx : null, workspaceName: ws ? ws.name : ""};
+                if (next.width >= 260 && next.height >= 200 && JSON.stringify(next) !== JSON.stringify(item.savedGeometry)) {
+                    item.savedGeometry = next; scheduleSave();
+                }
+            }
+        }
+    }
+    Connections { target: Niri; function onUpdated() { root.syncWindows(); } }
+    Component.onCompleted: if (hub) Qt.callLater(root.sendSession)
     Component {
         id: stickyWindow
         Window {
@@ -49,9 +134,15 @@ Scope {
             property string noteId: ""
             property bool createNew: false
             property bool closePending: false
+            property string mappingTitle: ""
+            property double niriId: 0
+            property int placementAttempts: 0
+            property var savedGeometry: ({})
+            readonly property alias geometryDelay: geometryDelay
             readonly property alias controller: controller
-            title: "Stickies"; width: 340; height: 300; minimumWidth: 260; minimumHeight: 200
+            title: mappingTitle; width: 340; height: 300; minimumWidth: 260; minimumHeight: 200
             color: "transparent"; flags: Qt.Window | Qt.FramelessWindowHint
+            Timer { id: geometryDelay; interval: 1000; onTriggered: root.syncWindows() }
             function requestClose() {
                 if (!controller.dirty && !controller.busy) { finishClose(); return; }
                 closePending = true; controller.flush();
@@ -64,7 +155,7 @@ Scope {
                 sharedService: root.hub ? root.hub.notesService : null
                 enabled: win.visible || win.closePending || busy || dirty
                 autoRefresh: true; selectFirst: false; initialId: win.noteId
-                onSelectedIdChanged: if (selectedId) { win.noteId = selectedId; win.createNew = false; }
+                onSelectedIdChanged: if (selectedId) { win.noteId = selectedId; win.createNew = false; root.scheduleSave(); }
                 onClean: {
                     if (win.closePending && !dirty && !busy) { win.closePending = false; win.finishClose(); }
                     else if (win.createNew && !selectedId && !busy && ready && error === "") create();

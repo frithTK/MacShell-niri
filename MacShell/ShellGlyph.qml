@@ -241,6 +241,10 @@ Canvas {
             line(9, 9.5, 9, 15.5);
         } else if (k === "plus") {
             line(9, 3.5, 9, 14.5); line(3.5, 9, 14.5, 9);
+        } else if (k === "undo") {
+            ctx.beginPath(); ctx.moveTo(4, 7); ctx.bezierCurveTo(6.2, 4.5, 10.2, 4.4, 12.7, 6.4);
+            ctx.bezierCurveTo(15.9, 9, 14.7, 13.7, 10.8, 14.4); ctx.stroke();
+            poly([4, 3.8, 4, 7.4, 7.6, 7.4], false);
         } else if (k === "cc") {
             rrect(2, 3, 14, 5.2, 2.6); ctx.stroke();
             circ(12.4, 5.6, 1.5); ctx.fill();

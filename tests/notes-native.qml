@@ -90,6 +90,8 @@ Timer {
                 remove.forceActiveFocus(); notesEvents.keyClick(Qt.Key_Space, Qt.NoModifier, 0);
             } else if (notesPhase === 7) {
                 if (c.busy || !c.deletedNote) return;
+                var undo = notesFind(win.contentItem, "notesUndoDelete");
+                notesCheck(undo.glyph === "undo" && undo.Accessible.name === sharedHub.translations.text("notes.undo_delete"), "undo icon and accessible name");
                 notesCheck(c.notes.length === 1, "deleted from list"); notesClick("notesUndoDelete");
             } else if (notesPhase === 8) {
                 if (c.busy || !c.selectedId) return;

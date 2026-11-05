@@ -33,6 +33,9 @@ Timer {
                 if (stickiesApp.windows.length !== 1 || !stickiesApp.windows[0].controller.selectedId) return;
                 if (!Niri.connected || !Niri.toplevels.values.some(w => w.title === "Stickies" && w.data.floating)) return;
                 stickyFirst = stickiesApp.windows[0]; stickyFirstId = stickyFirst.noteId;
+                if (!stickyFirst.niriId || stickyFirst.geometryDelay.running) return;
+                var initial = Niri.windowMap[String(stickyFirst.niriId)];
+                stickyCheck(initial && Math.abs(initial.data.size[0] - 340) <= 2 && Math.abs(initial.data.size[1] - 300) <= 2, "new window uses compact size in niri: " + JSON.stringify(initial ? initial.data : null));
                 var editor = stickyFind(stickyFirst.contentItem, "stickyEditor");
                 editor.insert(0, stickySample); stickyPhase++; return;
             }

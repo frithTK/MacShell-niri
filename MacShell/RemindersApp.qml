@@ -113,9 +113,9 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             InputField { id: listInput; objectName: "remindersNewList"; Layout.fillWidth: true; placeholderText: root.tr("newList"); text: root.listDraft; onTextChanged: root.listDraft = text; onAccepted: if (!controller.busy) controller.createList(text) }
-                            ActionButton { objectName: "remindersAddList"; text: "+"; Accessible.name: root.tr("newList"); enabled: controller.ready && !controller.busy && !!listInput.text.trim(); onClicked: controller.createList(listInput.text) }
+                            AppIconButton { objectName: "remindersAddList"; glyph: "plus"; label: root.tr("newList"); dark: root.dark; enabled: controller.ready && !controller.busy && !!listInput.text.trim(); onClicked: controller.createList(listInput.text) }
+                            AppIconButton { objectName: "remindersUndoList"; visible: !!controller.lastDeletedList; glyph: "undo"; label: root.tr("undoList"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: controller.undoList() }
                         }
-                        ActionButton { objectName: "remindersUndoList"; Layout.fillWidth: true; visible: !!controller.lastDeletedList; text: root.tr("undoList"); enabled: controller.ready && !controller.busy; onClicked: controller.undoList() }
                     }
                 }
                 Rectangle {
@@ -131,7 +131,6 @@ Scope {
                             }
                             AppIconButton { objectName: "remindersRenameList"; visible: !!root.currentList && root.currentList.id !== "inbox"; glyph: "pencil"; label: root.tr("renameList"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: { listEditDialog.list = root.currentList; listEditInput.text = root.currentList.name; listEditDialog.open(); listEditInput.forceActiveFocus(); } }
                             AppIconButton { objectName: "remindersDeleteList"; visible: !!root.currentList && root.currentList.id !== "inbox"; glyph: "trash"; label: root.tr("deleteList"); dark: root.dark; enabled: controller.ready && !controller.busy; onClicked: { listDeleteDialog.list = root.currentList; listDeleteDialog.open(); } }
-                            ActionButton { objectName: "remindersUndoDelete"; visible: !!controller.lastDeleted && controller.lists.some(l => l.id === controller.lastDeleted.list_id); text: root.tr("restore"); enabled: controller.ready && !controller.busy; onClicked: controller.undoDelete() }
                         }
                         Text { Layout.fillWidth: true; text: root.tr("noAlerts"); color: root.muted; font.family: root.family; font.pixelSize: 12; wrapMode: Text.Wrap }
                         Text { Layout.fillWidth: true; visible: controller.schedulerState === "unavailable"; text: root.tr("schedulerUnavailable"); color: root.dark ? "#ffb3a8" : "#a32618"; font.family: root.family; font.pixelSize: 12; wrapMode: Text.Wrap }
@@ -182,7 +181,7 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             InputField { id: taskInput; objectName: "remindersNewTask"; Layout.fillWidth: true; placeholderText: root.tr("taskPlaceholder"); text: root.taskDraft; onTextChanged: root.taskDraft = text; onAccepted: if (!controller.busy) controller.createTask(text) }
-                            ActionButton { objectName: "remindersAddTask"; text: root.tr("add"); enabled: controller.ready && !controller.busy && !!taskInput.text.trim(); onClicked: controller.createTask(taskInput.text) }
+                            AppIconButton { objectName: "remindersAddTask"; glyph: "plus"; label: root.tr("add"); dark: root.dark; enabled: controller.ready && !controller.busy && !!taskInput.text.trim(); onClicked: controller.createTask(taskInput.text) }
                         }
                     }
                 }
@@ -276,8 +275,8 @@ Scope {
                                 RowLayout {
                                     anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
                                     Text { Layout.fillWidth: true; text: (trashRow.modelData.kind === "list" ? root.tr("deletedList") + ": " : "") + (trashRow.modelData.kind === "list" ? trashRow.modelData.item.name : trashRow.modelData.item.title); color: root.ink; font.family: root.family; elide: Text.ElideRight; textFormat: Text.PlainText }
-                                    ActionButton {
-                                        objectName: "remindersRestore_" + trashRow.modelData.item.id; text: root.tr("restoreItem"); enabled: controller.ready && !controller.busy
+                                    AppIconButton {
+                                        objectName: "remindersRestore_" + trashRow.modelData.item.id; glyph: "undo"; label: root.tr("restoreItem"); dark: root.dark; enabled: controller.ready && !controller.busy
                                         onClicked: if (trashRow.modelData.kind === "list") controller.updateList(trashRow.modelData.item, "deleted", false); else controller.update(trashRow.modelData.item, "deleted", false)
                                     }
                                 }

@@ -2,10 +2,12 @@
 
 ## 1.1.2
 
+- Simplified Notes and Reminders controls with accessible add and restore icons; deleted reminders are restored from Recently Deleted.
+- Stickies open at a compact size and restore open windows, their sizes and positions after the shell restarts.
+
 - Fixed the Dock Trash icon when the active system icon theme cannot supply it; bundled icons show empty and full states.
 - MacLock now shows the active keyboard layout on every display and marks it unknown if the compositor connection is lost.
 - Added Stickies: multiple floating note windows with autosave, shared Notes storage and conflict-safe copies.
-- Stickies windows are not restored after restarting the shell; their initial size may vary with niri configuration.
 - Refined the built-in Notes, Reminders, Calculator and Clock interfaces with consistent window controls, updated sidebars, rounded controls and light/dark materials.
 - Replaced the Notes and Reminders edit and delete buttons with labeled, keyboard-accessible pencil and trash icons.
 - Fixed default World Clock cities loading without their time-zone offsets on the first managed-service snapshot.

@@ -9,6 +9,7 @@ property bool remindersEditShot: false
 property bool remindersFailureSent: false
 property bool remindersFailureChecked: false
 property int remindersUnknownStage: 0
+property bool remindersRestoredFromTrash: false
 readonly property bool remindersEnglishCapture: Quickshell.env("MACSHELL_README_CAPTURE_EN") === "1"
 readonly property string remindersSampleList: remindersEnglishCapture ? "Groceries" : "Покупки"
 readonly property string remindersSampleRenamedList: remindersEnglishCapture ? "Shopping" : "Покупки домой"
@@ -62,6 +63,8 @@ Timer {
                 remindersEvents.keyClick(Qt.Key_Return, Qt.NoModifier, 0);
                 remindersCheck(c.selectedList === createdList, "keyboard restores list");
                 remindersFind(win.contentItem, "remindersNewTask").text = remindersSampleTask;
+                var addTask = remindersFind(win.contentItem, "remindersAddTask");
+                remindersCheck(addTask.glyph === "plus" && addTask.Accessible.name === remindersApp.tr("add"), "add task icon and accessible name");
                 remindersClick("remindersAddTask");
             } else if (remindersPhase === 3) {
                 if (c.busy || c.tasks.length !== 1) return;
@@ -109,11 +112,21 @@ Timer {
                 remindersClick("remindersDelete_" + remindersTaskId);
             } else if (remindersPhase === 7) {
                 if (c.busy || !c.lastDeleted) return;
-                remindersCheck(c.tasks.length === 0, "deleted task hidden"); remindersClick("remindersUndoDelete");
+                remindersCheck(c.tasks.length === 0, "deleted task hidden");
+                remindersCheck(!remindersFind(win.contentItem, "remindersUndoDelete"), "no redundant task restore control");
+                remindersClick("remindersTrash");
             } else if (remindersPhase === 8) {
+                if (!remindersRestoredFromTrash) {
+                    var quickRestore = remindersFind(win.contentItem, "remindersRestore_" + remindersTaskId);
+                    if (!quickRestore || !quickRestore.visible) return;
+                    remindersCheck(quickRestore.glyph === "undo" && quickRestore.Accessible.name === remindersApp.tr("restoreItem"), "restore icon and accessible name");
+                    quickRestore.forceActiveFocus(); remindersEvents.keyClick(Qt.Key_Space, Qt.NoModifier, 0);
+                    remindersRestoredFromTrash = true; return;
+                }
                 if (c.busy || c.tasks.length !== 1) return;
-                remindersCheck(c.tasks[0].id === remindersTaskId && c.tasks[0].done, "undo retains identity and state");
+                remindersCheck(c.tasks[0].id === remindersTaskId && c.tasks[0].done, "restore retains identity and state");
                 if (++remindersSettle < 3) return;
+                remindersClick("remindersTrashClose");
                 remindersClick("remindersRenameList");
             } else if (remindersPhase === 9) {
                 var listEdit = remindersFind(win.contentItem, "remindersListEditInput");
@@ -174,6 +187,7 @@ Timer {
                     if (remindersEnglishCapture) sharedHub.translations.language = "en";
                     remindersCheck(remindersFind(win.contentItem, "remindersEdit_" + remindersTaskId).Accessible.name === remindersApp.tr("edit"), "edit icon follows interface language");
                     remindersCheck(remindersFind(win.contentItem, "remindersDeleteList").Accessible.name === remindersApp.tr("deleteList"), "list delete icon follows interface language");
+                    remindersCheck(remindersFind(win.contentItem, "remindersAddTask").Accessible.name === remindersApp.tr("add"), "add icon follows interface language");
                     macDock.darkMode = remindersShots === 0;
                     var theme = remindersShots === 0 ? "dark" : "light";
                     remindersSaving = true;

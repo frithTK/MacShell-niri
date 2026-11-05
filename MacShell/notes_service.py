@@ -38,6 +38,7 @@ class NotesStore:
                 );
                 PRAGMA user_version=1;
                 COMMIT;''')
+        self.db.execute('CREATE TABLE IF NOT EXISTS sticky_session (id INTEGER PRIMARY KEY CHECK (id=1), windows TEXT NOT NULL)')
 
     def close(self):
         self.db.close()
@@ -49,6 +50,46 @@ class NotesStore:
     def list_deleted(self):
         return [dict(row) for row in self.db.execute(
             'SELECT id, body, revision, updated FROM notes WHERE deleted=1 ORDER BY updated DESC, id')]
+
+    def list_stickies(self):
+        row = self.db.execute('SELECT windows FROM sticky_session WHERE id=1').fetchone()
+        if row is None:
+            return []
+        try:
+            return self.validate_stickies(json.loads(row['windows']))
+        except (ValueError, TypeError, NotesError):
+            raise NotesError('Saved sticky window layout is invalid.')
+
+    @staticmethod
+    def validate_stickies(windows):
+        if not isinstance(windows, list) or len(windows) > 100:
+            raise NotesError('Invalid sticky window layout.')
+        seen = set()
+        for window in windows:
+            if not isinstance(window, dict):
+                raise NotesError('Invalid sticky window layout.')
+            note_id = window.get('id')
+            try:
+                valid_id = isinstance(note_id, str) and str(uuid.UUID(note_id)) == note_id
+            except (ValueError, AttributeError):
+                valid_id = False
+            if not valid_id or note_id in seen:
+                raise NotesError('Invalid sticky note ID.')
+            seen.add(note_id)
+            for key in ('width', 'height', 'x', 'y', 'workspace'):
+                value = window.get(key)
+                if value is not None and (type(value) is not int or abs(value) > 100000):
+                    raise NotesError('Invalid sticky window geometry.')
+            if not isinstance(window.get('output', ''), str) or len(window.get('output', '')) > 256:
+                raise NotesError('Invalid sticky window output.')
+        return windows
+
+    def save_stickies(self, windows):
+        windows = self.validate_stickies(windows)
+        self.db.execute('INSERT INTO sticky_session(id, windows) VALUES(1, ?) '
+                        'ON CONFLICT(id) DO UPDATE SET windows=excluded.windows',
+                        (json.dumps(windows, ensure_ascii=False, separators=(',', ':')),))
+        return windows
 
     def create(self, note_id):
         if not isinstance(note_id, str) or str(uuid.UUID(note_id)) != note_id:
@@ -112,6 +153,8 @@ def serve(store):
             action, data = request.get('action'), request.get('data') or {}
             if action == 'list': result = store.list()
             elif action == 'list-deleted': result = store.list_deleted()
+            elif action == 'list-stickies': result = store.list_stickies()
+            elif action == 'save-stickies': result = store.save_stickies(data['windows'])
             elif action == 'create': result = store.create(data['id'])
             elif action == 'save': result = store.save(data['id'], data['body'], data['revision'])
             elif action == 'save-copy': result = store.save_copy(data['id'], data['body'])

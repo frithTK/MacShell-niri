@@ -71,7 +71,7 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             Text { text: root.tr.text("notes.title"); color: root.foreground; font.family: root.family; font.pixelSize: 21; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                            NotesButton { objectName: "notesNew"; text: "+"; font.pixelSize: 19; Accessible.name: root.tr.text("notes.new"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.create() }
+                            AppIconButton { objectName: "notesNew"; glyph: "plus"; label: root.tr.text("notes.new"); dark: root.dark; enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.create() }
                         }
                         AppSearchField {
                             id: search; objectName: "notesSearch"; Layout.fillWidth: true; placeholderText: root.tr.text("notes.search")
@@ -116,7 +116,7 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             Text { Layout.fillWidth: true; color: root.secondary; font.family: root.family; font.pixelSize: 12; text: !controller.ready ? root.tr.text("notes.unavailable") : controller.dirty || controller.busy ? root.tr.text("notes.saving") : root.tr.text("notes.saved") }
-                            NotesButton { objectName: "notesUndoDelete"; visible: !!controller.deletedNote; text: root.tr.text("notes.undo_delete"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.undoDelete() }
+                            AppIconButton { objectName: "notesUndoDelete"; visible: !!controller.deletedNote; glyph: "undo"; label: root.tr.text("notes.undo_delete"); dark: root.dark; enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.undoDelete() }
                             AppIconButton { objectName: "notesPin"; visible: !!(root.hub && root.hub.stickies); glyph: "pin"; label: StickiesText.text(root.tr.activeLanguage, "pin"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: root.hub.stickies.openNote(controller.selectedId) }
                             AppIconButton { objectName: "notesDelete"; glyph: "trash"; label: root.tr.text("notes.delete"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: controller.remove() }
                         }
@@ -156,7 +156,7 @@ Scope {
                                 RowLayout {
                                     anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
                                     Text { Layout.fillWidth: true; text: modelData.body.split("\n")[0].trim() || root.tr.text("notes.untitled"); color: root.foreground; font.family: root.family; elide: Text.ElideRight; textFormat: Text.PlainText }
-                                    NotesButton { objectName: "notesRestore_" + modelData.id; text: root.tr.text("notes.restore"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.restore(modelData) }
+                                    AppIconButton { objectName: "notesRestore_" + modelData.id; glyph: "undo"; label: root.tr.text("notes.restore"); dark: root.dark; enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.restore(modelData) }
                                 }
                             }
                             Text { anchors.centerIn: parent; visible: deletedList.count === 0; text: root.tr.text("notes.deleted_empty"); color: root.secondary; font.family: root.family }

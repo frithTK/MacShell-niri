@@ -92,7 +92,7 @@ ShellRoot {
         id: sharedNotesService
         script: "notes_service.py"
         arguments: ["--store", (Quickshell.env("MACSHELL_NOTES_DATA_HOME") || Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/macshell/notes/notes.sqlite3"]
-        enabled: notesApp.controller.enabled || stickiesApp.windows.length > 0
+        enabled: notesApp.controller.enabled || stickiesApp.windows.length > 0 || stickiesApp.sessionEnabled
     }
     ClockApp { id: clockApp; hub: sharedHub }
     CalculatorApp { id: calculatorApp; hub: sharedHub }

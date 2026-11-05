@@ -50,6 +50,14 @@ def child(directory, parent_display, parent_socket):
         Path('/tmp/macshell-stickies-native.log').write_text(log)
         if result.returncode or 'MACSHELL_STICKIES_PASS' not in log or re.search(r'TypeError|ReferenceError|Binding loop|Unable to assign', log):
             raise RuntimeError(log[-10000:])
+        path.write_text(source.replace('ShellRoot {', 'ShellRoot {\n' + (ROOT / 'tests/stickies-session-native.qml').read_text(), 1))
+        for stage in ('create', 'restore', 'closed', 'empty'):
+            result = subprocess.run([quickshell(), '-p', str(shell)], env=dict(env, MACSHELL_STICKIES_STAGE=stage),
+                                    capture_output=True, text=True, timeout=45)
+            log = result.stdout + result.stderr
+            Path('/tmp/macshell-stickies-session-' + stage + '.log').write_text(log)
+            if result.returncode or 'STICKIES_SESSION_PASS ' + stage not in log or re.search(r'TypeError|ReferenceError|Binding loop|Unable to assign', log):
+                raise RuntimeError(log[-10000:])
     finally:
         subprocess.run(['niri', 'msg', 'action', 'quit', '--skip-confirmation'], capture_output=True, timeout=8)
 
@@ -73,12 +81,12 @@ def main():
             process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT,
                 env=dict(os.environ, MACSHELL_NESTED_TEST_TOKEN=uuid.uuid4().hex))
             try:
-                deadline = time.monotonic() + 60
+                deadline = time.monotonic() + 180
                 result = root / 'result'
                 while time.monotonic() < deadline and not result.exists() and process.poll() is None: time.sleep(.1)
                 if not result.exists() or result.read_text() != 'PASS':
                     raise RuntimeError((result.read_text() if result.exists() else 'no result') + '\n' + (root / 'niri.log').read_text()[-8000:])
-                print('MACSHELL_STICKIES_NATIVE_PASS: shared notes, concurrent edits, recovery and window lifecycle')
+                print('MACSHELL_STICKIES_NATIVE_PASS: shared notes, conflicts, geometry and restart persistence')
             finally:
                 if process.poll() is None: process.terminate()
                 process.wait(timeout=5)

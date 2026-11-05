@@ -94,6 +94,21 @@ class NotesStoreTests(unittest.TestCase):
         db.close()
         self.assertEqual(self.store.get(self.note)['body'], '')
 
+    def test_sticky_layout_survives_reopen_and_invalid_write_preserves_it(self):
+        self.store.create(self.note)
+        layout = [{'id': self.note, 'width': 410, 'height': 320, 'x': 80, 'y': 100,
+                   'output': 'test-output', 'workspace': 1}]
+        self.store.save_stickies(layout)
+        with self.assertRaises(NotesError):
+            self.store.save_stickies([{'id': self.note, 'width': 410}, {'id': self.note}])
+        with self.assertRaises(NotesError):
+            self.store.save_stickies([{'id': 'invalid'}])
+        reopened = NotesStore(self.path)
+        try:
+            self.assertEqual(reopened.list_stickies(), layout)
+        finally:
+            reopened.close()
+
 
 if __name__ == '__main__':
     unittest.main()

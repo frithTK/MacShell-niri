@@ -21,9 +21,11 @@ ShellRoot {
         property var clock: clockApp
         property var calculator: calculatorApp
         property var notes: notesApp
+        property var stickies: stickiesApp
+        property var notesService: sharedNotesService
         property var reminders: remindersApp
         readonly property var translations: Language.I18n
-        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); }
+        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); }
         function openSettings(pane) { macDock.openPrefs(pane); }
         property bool barWantsGeo: false
         property bool dockWantsGeo: false
@@ -86,9 +88,16 @@ ShellRoot {
     MacBar { id: macBar; hub: sharedHub }
     MacDock { id: macDock; hub: sharedHub }
     MacWidgets { id: macWidgets; hub: sharedHub }
+    JsonService {
+        id: sharedNotesService
+        script: "notes_service.py"
+        arguments: ["--store", (Quickshell.env("MACSHELL_NOTES_DATA_HOME") || Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/macshell/notes/notes.sqlite3"]
+        enabled: notesApp.controller.enabled || stickiesApp.windows.length > 0
+    }
     ClockApp { id: clockApp; hub: sharedHub }
     CalculatorApp { id: calculatorApp; hub: sharedHub }
     NotesApp { id: notesApp; hub: sharedHub }
+    StickiesApp { id: stickiesApp; hub: sharedHub }
     RemindersApp { id: remindersApp; hub: sharedHub }
     ThemeCoordinator { bar: macBar; dock: macDock }
 
@@ -177,6 +186,10 @@ ShellRoot {
     IpcHandler {
         target: "reminders"
         function open(): void { remindersApp.open(); }
+    }
+    IpcHandler {
+        target: "stickies"
+        function open(): void { stickiesApp.open(); }
     }
     IpcHandler {
         target: "utilities"

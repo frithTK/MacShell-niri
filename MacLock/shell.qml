@@ -53,6 +53,7 @@ ShellRoot {
         property bool unlocking: false
         property string mediaSlot: "top"    // "top" (under the clock) | "bottom" (above the password field)
         property bool capsLock: false
+        readonly property string keyboardLayout: keyboardLayout.name
         property bool use24h: true          // MacShell → Menu Bar → "24-hour clock"
         readonly property var clockSt: {
             try { return clockFile.loaded ? JSON.parse(clockFile.text()) : null; }
@@ -101,6 +102,8 @@ ShellRoot {
             unlockTimer.start();
         }
     }
+
+    KeyboardLayout { id: keyboardLayout; active: root.preview || root.lockRequested }
 
     FileView {
         id: clockFile

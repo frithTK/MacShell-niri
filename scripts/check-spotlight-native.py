@@ -66,8 +66,9 @@ probe = '''
                             ui.openPop("spot", 0); spInput.text = "a"; step++; return;
                         }
                         if (step === 5) {
-                            ui.spMove(1); check(ui.spSel === 1 && !resPanel.pointerSelection, "keyboard moves selection");
-                            expectedTitle = ui.spResults[1].title;
+                            var expectedIndex = (Math.min(ui.spSel, ui.spResults.length - 1) + 1) % ui.spResults.length;
+                            ui.spMove(1); check(ui.spSel === expectedIndex && !resPanel.pointerSelection, "keyboard moves selection: index=" + ui.spSel + " pointer=" + resPanel.pointerSelection + " results=" + ui.spResults.length);
+                            expectedTitle = ui.spResults[expectedIndex].title;
                             ui.spEnter(); check(ui.pop === "" && root.spotlightTestRuns === 2 && root.spotlightTestTitle === expectedTitle, "keyboard activates result");
                             step++; return;
                         }

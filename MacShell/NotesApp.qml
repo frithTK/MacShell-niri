@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import "Locale" as Language
+import "StickiesText.js" as StickiesText
 
 Scope {
     id: root
@@ -38,6 +39,8 @@ Scope {
     NotesController {
         id: controller
         enabled: win.visible || root.closePending || busy || dirty
+        autoRefresh: win.visible
+        sharedService: root.hub ? root.hub.notesService : null
         storePath: (Quickshell.env("MACSHELL_NOTES_DATA_HOME") || Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/macshell/notes/notes.sqlite3"
         onClean: if (root.closePending) { root.closePending = false; win.hide(); }
     }
@@ -114,6 +117,7 @@ Scope {
                             Layout.fillWidth: true
                             Text { Layout.fillWidth: true; color: root.secondary; font.family: root.family; font.pixelSize: 12; text: !controller.ready ? root.tr.text("notes.unavailable") : controller.dirty || controller.busy ? root.tr.text("notes.saving") : root.tr.text("notes.saved") }
                             NotesButton { objectName: "notesUndoDelete"; visible: !!controller.deletedNote; text: root.tr.text("notes.undo_delete"); enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.undoDelete() }
+                            AppIconButton { objectName: "notesPin"; visible: !!(root.hub && root.hub.stickies); glyph: "pin"; label: StickiesText.text(root.tr.activeLanguage, "pin"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: root.hub.stickies.openNote(controller.selectedId) }
                             AppIconButton { objectName: "notesDelete"; glyph: "trash"; label: root.tr.text("notes.delete"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: controller.remove() }
                         }
                         RowLayout {

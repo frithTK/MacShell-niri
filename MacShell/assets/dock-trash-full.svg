@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#8c99a5"/><stop offset=".22" stop-color="#dbe4eb"/><stop offset=".5" stop-color="#b5c1cb"/><stop offset=".78" stop-color="#edf3f7"/><stop offset="1" stop-color="#8997a4"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#edf4f9"/><stop offset="1" stop-color="#8796a4"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="64" cy="115" rx="37" ry="5" fill="#000" opacity=".18"/>
+  <path d="M37 42l-4-24 19-3 5 25z" fill="#eaf3fa" stroke="#9baebd" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M59 40l4-28 23 4-4 26z" fill="#fff" stroke="#9baebd" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M70 19l10 2M69 24l10 2" stroke="#a8c5df" stroke-width="2" stroke-linecap="round"/>
+  <path d="M30 39h68l-5 62c-.5 7-6 12-13 12H48c-7 0-12.5-5-13-12z" fill="url(#body)" stroke="#71808e" stroke-width="2"/>
+  <path d="M44 50l3 47M57 50l1 48M71 50l-1 48M84 50l-3 47" fill="none" stroke="#758594" stroke-width="3" stroke-linecap="round" opacity=".65"/>
+  <g transform="rotate(-10 64 39)">
+    <path d="M52 33v-3c0-4 3-6 7-6h10c4 0 7 2 7 6v3" fill="none" stroke="#8796a4" stroke-width="5" stroke-linecap="round"/>
+    <rect x="25" y="33" width="78" height="14" rx="7" fill="url(#lid)" stroke="#7d8b98" stroke-width="2"/>
+    <path d="M33 37h62" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".65"/>
+  </g>
+</svg>

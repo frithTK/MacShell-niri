@@ -14,12 +14,12 @@ from scripts.install_niri import quickshell
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
 class NotesClientTests(unittest.TestCase):
-    def run_client(self, crash):
+    def run_client(self, crash, shared=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
-            shutil.copy(ROOT / 'tests/notes-client.qml', shell / 'shell.qml')
+            shutil.copy(ROOT / ('tests/stickies-client.qml' if shared else 'tests/notes-client.qml'), shell / 'shell.qml')
             service = shell / 'notes_service.py'
             service.rename(shell / 'notes_service_impl.py')
             service.write_text('''import os
@@ -50,16 +50,24 @@ raise SystemExit(impl.main())
             result = subprocess.run([quickshell(), '-p', str(shell)], env=env, capture_output=True, text=True, timeout=16)
             output = result.stdout + result.stderr
             self.assertEqual(result.returncode, 0, output)
-            self.assertIn('NOTES_CLIENT_PASS', output)
+            self.assertIn('STICKIES_CLIENT_PASS' if shared else 'NOTES_CLIENT_PASS', output)
             self.assertEqual((root / 'crashed').read_text(), crash + ' commit')
             with sqlite3.connect(store) as db:
-                self.assertEqual(db.execute('SELECT body, revision FROM notes').fetchall(), [('Последнее изменение 🌍', 2)])
+                rows = db.execute('SELECT body, revision FROM notes ORDER BY body').fetchall()
+                expected = [('Вторая записка', 1), ('Первая записка', 1)] if shared else [('Последнее изменение 🌍', 2)]
+                self.assertEqual(rows, expected)
 
     def test_retry_after_crash_before_commit(self):
         self.run_client('before')
 
     def test_retry_after_crash_after_commit_without_losing_new_edits(self):
         self.run_client('after')
+
+    def test_shared_editors_retry_after_crash_before_commit(self):
+        self.run_client('before', shared=True)
+
+    def test_shared_editors_retry_after_crash_after_commit(self):
+        self.run_client('after', shared=True)
 
 
 if __name__ == '__main__':

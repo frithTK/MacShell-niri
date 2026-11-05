@@ -6,6 +6,7 @@ Button {
     property bool dark: true
     property string glyph: ""
     property string label: ""
+    property color iconColor: dark ? "#91c2ff" : "#176ec3"
     implicitWidth: 36; implicitHeight: 34; padding: 0
     Accessible.name: label
     ToolTip.text: label
@@ -23,7 +24,7 @@ Button {
         ShellGlyph {
             anchors.centerIn: parent; width: 18; height: 18
             kind: root.glyph
-            color: root.dark ? "#91c2ff" : "#176ec3"
+            color: root.iconColor
         }
     }
 }

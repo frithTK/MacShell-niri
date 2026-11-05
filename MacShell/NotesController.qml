@@ -5,6 +5,11 @@ Scope {
     id: root
     property bool enabled: false
     property string storePath: ""
+    property string initialId: ""
+    property bool autoRefresh: false
+    property bool selectFirst: true
+    property var sharedService: null
+    readonly property var service: sharedService || localService
     property var notes: []
     property var deletedNotes: []
     property string selectedId: ""
@@ -14,7 +19,7 @@ Scope {
     property var pending: null
     property var deletedNote: null
     property string error: ""
-    readonly property bool ready: service.ready
+    readonly property bool ready: enabled && service.ready
     readonly property bool busy: pending !== null
     signal clean()
 
@@ -71,19 +76,27 @@ Scope {
         var copy = notes.filter(n => n.id !== note.id);
         copy.unshift(note); notes = copy;
     }
+    function connected() {
+        if (!enabled || !service.ready) return;
+        if (pending) pending.request = service.send(pending.action, pending.data);
+        else if (!dirty) reload();
+        else flush();
+    }
+    onEnabledChanged: if (enabled && sharedService && sharedService.ready) Qt.callLater(() => { if (!root.pending) root.connected(); })
     Timer { id: autosave; interval: 250; onTriggered: root.flush() }
+    Timer { interval: 2000; repeat: true; running: root.autoRefresh && root.enabled && root.ready; onTriggered: root.reload() }
     JsonService {
-        id: service
+        id: localService
         script: "notes_service.py"
         arguments: ["--store", root.storePath]
-        enabled: root.enabled && root.storePath !== ""
-        onConnected: {
-            if (root.pending) root.pending.request = service.send(root.pending.action, root.pending.data);
-            else if (!root.dirty) root.reload();
-            else root.flush();
-        }
-        onReadyChanged: if (!ready && root.pending) root.pending.request = -1
-        onReceived: message => {
+        enabled: !root.sharedService && root.enabled && root.storePath !== ""
+    }
+    Connections {
+        target: root.service
+        enabled: root.enabled
+        function onConnected() { root.connected(); }
+        function onReadyChanged() { if (!root.service.ready && root.pending) root.pending.request = -1; }
+        function onReceived(message) {
             if (message.type === "unavailable") { root.error = message.error || "Notes storage unavailable."; return; }
             if (message.type !== "result" || !root.pending || message.id !== root.pending.request) return;
             var operation = root.pending; root.pending = null;
@@ -92,12 +105,17 @@ Scope {
             root.error = "";
             if (operation.action === "list") {
                 root.notes = value || [];
-                if (!root.selectedId && root.notes.length) root.select(root.notes[0].id);
-                else if (root.selectedId && !root.notes.some(n => n.id === root.selectedId)) { root.selectedId = ""; root.body = ""; }
-                else if (root.selectedId) root.select(root.selectedId);
+                if (!root.dirty) {
+                    if (!root.selectedId && root.initialId !== "") {
+                        if (!root.select(root.initialId)) root.error = "Note no longer exists.";
+                    } else if (!root.selectedId && root.selectFirst && root.notes.length) root.select(root.notes[0].id);
+                    else if (root.selectedId && !root.notes.some(n => n.id === root.selectedId)) { root.selectedId = ""; root.body = ""; }
+                    else if (root.selectedId) root.select(root.selectedId);
+                }
                 root.send("list-deleted", {});
             } else if (operation.action === "list-deleted") {
                 root.deletedNotes = value || [];
+                if (root.initialId && !root.selectedId) root.error = "Note no longer exists.";
             } else if (operation.action === "create" || operation.action === "restore") {
                 root.upsert(value); root.selectedId = value.id; root.revision = value.revision; root.body = value.body;
                 if (operation.action === "restore") {

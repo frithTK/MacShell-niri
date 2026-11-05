@@ -20,7 +20,7 @@ A macOS-inspired desktop for **niri**, with a Dock, Spotlight, Liquid Glass and 
 
 - **Desktop:** Dock, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes.
 - **Clock:** world clocks, alarms, stopwatch and a shared timer, with a desktop Timer widget and a customizable sound library.
-- **Notes and Reminders:** local notes with search and autosave; task lists with due dates, notifications and repeating tasks.
+- **Notes, Stickies and Reminders:** local notes with search and autosave, floating sticky notes and task lists with due dates, notifications and repeating tasks.
 - **Calculator:** basic and scientific modes, unit and currency conversion.
 - **Settings and lock screen:** Russian and English interface, regional formats and a separate MacLock screen locker.
 
@@ -33,6 +33,10 @@ See the [utilities guide](docs/UTILITIES.md) for details.
 | Notes | Reminders |
 | --- | --- |
 | <a href="docs/images/notes-en-dark.png"><img src="docs/images/notes-en-dark.png" alt="Notes" width="420"></a> | <a href="docs/images/reminders-en-dark.png"><img src="docs/images/reminders-en-dark.png" alt="Reminders" width="420"></a> |
+
+**Stickies**
+
+![A sticky note](docs/images/stickies-en.png)
 
 **Timer widget**
 

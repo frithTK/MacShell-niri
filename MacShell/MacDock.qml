@@ -3631,12 +3631,10 @@ Scope {
         if (icon.charAt(0) === "/") return "file://" + icon;
         return Quickshell.iconPath(icon, "application-x-executable");
     }
-    // icon of a dock cell; the Trash switches to the "full" icon while there is something in it
+    // The bundled Trash icons do not depend on the current system icon theme.
     function cellIconSrc(it) {
-        if (it && it.special === "trash" && trashFull) {
-            var p = Quickshell.iconPath("user-trash-full", true);
-            if (p !== "") return p;
-        }
+        if (it && it.special === "trash")
+            return Qt.resolvedUrl(trashFull ? "assets/dock-trash-full.svg" : "assets/dock-trash-empty.svg").toString();
         return iconSrc(it ? it.icon : "");
     }
 

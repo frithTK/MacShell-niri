@@ -2,13 +2,15 @@
 
 The README gallery uses the production QML components, captured in an isolated nested niri session at **1440 × 900**. The background, media, devices, resource readings and date are demonstration data. The glass is rendered by MacShell's real shader and compositor effects.
 
-The newer Notes, Reminders, Clock and Timer images use separate English and Russian captures. The English Notes and Reminders images use disposable data and a nested niri session; from an existing Wayland/niri session they can be reproduced with:
+The newer Notes, Stickies, Reminders, Clock and Timer images use separate English and Russian captures. The English Notes and Reminders images use disposable data and a nested niri session; from an existing Wayland/niri session they can be reproduced with:
 
 ```bash
 mkdir -p /tmp/macshell-readme-en
 MACSHELL_README_CAPTURE_EN=1 MACSHELL_NOTES_CAPTURE=/tmp/macshell-readme-en python3 scripts/check-notes-native.py
 MACSHELL_README_CAPTURE_EN=1 MACSHELL_REMINDERS_CAPTURE=/tmp/macshell-readme-en python3 scripts/check-reminders-native.py
 bash scripts/preview-timer-widget.sh en /tmp/macshell-readme-en
+MACSHELL_STICKIES_LANG=en MACSHELL_STICKIES_CAPTURE=/tmp/macshell-readme-en/stickies-en.png python3 scripts/check-stickies-native.py
+MACSHELL_STICKIES_LANG=ru MACSHELL_STICKIES_CAPTURE=/tmp/macshell-readme-en/stickies-ru.png python3 scripts/check-stickies-native.py
 ```
 
 The app checks capture both themes as `notes-{dark,light}.png` and `reminders-{dark,light}.png`; the English README uses the dark captures with an `-en-` suffix. Timer previews use `timer-widget-en-{dark,light}.png`. Pass `ru` to the timer preview script for Russian images. The existing Russian app captures use the same tests without `MACSHELL_README_CAPTURE_EN`.

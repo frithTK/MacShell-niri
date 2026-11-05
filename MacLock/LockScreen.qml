@@ -1580,6 +1580,14 @@ Item {
             }
         }
 
+        // Keep the actual compositor layout visible even before the user starts typing.
+        KeyboardBadge {
+            anchors.horizontalCenter: parent.horizontalCenter
+            maximumWidth: ls.width - 32; unit: ls.u; fontFamily: ls.fam
+            layoutName: ls.st.keyboardLayout || ""
+            labelObjectName: "lockKeyboardLayout"
+        }
+
         // hint / error line (blur-morphs between "Enter your password…" and "Incorrect password")
         MorphText {
             objectName: "lockPasswordHint"
@@ -1591,6 +1599,18 @@ Item {
             opacity: ls.st.engaged || ls.st.message !== "" ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 300 } }
         }
+    }
+
+    // Password input is accepted on every monitor, so show the layout there too.
+    KeyboardBadge {
+        visible: !ls.isPrimary
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 78 * ls.u
+        maximumWidth: ls.width - 32; unit: ls.u; fontFamily: ls.fam
+        layoutName: ls.st.keyboardLayout || ""
+        labelObjectName: "lockKeyboardLayoutSecondary"
+        opacity: ls.shown && !ls.leaving ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 650; easing.type: Easing.OutQuint } }
     }
 
     // ═════════════ INPUT ═════════════

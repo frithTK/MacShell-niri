@@ -25,8 +25,9 @@
 | `calculator open` | Открыть Calculator |
 | `calculator expression TEXT` | Открыть Calculator и вычислить выражение, переданное одним аргументом |
 | `notes open` | Открыть Notes |
+| `stickies open` | Создать и открыть записку Stickies |
 | `reminders open` | Открыть Reminders |
-| `utilities open NAME` | Открыть встроенную утилиту `calculator`, `clock`, `notes` или `reminders` |
+| `utilities open NAME` | Открыть встроенную утилиту `calculator`, `clock`, `notes`, `stickies` или `reminders` |
 | `notifications open` / `notifications close` | Открыть или закрыть Notification Center |
 | `notifications clear` | Очистить уведомления |
 | `notifications dismiss ID` | Удалить уведомление по числовому ID |

@@ -24,6 +24,7 @@ def main():
         shutil.copytree(project / "MacLock", lock)
         path = lock / "shell.qml"
         source = path.read_text().replace("import QtQuick\n", "import QtQuick\nimport QtQuick.Window\n", 1)
+        source = source.replace('readonly property string keyboardLayout: keyboardLayout.name', 'property string keyboardLayout: "English (US)"', 1)
         # Use a normal offscreen window for the preview; the production lock stays disabled.
         source = source.replace("        PanelWindow {\n            id: pw", "        Window {\n            width: 1000; height: 800; visible: true\n            id: pw")
         source = source.replace("            screen: modelData\n", "")

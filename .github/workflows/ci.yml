@@ -16,7 +16,7 @@ jobs:
   rust-components:
     name: Rust bridge and system services
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       RUSTUP_TOOLCHAIN: '1.85.0'
     steps:

@@ -201,6 +201,56 @@ class InstallerTests(unittest.TestCase):
         self.session_patch = patch.object(installer, "session_active", return_value=False)
         self.session_patch.start()
         self.addCleanup(self.session_patch.stop)
+        artifact = self.base / "fixture-bridge"
+        artifact.write_text('#!/bin/sh\necho fixture\n'); artifact.chmod(0o755)
+        self.bridge_patch = patch.object(installer, "build_niri_bridge", return_value=artifact)
+        self.bridge_patch.start()
+        self.addCleanup(self.bridge_patch.stop)
+        self.clock_patch = patch.object(installer, "build_boot_clock", return_value=artifact)
+        self.clock_patch.start()
+        self.addCleanup(self.clock_patch.stop)
+        self.stats_patch = patch.object(installer, "build_system_stats", return_value=artifact)
+        self.stats_patch.start()
+        self.addCleanup(self.stats_patch.stop)
+        self.night_patch = patch.object(installer, "build_night_shift", return_value=artifact)
+        self.night_patch.start()
+        self.addCleanup(self.night_patch.stop)
+        self.timed_patch = patch.object(installer, "build_timed_modes", return_value=artifact)
+        self.timed_patch.start()
+        self.addCleanup(self.timed_patch.stop)
+        self.activity_patch = patch.object(installer, "build_activity_preferences", return_value=artifact)
+        self.activity_patch.start()
+        self.addCleanup(self.activity_patch.stop)
+        self.bar_patch = patch.object(installer, "build_bar_preferences", return_value=artifact)
+        self.bar_patch.start()
+        self.addCleanup(self.bar_patch.stop)
+        self.widget_patch = patch.object(installer, "build_widget_preferences", return_value=artifact)
+        self.widget_patch.start()
+        self.addCleanup(self.widget_patch.stop)
+        self.locale_patch = patch.object(installer, "build_locale_preferences", return_value=artifact)
+        self.locale_patch.start()
+        self.addCleanup(self.locale_patch.stop)
+        self.blur_patch = patch.object(installer, "build_native_blur", return_value=artifact)
+        self.blur_patch.start()
+        self.addCleanup(self.blur_patch.stop)
+        self.preflight_patch = patch.object(installer, "build_session_preflight", return_value=artifact)
+        self.preflight_patch.start()
+        self.addCleanup(self.preflight_patch.stop)
+        self.power_patch = patch.object(installer, "build_power_profiles", return_value=artifact)
+        self.power_patch.start()
+        self.addCleanup(self.power_patch.stop)
+        self.color_patch = patch.object(installer, "build_niri_color", return_value=artifact)
+        self.color_patch.start()
+        self.addCleanup(self.color_patch.stop)
+        self.bluetooth_patch = patch.object(installer, "build_bluetooth", return_value=artifact)
+        self.bluetooth_patch.start()
+        self.addCleanup(self.bluetooth_patch.stop)
+        self.media_patch = patch.object(installer, "build_media_service", return_value=artifact)
+        self.media_patch.start()
+        self.addCleanup(self.media_patch.stop)
+        self.network_patch = patch.object(installer, "build_network", return_value=artifact)
+        self.network_patch.start()
+        self.addCleanup(self.network_patch.stop)
         installer.NIRI.parent.mkdir(parents=True)
         installer.NIRI.write_text('include "./keys.kdl"\nspawn-sh-at-startup "qs -c noctalia-shell"\n')
         (installer.NIRI.parent / "keys.kdl").write_text('binds {\n Mod+Space { spawn "qs -c noctalia-shell ipc call launcher toggle"; }\n}\n')
@@ -222,6 +272,24 @@ class InstallerTests(unittest.TestCase):
         installer.install(False)
         self.assertEqual(installer.NIRI.read_bytes(), original)
         self.assertTrue((installer.SHELL / "Niri.qml").is_file())
+        self.assertTrue((installer.SHELL / "niri-bridge-rust").is_file())
+        self.assertTrue((installer.LOCK / "boot-clock-rust").is_file())
+        self.assertTrue((installer.SHELL / "boot-clock-rust").is_file())
+        self.assertTrue((installer.SHELL / "system-stats-rust").is_file())
+        self.assertTrue((installer.SHELL / "night-shift-rust").is_file())
+        self.assertTrue((installer.SHELL / "timed-modes-rust").is_file())
+        self.assertTrue((installer.SHELL / "activity-preferences-rust").is_file())
+        self.assertTrue((installer.SHELL / "bar-preferences-rust").is_file())
+        self.assertTrue((installer.SHELL / "widget-preferences-rust").is_file())
+        self.assertTrue((installer.SHELL / "locale-preferences-rust").is_file())
+        self.assertTrue((installer.SHELL / "native-blur-rust").is_file())
+        self.assertTrue((installer.SHELL / "session-preflight-rust").is_file())
+        self.assertTrue((installer.SHELL / "power-profiles-rust").is_file())
+        self.assertTrue((installer.SHELL / "niri-color-rust").is_file())
+        self.assertTrue((installer.SHELL / "bluetooth-service-rust").is_file())
+        self.assertTrue((installer.SHELL / "capture-service-rust").is_file())
+        self.assertTrue((installer.SHELL / "recording-service-rust").is_file())
+        self.assertTrue((installer.SHELL / "network-service-rust").is_file())
         self.assertEqual((installer.SHELL / "VERSION").read_text(), (installer.SOURCE / "VERSION").read_text())
         self.assertIn("MACSHELL_SETTINGS_HOME", (installer.BIN / "macshell-niri").read_text())
         directory = Path((installer.DATA / "latest").read_text())
@@ -230,6 +298,228 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual((installer.SHELL / "previous.txt").read_bytes(), b"previous\x00content")
         self.assertFalse((installer.BIN / "macshell-niri").exists())
         self.assertTrue((directory / "after/0/Niri.qml").exists())
+
+    def test_rust_bridge_install_and_rollback(self):
+        installer.SHELL.mkdir(parents=True)
+        (installer.SHELL / "previous.txt").write_text("before")
+        artifact = self.base / "built-bridge"
+        artifact.write_text('#!/bin/sh\necho fixture\n'); artifact.chmod(0o755)
+        with patch.object(installer, "build_niri_bridge", return_value=artifact) as build:
+            installer.install(rust_bridge=True)
+        build.assert_called_once()
+        binary = installer.SHELL / "niri-bridge-rust"
+        self.assertTrue(binary.is_file())
+        self.assertEqual(binary.read_text(), artifact.read_text())
+        self.assertEqual(binary.stat().st_mode & 0o777, 0o755)
+        directory = Path((installer.DATA / "latest").read_text())
+        installer.restore(directory, json.loads((directory / "manifest.json").read_text()))
+        self.assertEqual((installer.SHELL / "previous.txt").read_text(), "before")
+        self.assertFalse(binary.exists())
+
+    def test_rust_build_failure_does_not_change_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "niri-bridge-rust"
+        existing.write_bytes(b"prior version")
+        with patch.object(installer, "build_niri_bridge", side_effect=RuntimeError("build failed")) as build:
+            with self.assertRaisesRegex(RuntimeError, "build failed"):
+                installer.install()
+        build.assert_called_once()
+        self.assertEqual(existing.read_bytes(), b"prior version")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_explicit_legacy_install_does_not_build_rust(self):
+        with patch.object(installer, "build_niri_bridge", side_effect=AssertionError("unexpected Rust build")):
+            installer.install(rust_bridge=False)
+        self.assertFalse((installer.SHELL / "niri-bridge-rust").exists())
+        self.assertFalse((installer.LOCK / "boot-clock-rust").exists())
+        self.assertFalse((installer.SHELL / "boot-clock-rust").exists())
+        self.assertFalse((installer.SHELL / "system-stats-rust").exists())
+        self.assertFalse((installer.SHELL / "night-shift-rust").exists())
+        self.assertFalse((installer.SHELL / "timed-modes-rust").exists())
+        self.assertFalse((installer.SHELL / "activity-preferences-rust").exists())
+        self.assertFalse((installer.SHELL / "bar-preferences-rust").exists())
+        self.assertFalse((installer.SHELL / "widget-preferences-rust").exists())
+        self.assertFalse((installer.SHELL / "locale-preferences-rust").exists())
+        self.assertFalse((installer.SHELL / "native-blur-rust").exists())
+        self.assertFalse((installer.SHELL / "session-preflight-rust").exists())
+        self.assertFalse((installer.SHELL / "power-profiles-rust").exists())
+        self.assertFalse((installer.SHELL / "niri-color-rust").exists())
+        self.assertFalse((installer.SHELL / "bluetooth-service-rust").exists())
+        self.assertFalse((installer.SHELL / "capture-service-rust").exists())
+        self.assertFalse((installer.SHELL / "recording-service-rust").exists())
+        self.assertFalse((installer.SHELL / "network-service-rust").exists())
+
+    def test_clock_build_failure_preserves_existing_install(self):
+        installer.LOCK.mkdir(parents=True)
+        existing = installer.LOCK / "boot-clock-rust"
+        existing.write_bytes(b"prior clock")
+        with patch.object(installer, "build_boot_clock", side_effect=RuntimeError("clock build failed")):
+            with self.assertRaisesRegex(RuntimeError, "clock build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior clock")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_stats_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "system-stats-rust"
+        existing.write_bytes(b"prior sampler")
+        with patch.object(installer, "build_system_stats", side_effect=RuntimeError("stats build failed")):
+            with self.assertRaisesRegex(RuntimeError, "stats build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior sampler")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_night_shift_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "night-shift-rust"
+        existing.write_bytes(b"prior night shift")
+        with patch.object(installer, "build_night_shift", side_effect=RuntimeError("night shift build failed")):
+            with self.assertRaisesRegex(RuntimeError, "night shift build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior night shift")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_timed_modes_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "timed-modes-rust"
+        existing.write_bytes(b"prior timed modes")
+        with patch.object(installer, "build_timed_modes", side_effect=RuntimeError("timed modes build failed")):
+            with self.assertRaisesRegex(RuntimeError, "timed modes build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior timed modes")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_activity_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "activity-preferences-rust"
+        existing.write_bytes(b"prior Activity preferences")
+        with patch.object(installer, "build_activity_preferences", side_effect=RuntimeError("Activity build failed")):
+            with self.assertRaisesRegex(RuntimeError, "Activity build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior Activity preferences")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_bar_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "bar-preferences-rust"
+        existing.write_bytes(b"prior menu bar preferences")
+        with patch.object(installer, "build_bar_preferences", side_effect=RuntimeError("menu bar build failed")):
+            with self.assertRaisesRegex(RuntimeError, "menu bar build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior menu bar preferences")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_widget_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "widget-preferences-rust"
+        existing.write_bytes(b"prior widget preferences")
+        with patch.object(installer, "build_widget_preferences", side_effect=RuntimeError("widget build failed")):
+            with self.assertRaisesRegex(RuntimeError, "widget build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior widget preferences")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_locale_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "locale-preferences-rust"
+        existing.write_bytes(b"prior locale preferences")
+        with patch.object(installer, "build_locale_preferences", side_effect=RuntimeError("locale build failed")):
+            with self.assertRaisesRegex(RuntimeError, "locale build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior locale preferences")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_blur_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "native-blur-rust"
+        existing.write_bytes(b"prior native blur")
+        with patch.object(installer, "build_native_blur", side_effect=RuntimeError("blur build failed")):
+            with self.assertRaisesRegex(RuntimeError, "blur build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior native blur")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_session_preflight_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "Niri.qml"
+        existing.write_bytes(b"prior shell")
+        with patch.object(installer, "build_session_preflight", side_effect=RuntimeError("preflight build failed")):
+            with self.assertRaisesRegex(RuntimeError, "preflight build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior shell")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_power_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "power-profiles-rust"
+        existing.write_bytes(b"prior power profiles")
+        with patch.object(installer, "build_power_profiles", side_effect=RuntimeError("power build failed")):
+            with self.assertRaisesRegex(RuntimeError, "power build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior power profiles")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_color_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "niri-color-rust"
+        existing.write_bytes(b"prior color helper")
+        with patch.object(installer, "build_niri_color", side_effect=RuntimeError("color build failed")):
+            with self.assertRaisesRegex(RuntimeError, "color build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior color helper")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_bluetooth_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "bluetooth-service-rust"
+        existing.write_bytes(b"prior bluetooth")
+        with patch.object(installer, "build_bluetooth", side_effect=RuntimeError("bluetooth build failed")):
+            with self.assertRaisesRegex(RuntimeError, "bluetooth build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior bluetooth")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_missing_cargo_fails_before_install(self):
+        self.bridge_patch.stop()
+        with patch.object(installer.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "needs Cargo"):
+                installer.install()
+        self.assertFalse(installer.SHELL.exists())
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_media_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "recording-service-rust"
+        existing.write_bytes(b"prior recorder")
+        with patch.object(installer, "build_media_service", side_effect=RuntimeError("media build failed")):
+            with self.assertRaisesRegex(RuntimeError, "media build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior recorder")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_network_build_failure_preserves_existing_install(self):
+        installer.SHELL.mkdir(parents=True)
+        existing = installer.SHELL / "network-service-rust"
+        existing.write_bytes(b"prior network service")
+        with patch.object(installer, "build_network", side_effect=RuntimeError("network build failed")):
+            with self.assertRaisesRegex(RuntimeError, "network build failed"):
+                installer.install()
+        self.assertEqual(existing.read_bytes(), b"prior network service")
+        self.assertFalse((installer.DATA / "latest").exists())
+
+    def test_build_rejects_incompatible_binary(self):
+        self.bridge_patch.stop()
+        target = self.base / "target"
+        target.joinpath("release").mkdir(parents=True)
+        target.joinpath("release/macshell-niri-bridge").write_bytes(b"fixture")
+        success = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        wrong = subprocess.CompletedProcess([], 0, stdout="wrong protocol\n", stderr="")
+        with patch.object(installer.shutil, "which", return_value="/test/cargo"), \
+             patch.object(installer.subprocess, "run", side_effect=[success, wrong]) as run:
+            with self.assertRaisesRegex(RuntimeError, "protocol check"):
+                installer.build_niri_bridge(target)
+        self.assertIn("--locked", run.call_args_list[0].args[0])
+        self.assertIn("--offline", run.call_args_list[0].args[0])
 
     def test_rollback_refuses_unrelated_config_edits(self):
         directory, manifest = installer.snapshot([installer.NIRI])
@@ -263,8 +553,12 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("KillMode=control-group", shell_unit)
         self.assertNotIn("After=niri-macshell.service", shell_unit)
         self.assertTrue((installer.PROFILE / "session-ready.py").is_file())
+        self.assertTrue((installer.PROFILE / "session-preflight.sh").is_file())
+        self.assertTrue((installer.PROFILE / "session-preflight-rust").is_file())
         self.assertTrue((installer.PROFILE / "shell-supervisor.py").is_file())
         self.assertTrue((installer.PROFILE / "session-locale.py").is_file())
+        self.assertTrue((installer.PROFILE / "session-locale.sh").is_file())
+        self.assertTrue((installer.PROFILE / "locale-preferences-rust").is_file())
         self.assertTrue((installer.PROFILE / "locale_preferences.py").is_file())
         session = (installer.BIN / "niri-macshell-session").read_text()
         self.assertNotIn("@PROFILE_CONFIG@", session)

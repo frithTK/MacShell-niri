@@ -24,8 +24,9 @@ ShellRoot {
         property var stickies: stickiesApp
         property var notesService: sharedNotesService
         property var reminders: remindersApp
+        property var calendar: calendarApp
         readonly property var translations: Language.I18n
-        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); }
+        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); else if (key === "calendar") calendarApp.open(); }
         function openSettings(pane) { macDock.openPrefs(pane); }
         property bool barWantsGeo: false
         property bool dockWantsGeo: false
@@ -99,6 +100,7 @@ ShellRoot {
     NotesApp { id: notesApp; hub: sharedHub }
     StickiesApp { id: stickiesApp; hub: sharedHub }
     RemindersApp { id: remindersApp; hub: sharedHub }
+    CalendarApp { id: calendarApp; hub: sharedHub }
     ThemeCoordinator { bar: macBar; dock: macDock }
 
     IpcHandler {
@@ -190,6 +192,10 @@ ShellRoot {
     IpcHandler {
         target: "stickies"
         function open(): void { stickiesApp.open(); }
+    }
+    IpcHandler {
+        target: "calendar"
+        function open(): void { calendarApp.open(); }
     }
     IpcHandler {
         target: "utilities"

@@ -18,7 +18,7 @@ Scope {
     onDesiredChanged: { debounce.stop(); configure(); }
     onTemperatureChanged: debounce.restart()
     JsonService {
-        id: service; script: "night_shift.py"; enabled: root.active
+        id: service; script: "night_shift.py"; launcher: "night-shift.sh"; enabled: root.active
         onConnected: root.configure()
         onReceived: m => { if (m.type === "state") { root.available = m.available; root.state = m.state; root.error = m.error || ""; root.appliedTemperature = m.appliedTemperature || 0; } }
         onReadyChanged: if (!ready) { root.state = "off"; root.error = error; }

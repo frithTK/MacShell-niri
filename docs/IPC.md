@@ -92,6 +92,7 @@ binds {
 | Команда | Действие |
 | --- | --- |
 | `switcher next` / `switcher prev` | Открыть переключатель приложений и изменить выбор |
+| `calendar open` | Открыть локальный календарь |
 | `switcher commit` / `switcher cancel` | Подтвердить или отменить выбор |
 | `wallpapers toggle` / `wallpapers open` / `wallpapers close` | Управлять выбором обоев |
 | `wallpapers set PATH` | Применить обои из файла; путь с пробелами передавайте одним аргументом |

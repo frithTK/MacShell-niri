@@ -37,7 +37,7 @@ class PrivateBus:
         self.device = '/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF'
         self.register(self.device, bt.DEVICE, '<method name="Pair"/><method name="CancelPairing"/><method name="Connect"/><method name="Disconnect"/>', {'Adapter': ('o', '/org/bluez/hci0'), 'Alias': ('s', 'Test Keyboard'), 'Address': ('s', 'AA:BB:CC:DD:EE:FF'), 'Paired': ('b', False), 'Connected': ('b', False), 'Trusted': ('b', False), 'Blocked': ('b', False)})
         root_methods = '<method name="AddAndActivateConnection2"><arg type="a{sa{sv}}" direction="in"/><arg type="o" direction="in"/><arg type="o" direction="in"/><arg type="a{sv}" direction="in"/><arg type="o" direction="out"/><arg type="o" direction="out"/><arg type="a{sv}" direction="out"/></method><method name="DeactivateConnection"><arg type="o" direction="in"/></method>'
-        self.register(net.ROOT, net.NM, root_methods, {'Devices': ('ao', [net.ROOT + '/Devices/1']), 'WirelessEnabled': ('b', True), 'WirelessHardwareEnabled': ('b', True), 'Connectivity': ('u', 4)})
+        self.register(net.ROOT, net.NM, root_methods, {'Devices': ('ao', [net.ROOT + '/Devices/1']), 'ActiveConnections': ('ao', [net.ROOT + '/ActiveConnection/1']), 'WirelessEnabled': ('b', True), 'WirelessHardwareEnabled': ('b', True), 'Connectivity': ('u', 4)})
         self.register(net.ROOT + '/AgentManager', net.NM + '.AgentManager', '<method name="Register"><arg type="s" direction="in"/></method>')
         self.register(net.ROOT + '/Settings', net.NM + '.Settings', '<method name="ListConnections"><arg type="ao" direction="out"/></method>')
         self.register(net.ROOT + '/Devices/1', net.DEV, '<method name="Disconnect"/>', {'DeviceType': ('u', 2), 'Interface': ('s', 'wlan0'), 'State': ('u', 30), 'ActiveConnection': ('o', '/')})

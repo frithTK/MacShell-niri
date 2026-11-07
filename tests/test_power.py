@@ -16,6 +16,8 @@ class PowerBus(PrivateBus):
         self.connection.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus',
                                   'RequestName', GLib.Variant('(su)', (self.name, 0)), None, Gio.DBusCallFlags.NONE, 1000, None)
         self.reject = False
+        self.ignore_set = False
+        self.reject_release = False
         self.previous = None
         self.cookie = None
         self.calls = []
@@ -37,6 +39,8 @@ class PowerBus(PrivateBus):
         def set_prop(bus, sender, path, iface, name, value):
             if self.reject:
                 return False
+            if self.ignore_set:
+                return True
             self.props[(path, iface)][name] = value
             self.changed()
             return True
@@ -60,6 +64,9 @@ class PowerBus(PrivateBus):
             self.set_active(parameters.unpack()[0])
             invocation.return_value(GLib.Variant('(u)', (self.cookie,)))
         elif method == 'ReleaseProfile':
+            if self.reject_release:
+                invocation.return_dbus_error('org.freedesktop.DBus.Error.Failed', 'Release failed')
+                return
             if parameters.unpack()[0] != self.cookie:
                 invocation.return_dbus_error('org.freedesktop.DBus.Error.InvalidArgs', 'Wrong hold')
                 return

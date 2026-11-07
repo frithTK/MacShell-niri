@@ -8,8 +8,9 @@
 | --- | --- |
 | Desktop | niri 26.04+; Quickshell with Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower and BackgroundEffect modules |
 | Qt | Compatible Qt 6.9+ Declarative, Wayland, SVG and ShaderTools packages |
-| Helpers | Python 3.11+, PyGObject/Gio, Pillow, gst-python and GStreamer |
-| Window previews | PipeWire, niri ScreenCast D-Bus, and GStreamer `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink` |
+| Rust build | Rust and Cargo 1.85+, Gio/GLib and GStreamer development libraries, and the locked dependencies available locally |
+| Helpers | Python 3.11+, PyGObject/Gio, Pillow, gst-python, GStreamer and `timeout` from coreutils |
+| Window previews | PipeWire, niri ScreenCast D-Bus, and GStreamer `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, `appsrc`, `pngenc` |
 | MacLock | Quickshell PAM and session-lock modules, with an existing PAM service |
 
 Additional programs enable optional features: `curl`, `grim`, `wl-clipboard`, `wtype`, `cliphist`, `wf-recorder`, `ffprobe`, `slurp`, `pw-dump`, `pw-loopback`, `brightnessctl`, `nmcli`, `wlsunset`, `jq`, `inotify-tools`, `mpvpaper` and `ffmpeg`. Recording audio supports Linux recorder builds linked with PipeWire or PulseAudio; PulseAudio builds also need `pipewire-pulse` and `pactl`. Energy modes additionally need power-profiles-daemon or a compatible D-Bus service. See the [detailed dependency and installation guide](INSTALL.ru.md#зависимости) for feature-specific requirements.
@@ -18,7 +19,31 @@ Night Shift needs `wlsunset` in the shell's PATH and compositor gamma-control su
 
 AirPlay uses optional, separately installed [Doubletake](https://github.com/omarroth/doubletake) (sender) and [UxPlay](https://github.com/FDH2/UxPlay) (receiver), with their GStreamer dependencies. Both are detected on PATH or under `~/.local/share/macshell-niri/runtime/bin`. Receiving is enabled manually and stops with MacShell. See the [Screen Mirroring guide](CONTROL_CENTER.md#повтор-экрана--airplay).
 
-The installer checks dependencies and does not run a package manager. Quickshell must be built for the installed Qt version. `MACSHELL_QS_BIN` can select a compatible runtime; installing this port does not replace the system `qs` binary.
+The installer checks dependencies and does not run a package manager. It builds the Rust niri bridge and color picker, shared boot clock, system statistics, Night Shift, timed modes, native blur, power profiles, Wi-Fi, Bluetooth, window capture and screen recording services, session preflight, Activity, menu bar, widget and locale preferences offline before replacing any installed files. On a new build machine, prepare the locked Cargo dependencies explicitly while online:
+
+```bash
+cargo fetch --locked --manifest-path native/niri-bridge/Cargo.toml
+cargo fetch --locked --manifest-path native/boot-clock/Cargo.toml
+cargo fetch --locked --manifest-path native/system-stats/Cargo.toml
+cargo fetch --locked --manifest-path native/night-shift/Cargo.toml
+cargo fetch --locked --manifest-path native/timed-modes/Cargo.toml
+cargo fetch --locked --manifest-path native/activity-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/bar-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/widget-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/locale-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/native-blur/Cargo.toml
+cargo fetch --locked --manifest-path native/session-preflight/Cargo.toml
+cargo fetch --locked --manifest-path native/power-profiles/Cargo.toml
+cargo fetch --locked --manifest-path native/niri-color/Cargo.toml
+cargo fetch --locked --manifest-path native/bluez-session/Cargo.toml
+cargo fetch --locked --manifest-path native/network-snapshot/Cargo.toml
+cargo fetch --locked --manifest-path native/capture-service/Cargo.toml
+cargo fetch --locked --manifest-path native/recording-core/Cargo.toml
+```
+
+The `--check` command verifies Cargo is present, not that every dependency is cached. During the transition, `bash install.sh --python-bridge` explicitly selects the previous Python components if a Rust build is unavailable; other services and the installer still require Python. Quickshell must be built for the installed Qt version. `MACSHELL_QS_BIN` can select a compatible runtime; installing this port does not replace the system `qs` binary.
+
+The separate login script and its locale and preflight helpers are refreshed with `bash install.sh --session`; a plain installation updates the shell but leaves an existing login script in place.
 
 ## Get started
 

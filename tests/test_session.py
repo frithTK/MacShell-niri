@@ -107,12 +107,10 @@ systemctl() {
     esac
     return 0
 }
-python3() {
-    if [[ ${1:-} == locale-helper ]]; then
-        printf '%s\\n' "${LOCALE_VALUES:-}"
-        return "${LOCALE_EXIT:-0}"
-    fi
-    return "${PREFLIGHT_EXIT:-0}"
+preflight() { return "${PREFLIGHT_EXIT:-0}"; }
+locale-helper() {
+    printf '%s\\n' "${LOCALE_VALUES:-}"
+    return "${LOCALE_EXIT:-0}"
 }
 logger() { return "${LOGGER_EXIT:-0}"; }
 dbus-update-activation-environment() { return "${DBUS_EXIT:-0}"; }

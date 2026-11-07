@@ -1,0 +1,11 @@
+[package]
+name = "macshell-capture-stream"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[features]
+synthetic-test = []
+test-diagnostics = []

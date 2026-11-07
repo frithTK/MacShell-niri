@@ -49,6 +49,9 @@ class Operation:
         self.stage = 0
         self.total = 0
         self.subscription = 0
+        self.presence_subscription = 0
+        self.finger_present = None
+        self.presence_seen = False
         self.owner_subscription = 0
         self.starting = False
         self.early_signals = []
@@ -155,6 +158,9 @@ class Operation:
             return self.call(self.path, DEVICE, "DeleteEnrolledFinger", GLib.Variant("(s)", (self.finger,)), self.deleted)
         self.subscription = self.bus.signal_subscribe(self.service, DEVICE, self.operation.capitalize() + "Status", self.path, None,
                                                       Gio.DBusSignalFlags.NONE, self.on_signal, None)
+        self.presence_subscription = self.bus.signal_subscribe(
+            self.service, "org.freedesktop.DBus.Properties", "PropertiesChanged", self.path, DEVICE,
+            Gio.DBusSignalFlags.NONE, self.on_properties_changed, None)
         self.call(self.path, "org.freedesktop.DBus.Properties", "GetAll", GLib.Variant("(s)", (DEVICE,)), self.got_properties)
 
     def got_properties(self, result, _error):
@@ -164,7 +170,25 @@ class Operation:
             properties = result[0]
             try: self.total = max(0, min(100, int(properties.get("num-enroll-stages", 0))))
             except (TypeError, ValueError): self.total = 0
+            if not self.presence_seen and type(properties.get("finger-present")) is bool:
+                self.finger_present = properties["finger-present"]
         self.begin()
+
+    def on_properties_changed(self, _connection, _sender, _path, _interface, _signal, parameters, _data):
+        if self.finished or self.cancellation or (not self.active and not self.starting and not self.pending):
+            return
+        interface, changed, invalidated = parameters.unpack()
+        if interface != DEVICE:
+            return
+        if 'finger-present' in invalidated:
+            self.finger_present = None
+        elif type(changed.get('finger-present')) is bool:
+            self.finger_present = changed['finger-present']
+        else:
+            return
+        self.presence_seen = True
+        if self.active:
+            emit(type="finger-presence", present=self.finger_present)
 
     def begin(self):
         self.starting = True
@@ -178,6 +202,8 @@ class Operation:
         if self.cancellation:
             return self.finish(False, self.cancellation)
         emit(type="status", code="scan", stage=self.stage, total=self.total)
+        if self.presence_seen or self.finger_present is not None:
+            emit(type="finger-presence", present=self.finger_present)
         for code, done in self.early_signals:
             if not self.active:
                 break
@@ -253,6 +279,8 @@ class Operation:
         self.finished = True
         if self.subscription:
             self.bus.signal_unsubscribe(self.subscription)
+        if self.presence_subscription:
+            self.bus.signal_unsubscribe(self.presence_subscription)
         if self.owner_subscription:
             self.bus.signal_unsubscribe(self.owner_subscription)
         if self.auth_watch:

@@ -54,7 +54,7 @@ Scope {
     }
     JsonService {
         id: service
-        script: "bar_layout_service.py"; enabled: root.enabled
+        script: "bar_layout_service.py"; launcher: "bar-preferences.sh"; enabled: root.enabled
         onConnected: root.refresh()
         onErrorChanged: if (error) root.error = error
         onReadyChanged: if (!ready) {

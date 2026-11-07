@@ -2430,6 +2430,19 @@ Scope {
                     showHeader: false; showSettings: false; padding: 14
                     background: Rectangle { radius: 10; color: pal.card; border.color: pal.cardBorder }
                 }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("battery.health")
+                        subtitle: Language.I18n.text("battery.health_description")
+                        Text {
+                            text: root.bar && root.bar.battery && root.bar.battery.healthPercentage >= 0
+                                  ? root.bar.battery.healthPercentage + "%" : Language.I18n.text("battery.health_unavailable")
+                            color: pal.text2; font.family: pal.fam; font.pixelSize: 13
+                        }
+                    }
+                }
                 SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_1311d7944778") }
                 SCard {
                     t: pal

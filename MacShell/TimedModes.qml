@@ -22,7 +22,7 @@ Scope {
         return Math.ceil((left || 0) / 60) + " min remaining";
     }
     JsonService {
-        id: service; script: "timed_modes.py"; enabled: root.enabled
+        id: service; script: "timed_modes.py"; launcher: "timed-modes.sh"; enabled: root.enabled
         onConnected: service.send("restore", root.saved)
         onReadyChanged: if (!ready) root.restored = false
         onReceived: m => {

@@ -48,6 +48,7 @@ Scope {
     JsonService {
         id: service
         script: "activity_preferences_service.py"
+        launcher: "activity-preferences.sh"
         enabled: root.enabled
         onConnected: root.refresh()
         onReadyChanged: if (!ready) {

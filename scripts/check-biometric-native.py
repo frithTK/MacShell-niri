@@ -34,13 +34,16 @@ with tempfile.TemporaryDirectory(prefix="macshell-biometric-native-") as directo
     path.write_text(source)
     fixture = root / "fixture.json"
     fixture.write_text(json.dumps(["left-thumb", "right-thumb"]))
-    (shell / "biometric_probe.py").write_text('import json,os\nfingers=json.load(open(os.environ["MACSHELL_BIOMETRIC_FIXTURE"]))\nprint(json.dumps({"status":"ok","devices":[{"path":"/fixture/0","name":"Demo fingerprint reader","enrollment":"ok","fingers":fingers}]}))\n')
+    (shell / "biometric_probe.py").write_text('import json,os\nfingers=json.load(open(os.environ["MACSHELL_BIOMETRIC_FIXTURE"]))\nprint(json.dumps({"status":"ok","devices":[{"path":"/fixture/0","name":"Demo fingerprint reader","enrollment":"ok","scanType":"swipe","fingers":fingers}]}))\n')
     (shell / "fingerprint_operation.py").write_text('''import json,os,select,sys,time
 path=os.environ["MACSHELL_BIOMETRIC_FIXTURE"]
 action,device,finger=sys.argv[1:]
 assert device == "/fixture/0" and finger == "right-index-finger"
 print(json.dumps({"type":"status","code":"scan","stage":1,"total":3}),flush=True)
-time.sleep(.15)
+print(json.dumps({"type":"finger-presence","present":True}),flush=True)
+time.sleep(1.8)
+print(json.dumps({"type":"finger-presence","present":False}),flush=True)
+time.sleep(.4)
 fingers=json.load(open(path))
 if action == "enroll": fingers.append(finger); code="enroll-completed"
 elif action == "delete": fingers.remove(finger); code="deleted"

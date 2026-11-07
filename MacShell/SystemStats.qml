@@ -28,6 +28,7 @@ Scope {
     JsonService {
         id: service
         script: "system_stats.py"
+        launcher: "system-stats.sh"
         enabled: root.enabled
         onConnected: root.configure()
         onReceived: m => {

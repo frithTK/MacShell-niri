@@ -29,7 +29,7 @@ Scope {
     }
     JsonService {
         id: service
-        script: "locale_service.py"
+        script: "locale_service.py"; launcher: "locale-preferences.sh"
         enabled: root.enabled
         onConnected: root.refresh()
         onReadyChanged: if (!ready) { root.ready = false; root.pending = false; }

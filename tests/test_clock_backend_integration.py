@@ -24,6 +24,10 @@ class ClockBackendIntegrationTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            rust_clock = os.environ.get('MACSHELL_TEST_BOOT_CLOCK_BINARY')
+            if rust_clock:
+                shutil.copy(rust_clock, shell / 'boot-clock-rust')
+                (shell / 'boot_clock.py').write_text('raise SystemExit("unexpected Python fallback")\n')
             shutil.copy(ROOT / 'tests/clock-backend-integration.qml', shell / 'shell.qml')
             for name in ('config', 'cache', 'runtime'):
                 (root / name).mkdir()

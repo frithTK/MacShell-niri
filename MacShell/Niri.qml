@@ -24,10 +24,13 @@ Scope {
     property string monitorsKey: ""
     property string keyboardKey: ""
     property string workspacesKey: ""
-    readonly property string helper: Qt.resolvedUrl("niri_ipc.py").toString().replace(/^file:\/\//, "")
+    // Rust bridge messages carry an epoch to prevent stale commands crossing reconnects.
+    property string bridgeSession: ""
+    property var retiredBridgeSessions: []
+    readonly property string bridgeLauncher: Qt.resolvedUrl("niri-bridge.sh").toString().replace(/^file:\/\//, "")
     Component { id: windowComponent; NiriWindow {} }
     function action(args) { Quickshell.execDetached(["niri", "msg", "action"].concat(args.map(String))); }
-    function request(value) { if (connected) bridge.write(JSON.stringify(value) + "\n"); }
+    function request(value) { if (connected) bridge.write(JSON.stringify(bridgeSession ? {bridgeSession: bridgeSession, request: value} : value) + "\n"); }
     function focusWorkspace(id) { request({ Action: { FocusWorkspace: { reference: { Id: Number(id) } } } }); }
     function hideActive() {
         if (!activeToplevel || !focusedWorkspace) return;
@@ -48,9 +51,20 @@ Scope {
         for (var i = 0; i < ws.length; i++) if (ws[i].id === id) return ws[i].name;
         return String(id);
     }
+    function retireBridgeSession(session) {
+        if (!session || retiredBridgeSessions.indexOf(session) >= 0) return;
+        var next = retiredBridgeSessions.concat([session]);
+        retiredBridgeSessions = next.slice(Math.max(0, next.length - 64));
+    }
     function accept(message) {
-        connected = message.connected;
-        if (!connected) { stateKey = ""; if (message.error) console.warn("[niri] " + message.error); return; }
+        if (message.connected !== true) { connected = false; retireBridgeSession(bridgeSession); bridgeSession = ""; stateKey = ""; if (message.error) console.warn("[niri] " + message.error); return; }
+        var incomingSession = typeof message.bridgeSession === "string" ? message.bridgeSession : "";
+        if (incomingSession) {
+            if (retiredBridgeSessions.indexOf(incomingSession) >= 0) return;
+            if (!message.state && incomingSession !== bridgeSession) return;
+            if (message.state && incomingSession !== bridgeSession) { retireBridgeSession(bridgeSession); bridgeSession = incomingSession; stateKey = ""; }
+        } else if (bridgeSession) return;
+        connected = true;
         if (message.titles) {
             for (var identifier in message.titles) {
                 var target = windowMap[identifier];
@@ -106,11 +120,11 @@ Scope {
     }
     Process {
         id: bridge
-        command: ["python3", "-u", root.helper]
+        command: ["sh", root.bridgeLauncher]
         running: true
         stdinEnabled: true
         stdout: SplitParser { onRead: line => { try { root.accept(JSON.parse(line)); } catch (e) { console.warn("[niri] " + e); } } }
-        onExited: { root.connected = false; root.stateKey = ""; restart.restart(); }
+        onExited: { root.connected = false; root.retireBridgeSession(root.bridgeSession); root.bridgeSession = ""; root.stateKey = ""; restart.restart(); }
     }
     Timer { id: restart; interval: 2000; onTriggered: bridge.running = true }
 }

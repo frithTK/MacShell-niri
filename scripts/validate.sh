@@ -22,7 +22,8 @@ mkdir -p "$check_dir/config" "$check_dir/cache" "$check_dir/runtime"
 chmod 700 "$check_dir/runtime"
 bash scripts/check-qml.sh
 mkdir -p "$check_dir/bluetooth"
-cp MacShell/BluetoothControl.qml MacShell/JsonService.qml "$check_dir/bluetooth/"
+cp MacShell/BluetoothControl.qml MacShell/JsonService.qml MacShell/bluetooth-service.sh "$check_dir/bluetooth/"
+cp -R MacShell/Locale "$check_dir/bluetooth/Locale"
 cp tests/fixtures/bluetooth_service.py "$check_dir/bluetooth/bluetooth_service.py"
 cp tests/bluetooth.qml "$check_dir/bluetooth/shell.qml"
 if ! env -u DISPLAY -u WAYLAND_DISPLAY QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= \

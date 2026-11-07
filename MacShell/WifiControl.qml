@@ -58,7 +58,7 @@ Scope {
         secretNeeded = false;
     }
     JsonService {
-        id: service; script: "network_control.py"; enabled: root.active
+        id: service; script: "network_control.py"; launcher: "network-service.sh"; enabled: root.active
         onConnected: root.refresh()
         onReadyChanged: if (!ready) { root.request = -1; root.busy = ""; root.prompt = null; root.error = error; }
         onReceived: m => {

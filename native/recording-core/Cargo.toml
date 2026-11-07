@@ -1,0 +1,18 @@
+[package]
+name = "macshell-recording-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[features]
+test-diagnostics = []
+
+[dependencies]
+serde_json = "=1.0.150"
+libc = "=0.2.186"
+
+[[bin]]
+name = "macshell-recording-experimental"
+path = "src/main.rs"

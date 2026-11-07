@@ -43,6 +43,18 @@ TestCase {
         compare(State.duration(1), "1 min"); compare(State.duration(3599), "1 h");
         compare(State.duration(3601), "1 h 1 min");
     }
+    function test_health_uses_one_present_internal_battery() {
+        var internal = {isLaptopBattery: true, isPresent: true, ready: true, healthSupported: true, healthPercentage: 85.8961};
+        var peripheral = {isLaptopBattery: false, isPresent: true, ready: true, healthSupported: true, healthPercentage: 40};
+        compare(State.healthPercentage([peripheral, internal]), 86);
+        compare(State.healthPercentage([]), -1);
+        compare(State.healthPercentage([internal, internal]), -1);
+        internal.healthSupported = false; compare(State.healthPercentage([internal]), -1);
+        internal.healthSupported = true; internal.healthPercentage = NaN; compare(State.healthPercentage([internal]), -1);
+        internal.healthPercentage = 0; compare(State.healthPercentage([internal]), -1);
+        internal.healthPercentage = 101; compare(State.healthPercentage([internal]), -1);
+        internal.healthPercentage = 85; internal.ready = false; compare(State.healthPercentage([internal]), -1);
+    }
     function test_battery_states_and_unknown_estimates() {
         compare(State.remaining(true, 2, 5400, 0, true), "About 1 h 30 min remaining");
         compare(State.remaining(true, 1, 0, 1800, false), "About 30 min until full");

@@ -1,0 +1,15 @@
+[package]
+name = "macshell-bluez-discovery"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[dependencies]
+macshell-bluetooth-core = { path = "../bluetooth-core" }
+macshell-gio-bridge = { path = "../gio-bridge" }
+
+[dev-dependencies]
+libc = "=0.2.186"
+serde_json = { version = "=1.0.150", features = ["preserve_order"] }

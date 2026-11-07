@@ -6,7 +6,7 @@ preflight=@PREFLIGHT@
 qs_binary=@QS_BINARY@
 locale_helper=@LOCALE_HELPER@
 if [[ ${1:-} == --check ]]; then
-    exec python3 "$preflight" "$profile_config" "$qs_binary"
+    exec "$preflight" "$profile_config" "$qs_binary"
 fi
 # Match niri-session's login environment (including fish users).
 if [[ ${1:-} != --login-env && -n ${SHELL:-} ]] && grep -Fxq "$SHELL" /etc/shells; then
@@ -26,13 +26,13 @@ if systemctl --user --quiet is-active niri.service || systemctl --user --quiet i
     echo 'A niri session is already running. Select MacShell at the login screen after logging out.' >&2
     exit 1
 fi
-if ! python3 "$preflight" "$profile_config" "$qs_binary"; then
+if ! "$preflight" "$profile_config" "$qs_binary"; then
     fallback 'Preflight failed; starting the original Niri session.'
 fi
 # Apply the user's locale before compositor/app startup and environment import.
 # The helper emits whitelisted assignments, never shell source. On invalid input
 # retain the login environment and report the problem rather than deny login.
-if locale_values=$(python3 "$locale_helper"); then
+if locale_values=$("$locale_helper"); then
     while IFS='=' read -r locale_key locale_value; do
         case "$locale_key" in
             LANG|LANGUAGE|LC_MESSAGES|LC_NUMERIC|LC_TIME|LC_MONETARY|LC_PAPER|LC_NAME|LC_ADDRESS|LC_TELEPHONE|LC_MEASUREMENT|LC_IDENTIFICATION)

@@ -123,7 +123,7 @@
 
 ## Установка
 
-Нужны niri 26.04+, Qt 6.9+ и совместимая сборка Quickshell.
+Нужны niri 26.04+, Qt 6.9+, совместимая сборка Quickshell и Rust/Cargo 1.85+ для перенесённых системных компонентов. Остальным компонентам на время перехода ещё нужен Python.
 
 ```bash
 git clone https://github.com/frithTK/MacShell-niri.git

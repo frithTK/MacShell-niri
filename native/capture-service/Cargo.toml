@@ -1,0 +1,25 @@
+[package]
+name = "macshell-capture-service"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[features]
+test-diagnostics = ["macshell-capture-stream/test-diagnostics"]
+
+[dependencies]
+macshell-capture-session = { path = "../capture-session" }
+macshell-capture-stream = { path = "../capture-stream" }
+macshell-recording-core = { path = "../recording-core" }
+macshell-gio-bridge = { path = "../gio-bridge" }
+serde_json = "=1.0.150"
+libc = "=0.2.186"
+
+[dev-dependencies]
+macshell-capture-stream = { path = "../capture-stream", features = ["synthetic-test"] }
+
+[[bin]]
+name = "macshell-capture-experimental"
+path = "src/main.rs"

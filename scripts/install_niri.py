@@ -66,7 +66,7 @@ def validate(path):
 
 
 def runtime_check():
-    missing = [name for name in ("niri", "python3", "systemctl", "systemd-run", "flock", quickshell()) if not shutil.which(name)]
+    missing = [name for name in ("niri", "python3", "systemctl", "systemd-run", "flock", "timeout", quickshell()) if not shutil.which(name)]
     if missing:
         raise RuntimeError("Missing required programs: " + ", ".join(missing))
     check_runtime(quickshell())
@@ -93,7 +93,7 @@ def doctor():
     print("OK: Python capture dependencies" if probe.returncode == 0 else "ERROR: previews need python-gobject, python-pillow and gst-python")
     ok &= probe.returncode == 0
     gst = shutil.which("gst-inspect-1.0")
-    for plugin in ("pipewiresrc", "capssetter", "videoscale", "videoconvert", "appsink"):
+    for plugin in ("pipewiresrc", "capssetter", "videoscale", "videoconvert", "appsink", "appsrc", "pngenc"):
         result = subprocess.run([gst, plugin], capture_output=True) if gst else None
         if not result or result.returncode:
             print("ERROR: missing GStreamer element:", plugin)
@@ -118,16 +118,30 @@ def launcher(lock=False):
     return text + 'unset MACSHELL_SERVICE_CHILD\nexec "$MACSHELL_QS_BIN" -c MacShell-niri "$@"\n'
 
 
-def session_files():
-    preflight = PROFILE / "session-preflight.py"
-    shutil.copy2(SOURCE / "scripts/session_preflight.py", preflight)
+def session_files(locale_binary=None, preflight_binary=None):
+    shutil.copy2(SOURCE / "scripts/session_preflight.py", PROFILE / "session-preflight.py")
+    preflight = PROFILE / "session-preflight.sh"
+    shutil.copy2(SOURCE / "scripts/session-preflight.sh", preflight)
+    preflight.chmod(0o755)
+    installed_preflight = PROFILE / "session-preflight-rust"
+    remove(installed_preflight)
+    if preflight_binary:
+        shutil.copy2(preflight_binary, installed_preflight)
+        installed_preflight.chmod(0o755)
     ready = PROFILE / "session-ready.py"
     shutil.copy2(SOURCE / "scripts/session_ready.py", ready)
     supervisor = PROFILE / "shell-supervisor.py"
     shutil.copy2(SOURCE / "scripts/shell_supervisor.py", supervisor)
-    locale_helper = PROFILE / "session-locale.py"
-    shutil.copy2(SOURCE / "scripts/session_locale.py", locale_helper)
+    shutil.copy2(SOURCE / "scripts/session_locale.py", PROFILE / "session-locale.py")
     shutil.copy2(SOURCE / "MacShell/locale_preferences.py", PROFILE / "locale_preferences.py")
+    locale_helper = PROFILE / "session-locale.sh"
+    shutil.copy2(SOURCE / "scripts/session-locale.sh", locale_helper)
+    locale_helper.chmod(0o755)
+    installed_locale = PROFILE / "locale-preferences-rust"
+    remove(installed_locale)
+    if locale_binary:
+        shutil.copy2(locale_binary, installed_locale)
+        installed_locale.chmod(0o755)
     script = (SOURCE / "scripts/niri-macshell-session.sh").read_text()
     for token, value in {"@PROFILE_CONFIG@": PROFILE / "niri/config.kdl", "@PREFLIGHT@": preflight, "@QS_BINARY@": quickshell(), "@LOCALE_HELPER@": locale_helper}.items():
         script = script.replace(token, shlex.quote(str(value)))
@@ -272,21 +286,350 @@ def start_previous(name):
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
-def install(activate=False, session=False):
+def build_niri_bridge(target):
+    """Build before touching user files; Cargo must have its locked crates cached."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust bridge needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/niri-bridge/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust bridge source is missing")
+    command = [cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust bridge build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-niri-bridge"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-niri-bridge 1":
+        raise RuntimeError("Built Rust bridge failed the protocol check")
+    return binary
+
+
+def build_boot_clock(target):
+    """Build the lock screen clock before replacing any installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust clock needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/boot-clock/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust clock source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust clock build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-boot-clock"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-boot-clock 1":
+        raise RuntimeError("Built Rust clock failed the protocol check")
+    return binary
+
+
+def build_system_stats(target):
+    """Build the read-only system sampler before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust system stats needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/system-stats/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust system stats source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust system stats build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-system-stats"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-system-stats 1":
+        raise RuntimeError("Built Rust system stats failed the protocol check")
+    return binary
+
+
+def build_night_shift(target):
+    """Build the Night Shift process owner before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Night Shift needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/night-shift/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust Night Shift source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Night Shift build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-night-shift"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-night-shift 1":
+        raise RuntimeError("Built Rust Night Shift failed the protocol check")
+    return binary
+
+
+def build_timed_modes(target):
+    """Build focus and idle-inhibition deadlines before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust timed modes needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/timed-modes/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust timed modes source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust timed modes build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-timed-modes"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-timed-modes 1":
+        raise RuntimeError("Built Rust timed modes failed the protocol check")
+    return binary
+
+
+def build_activity_preferences(target):
+    """Build the transactional Activity settings service before installation."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Activity preferences needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/activity-preferences/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust Activity preferences source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Activity preferences build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-activity-preferences"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-activity-preferences 1":
+        raise RuntimeError("Built Rust Activity preferences failed the protocol check")
+    return binary
+
+
+def build_bar_preferences(target):
+    """Build the transactional menu bar settings service before installation."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust menu bar preferences needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/bar-preferences/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust menu bar preferences source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust menu bar preferences build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-bar-preferences"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-bar-preferences 1":
+        raise RuntimeError("Built Rust menu bar preferences failed the protocol check")
+    return binary
+
+
+def build_widget_preferences(target):
+    """Build widget settings before replacing any installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust widget preferences needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/widget-preferences/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust widget preferences source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust widget preferences build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-widget-preferences"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-widget-preferences 1":
+        raise RuntimeError("Built Rust widget preferences failed the protocol check")
+    return binary
+
+
+def build_locale_preferences(target):
+    """Build the shared Settings and session locale service before installation."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust locale preferences needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/locale-preferences/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust locale preferences source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust locale preferences build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-locale-preferences"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-locale-preferences 1":
+        raise RuntimeError("Built Rust locale preferences failed the protocol check")
+    return binary
+
+
+def build_native_blur(target):
+    """Build the scoped native blur helper before replacing any installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust native blur needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/native-blur/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust native blur source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust native blur build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-native-blur"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-native-blur 1":
+        raise RuntimeError("Built Rust native blur failed the protocol check")
+    return binary
+
+
+def build_session_preflight(target):
+    """Build the isolated session preflight before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust session preflight needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/session-preflight/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust session preflight source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust session preflight build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-session-preflight"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-session-preflight 1":
+        raise RuntimeError("Built Rust session preflight failed the protocol check")
+    return binary
+
+
+def build_power_profiles(target):
+    """Build the Gio power profiles service before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust power profiles needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/power-profiles/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust power profiles source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust power profiles build failed before installation. Rust 1.85+, Gio/GLib linker libraries and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-power-profiles"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-power-profiles 1":
+        raise RuntimeError("Built Rust power profiles failed the protocol check")
+    return binary
+
+
+def build_niri_color(target):
+    """Build the explicit niri color-picker helper before installation."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust niri color picker needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/niri-color/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust niri color picker source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust niri color picker build failed before installation. Rust 1.85+ and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-niri-color"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-niri-color 1":
+        raise RuntimeError("Built Rust niri color picker failed the protocol check")
+    return binary
+
+
+def build_bluetooth(target):
+    """Build the BlueZ service before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Bluetooth needs Cargo; install Rust or select --python-bridge during the transition")
+    manifest = SOURCE / "native/bluez-session/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust Bluetooth source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--bin", "macshell-bluetooth", "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Bluetooth build failed before installation. Rust 1.85+, Gio/GLib linker libraries and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-bluetooth"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-bluetooth 1":
+        raise RuntimeError("Built Rust Bluetooth service failed the protocol check")
+    return binary
+
+
+def build_media_service(target, kind):
+    """Build and verify a media service before touching the installed shell."""
+    services = {
+        "capture": ("capture-service", "macshell-capture-experimental", "macshell-capture 1"),
+        "recording": ("recording-core", "macshell-recording-experimental", "macshell-recording 1"),
+    }
+    crate, program, protocol = services[kind]
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust media services need Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native" / crate / "Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust media service source is missing: " + kind)
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--bin", program, "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust media service build failed before installation: " + kind + ". Rust 1.85+, cached Cargo dependencies and GStreamer development libraries are required.\n" + result.stderr[-3000:])
+    binary = target / "release" / program
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != protocol:
+        raise RuntimeError("Built Rust media service failed the protocol or plugin check: " + kind)
+    return binary
+
+
+def build_network(target):
+    """Build the NetworkManager service before replacing installed files."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Wi-Fi needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/network-snapshot/Cargo.toml"
+    if not manifest.is_file():
+        raise RuntimeError("Rust Wi-Fi service source is missing")
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest),
+                             "--bin", "macshell-network", "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Wi-Fi build failed before installation. Rust 1.85+, Gio/GLib linker libraries and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-network"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-network 1":
+        raise RuntimeError("Built Rust Wi-Fi service failed the protocol check")
+    return binary
+
+
+def install(activate=False, session=False, rust_bridge=None):
     if os.geteuid() == 0:
         raise RuntimeError("Run as your desktop user, without sudo.")
     with install_guard():
         if session_active():
             raise RuntimeError("Log out of the MacShell session before installing or updating it")
-        install_unlocked(activate, session)
+        install_unlocked(activate, session, rust_bridge)
 
 
-def install_unlocked(activate=False, session=False):
+def install_unlocked(activate=False, session=False, rust_bridge=None):
     if not activate and not session and NIRI.is_file() and NIRI.read_text().startswith("// Original config snapshot:"):
         raise RuntimeError("MacShell is already active. Use --activate to update it with session recovery.")
     if activate or session:
         runtime_check()
     with tempfile.TemporaryDirectory(prefix="macshell-install-") as temporary:
+        # Rust is the default for fresh installs and updates; the explicit legacy
+        # option remains available while other services still depend on Python.
+        use_rust = rust_bridge is not False
+        rust_binary = build_niri_bridge(Path(temporary) / "rust-build") if use_rust else None
+        clock_binary = build_boot_clock(Path(temporary) / "clock-build") if use_rust else None
+        stats_binary = build_system_stats(Path(temporary) / "stats-build") if use_rust else None
+        night_binary = build_night_shift(Path(temporary) / "night-build") if use_rust else None
+        timed_binary = build_timed_modes(Path(temporary) / "timed-build") if use_rust else None
+        activity_binary = build_activity_preferences(Path(temporary) / "activity-build") if use_rust else None
+        bar_binary = build_bar_preferences(Path(temporary) / "bar-build") if use_rust else None
+        widget_binary = build_widget_preferences(Path(temporary) / "widget-build") if use_rust else None
+        locale_binary = build_locale_preferences(Path(temporary) / "locale-build") if use_rust else None
+        blur_binary = build_native_blur(Path(temporary) / "blur-build") if use_rust else None
+        preflight_binary = build_session_preflight(Path(temporary) / "preflight-build") if use_rust else None
+        power_binary = build_power_profiles(Path(temporary) / "power-build") if use_rust else None
+        color_binary = build_niri_color(Path(temporary) / "color-build") if use_rust else None
+        bluetooth_binary = build_bluetooth(Path(temporary) / "bluetooth-build") if use_rust else None
+        capture_binary = build_media_service(Path(temporary) / "capture-build", "capture") if use_rust else None
+        recording_binary = build_media_service(Path(temporary) / "recording-build", "recording") if use_rust else None
+        network_binary = build_network(Path(temporary) / "network-build") if use_rust else None
         staged = Path(temporary) / "niri"
         previous_port = activate and NIRI.is_file() and NIRI.read_text().startswith("// Original config snapshot:")
         if activate or session:
@@ -303,7 +646,44 @@ def install_unlocked(activate=False, session=False):
                 previous_stopped = stop_shell("MacShell-niri")
             for source, destination in ((SOURCE / "MacShell", SHELL), (SOURCE / "MacLock", LOCK)):
                 remove(destination)
-                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust"))
+            if rust_binary:
+                shutil.copy2(rust_binary, SHELL / "niri-bridge-rust")
+                (SHELL / "niri-bridge-rust").chmod(0o755)
+                shutil.copy2(clock_binary, LOCK / "boot-clock-rust")
+                (LOCK / "boot-clock-rust").chmod(0o755)
+                shutil.copy2(clock_binary, SHELL / "boot-clock-rust")
+                (SHELL / "boot-clock-rust").chmod(0o755)
+                shutil.copy2(stats_binary, SHELL / "system-stats-rust")
+                (SHELL / "system-stats-rust").chmod(0o755)
+                shutil.copy2(night_binary, SHELL / "night-shift-rust")
+                (SHELL / "night-shift-rust").chmod(0o755)
+                shutil.copy2(timed_binary, SHELL / "timed-modes-rust")
+                (SHELL / "timed-modes-rust").chmod(0o755)
+                shutil.copy2(activity_binary, SHELL / "activity-preferences-rust")
+                (SHELL / "activity-preferences-rust").chmod(0o755)
+                shutil.copy2(bar_binary, SHELL / "bar-preferences-rust")
+                (SHELL / "bar-preferences-rust").chmod(0o755)
+                shutil.copy2(widget_binary, SHELL / "widget-preferences-rust")
+                (SHELL / "widget-preferences-rust").chmod(0o755)
+                shutil.copy2(locale_binary, SHELL / "locale-preferences-rust")
+                (SHELL / "locale-preferences-rust").chmod(0o755)
+                shutil.copy2(blur_binary, SHELL / "native-blur-rust")
+                (SHELL / "native-blur-rust").chmod(0o755)
+                shutil.copy2(preflight_binary, SHELL / "session-preflight-rust")
+                (SHELL / "session-preflight-rust").chmod(0o755)
+                shutil.copy2(power_binary, SHELL / "power-profiles-rust")
+                (SHELL / "power-profiles-rust").chmod(0o755)
+                shutil.copy2(color_binary, SHELL / "niri-color-rust")
+                (SHELL / "niri-color-rust").chmod(0o755)
+                shutil.copy2(bluetooth_binary, SHELL / "bluetooth-service-rust")
+                (SHELL / "bluetooth-service-rust").chmod(0o755)
+                shutil.copy2(capture_binary, SHELL / "capture-service-rust")
+                (SHELL / "capture-service-rust").chmod(0o755)
+                shutil.copy2(recording_binary, SHELL / "recording-service-rust")
+                (SHELL / "recording-service-rust").chmod(0o755)
+                shutil.copy2(network_binary, SHELL / "network-service-rust")
+                (SHELL / "network-service-rust").chmod(0o755)
             shutil.copy2(SOURCE / "VERSION", SHELL / "VERSION")
             (PROFILE / "settings").mkdir(parents=True, exist_ok=True)
             BIN.mkdir(parents=True, exist_ok=True)
@@ -316,7 +696,7 @@ def install_unlocked(activate=False, session=False):
                 remove(PROFILE / "niri")
                 shutil.copytree(staged, PROFILE / "niri")
             if session:
-                session_files()
+                session_files(locale_binary, preflight_binary)
                 manifest["session_only"] = True
             if activate:
                 wrapper = NIRI.with_suffix(".macshell-new.kdl")
@@ -358,6 +738,7 @@ def install_unlocked(activate=False, session=False):
                 start_previous(manifest.get("previous_shell"))
             raise
     print("Installed MacShell-niri and MacLock-niri.\nBackup:", directory)
+    print("niri bridge and migrated system services:", "Rust" if use_rust else "Python (transition)")
     print("Start:", BIN / "macshell-niri", "\nRollback: bash install.sh --rollback")
     if session:
         print("Original niri configuration and running desktop are unchanged.")
@@ -373,13 +754,25 @@ def main():
     parser.add_argument("--activate", action="store_true")
     parser.add_argument("--session", action="store_true", help="Prepare a separate SDDM login choice without changing the current niri config")
     parser.add_argument("--force", action="store_true", help="Allow rollback after root niri config edits")
+    bridge = parser.add_mutually_exclusive_group()
+    bridge.add_argument("--rust-bridge", action="store_true", help="Build Rust components from cached Cargo dependencies (default)")
+    bridge.add_argument("--python-bridge", action="store_true", help="Use the legacy Python implementations during the transition")
     args = parser.parse_args()
     if args.activate and args.session:
         parser.error("Choose either --session or --activate")
+    if args.rollback and (args.rust_bridge or args.python_bridge):
+        parser.error("Bridge selection does not apply to rollback")
     if args.check:
-        return 0 if doctor() else 1
+        ok = doctor()
+        if not args.python_bridge:
+            available = bool(shutil.which("cargo"))
+            print("OK: Cargo" if available else "ERROR: Rust bridge needs Cargo")
+            ok &= available
+        return 0 if ok else 1
     if args.dry_run:
         print("Shell:", SHELL, "\nLock:", LOCK, "\nSettings:", PROFILE / "settings", "\nLaunchers:", BIN, "\nBackups:", DATA / "backups")
+        use_rust = not args.python_bridge
+        print("niri bridge and migrated system services:", "Rust (build from cached dependencies)" if use_rust else "Python (transition)")
         if args.activate or args.session:
             with tempfile.TemporaryDirectory(prefix="macshell-plan-") as temporary:
                 prepare_niri(Path(temporary) / "niri")
@@ -407,7 +800,8 @@ def main():
                 raise
         print("Restored:", directory, "\nPost-install files were preserved in its after/ directory.")
         return 0
-    install(args.activate, args.session)
+    selection = True if args.rust_bridge else False if args.python_bridge else None
+    install(args.activate, args.session, selection)
     return 0
 
 

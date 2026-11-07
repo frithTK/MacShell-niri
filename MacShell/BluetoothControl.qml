@@ -56,7 +56,7 @@ Scope {
         return "bluetooth";
     }
     JsonService {
-        id: service; script: "bluetooth_service.py"; enabled: root.active
+        id: service; script: "bluetooth_service.py"; launcher: "bluetooth-service.sh"; enabled: root.active
         onConnected: root.refresh()
         onReadyChanged: if (!ready) { root.stateReady = false; root.busy = false; root.request = -1; root.prompt = null; root.statusError = error; }
         onReceived: m => {

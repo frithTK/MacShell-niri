@@ -34,7 +34,7 @@ Scope {
     function cancel() { service.send("cancel"); }
     function timeLabel() { return Math.floor(seconds / 60) + ":" + (seconds % 60 < 10 ? "0" : "") + seconds % 60; }
     JsonService {
-        id: service; script: "recording_control.py"; enabled: root.active
+        id: service; script: "recording_control.py"; launcher: "recording-service.sh"; enabled: root.active
         onReadyChanged: if (!ready) { root.state = "error"; root.error = "Recorder service disconnected. Check partial files in Videos."; }
         onReceived: m => {
             if (m.type === "choices") {

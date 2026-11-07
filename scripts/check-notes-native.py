@@ -66,7 +66,7 @@ def main():
         raise RuntimeError('A parent Wayland/niri session is required')
     with tempfile.TemporaryDirectory(prefix='macshell-notes-nested-') as directory:
         root = Path(directory)
-        config = root / 'niri.kdl'; config.write_text('window-rule {\n    match title="^Notes$"\n    open-floating true\n}\n')
+        config = root / 'niri.kdl'; config.write_text('hotkey-overlay { skip-at-startup; }\nwindow-rule {\n    match title="^Notes$"\n    open-floating true\n}\n')
         command = ['niri', '-c', str(config), '--', sys.executable, str(Path(__file__).resolve()), '--child', directory,
                    os.environ['WAYLAND_DISPLAY'], os.environ['NIRI_SOCKET']]
         with (root / 'niri.log').open('w') as output:

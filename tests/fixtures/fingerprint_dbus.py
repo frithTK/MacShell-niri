@@ -26,6 +26,7 @@ xml_device = '''<node><interface name="net.reactivated.Fprint.Device">
 <property name="num-enroll-stages" type="i" access="read"/>
 <property name="name" type="s" access="read"/>
 <property name="finger-needed" type="b" access="read"/>
+<property name="finger-present" type="b" access="read"/>
 <signal name="EnrollStatus"><arg type="s"/><arg type="b"/></signal>
 <signal name="VerifyStatus"><arg type="s"/><arg type="b"/></signal>
 </interface></node>'''
@@ -45,7 +46,7 @@ class Fixture:
         name = _args[-1]
         if name == 'name':
             return GLib.Variant('s', 'fake reader')
-        if name == 'finger-needed': return GLib.Variant('b', False)
+        if name in ('finger-needed', 'finger-present'): return GLib.Variant('b', False)
         return GLib.Variant('i', 3)
     def method(self, conn, _sender, path, _iface, method, args, inv):
         values = args.unpack() if args else ()
@@ -58,6 +59,12 @@ class Fixture:
         if method == 'DeleteEnrolledFinger': self.fingers.remove(values[0])
         inv.return_value(GLib.Variant('()', ()))
         if method == 'EnrollStart' and self.mode == 'enroll':
+            def presence(present):
+                conn.emit_signal(None, DEVICE, 'org.freedesktop.DBus.Properties', 'PropertiesChanged',
+                                 GLib.Variant('(sa{sv}as)', (IFACE, {'finger-present': GLib.Variant('b', present)}, [])))
+                return False
+            GLib.timeout_add(20, presence, True)
+            GLib.timeout_add(50, presence, False)
             def enroll():
                 conn.emit_signal(None, DEVICE, IFACE, 'EnrollStatus', GLib.Variant('(sb)', ('enroll-stage-passed', False)))
                 self.fingers.append(FINGER)
@@ -101,6 +108,8 @@ try:
     messages = run(fixture, 'enroll', 'enroll')
     assert messages[-1] == {'type':'result', 'success':True, 'code':'enroll-completed'}, messages
     assert any(m.get('stage') == 1 and m.get('total') == 3 for m in messages), messages
+    assert any(m == {'type': 'finger-presence', 'present': True} for m in messages), messages
+    assert any(m == {'type': 'finger-presence', 'present': False} for m in messages), messages
     assert [c[0] for c in fixture.calls] == ['GetDevices','Claim','ListEnrolledFingers','EnrollStart','EnrollStop','Release'], fixture.calls
     assert dict(fixture.calls)['Claim'] == ('',) and dict(fixture.calls)['ListEnrolledFingers'] == ('',)
     messages = run(fixture, 'verify', 'verify')

@@ -6,13 +6,39 @@
 
 Нужны `niri` 26.04+, Quickshell с Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower и BackgroundEffect; Qt 6.9+ Declarative, Wayland, SVG, ShaderTools. Для MacLock нужны также модули Pam и session-lock. Специальный модуль Quickshell.Niri не используется.
 
-Для превью нужны `python` 3.11+, `python-gobject`, `python-pillow`, `gst-python`, GStreamer с элементами `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, а также PipeWire и D-Bus ScreenCast в сессии niri. В Arch/CachyOS это обычно `gst-plugin-pipewire`, `gst-plugins-base` и `gst-plugins-good`. Проверка:
+Мост niri и выбор цвета, общий источник времени MacShell и MacLock, сборщик системной статистики, Night Shift, сроки режимов, системное размытие, профили питания, службы Wi-Fi, Bluetooth, захвата окна и записи экрана, предпроверка сеанса, настройки «Активности», меню-бара, виджетов и локали по умолчанию собираются на Rust: нужны Rust и Cargo 1.85+, библиотеки Gio/GLib и GStreamer для компоновки (в Debian/Ubuntu — пакеты разработки `libgstreamer1.0-dev` и `libgstreamer-plugins-base1.0-dev`), `timeout` из coreutils и локально доступные зависимости из `Cargo.lock`. Заранее, при наличии интернета, их можно загрузить отдельно:
+
+```bash
+cargo fetch --locked --manifest-path native/niri-bridge/Cargo.toml
+cargo fetch --locked --manifest-path native/boot-clock/Cargo.toml
+cargo fetch --locked --manifest-path native/system-stats/Cargo.toml
+cargo fetch --locked --manifest-path native/night-shift/Cargo.toml
+cargo fetch --locked --manifest-path native/timed-modes/Cargo.toml
+cargo fetch --locked --manifest-path native/activity-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/bar-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/widget-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/locale-preferences/Cargo.toml
+cargo fetch --locked --manifest-path native/native-blur/Cargo.toml
+cargo fetch --locked --manifest-path native/session-preflight/Cargo.toml
+cargo fetch --locked --manifest-path native/power-profiles/Cargo.toml
+cargo fetch --locked --manifest-path native/niri-color/Cargo.toml
+cargo fetch --locked --manifest-path native/bluez-session/Cargo.toml
+cargo fetch --locked --manifest-path native/network-snapshot/Cargo.toml
+cargo fetch --locked --manifest-path native/capture-service/Cargo.toml
+cargo fetch --locked --manifest-path native/recording-core/Cargo.toml
+```
+
+Отдельный скрипт входа, его предпроверка и обработчик локали обновляются командой `bash install.sh --session`; обычная установка обновляет оболочку и сохраняет существующий скрипт входа.
+
+Установщик собирает компоненты без доступа к сети **до изменения пользовательских файлов**. `--check` проверяет наличие Cargo, но не полноту кэша зависимостей. Во время перехода `bash install.sh --python-bridge` явно выбирает прежние версии на Python, если собрать Rust пока невозможно. Остальные службы и установщик пока продолжают требовать Python.
+
+Для превью нужны GStreamer с элементами `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, `appsrc`, `pngenc`, а также PipeWire и D-Bus ScreenCast в сессии niri. Для Python fallback дополнительно нужны `python` 3.11+, `python-gobject`, `python-pillow` и `gst-python`. В Arch/CachyOS это обычно `gst-plugin-pipewire`, `gst-plugins-base`, `gst-plugins-good` и `gst-plugins-bad`. Проверка:
 
 ```bash
 bash install.sh --check
 ```
 
-Дополнительные возможности: `grim`, `wl-clipboard`, `wtype` для меню приложений и вставки, `cliphist`, `wf-recorder`, `brightnessctl`, `nmcli`, `wlsunset`, `jq`, `inotify-tools`. Для новых Wi-Fi/Bluetooth-контролов нужны NetworkManager/BlueZ и Gio из `python-gobject`; для режимов питания — power-profiles-daemon или совместимый D-Bus сервис. Для записи — `wf-recorder` и `ffprobe` из ffmpeg; для области — `slurp`, для выбора звука — `pw-dump`. Поддерживаются Linux-сборки recorder, связанные с библиотеками PipeWire либо PulseAudio; для PulseAudio backend нужны `pipewire-pulse` и `pactl`. Для смеси — `pw-loopback` и рабочая политика соединений PipeWire. Для видеообоев — `mpvpaper` и `ffmpeg`. Без программы соответствующая дополнительная функция недоступна; превью без рабочего захвата заменяются значками приложений.
+Дополнительные возможности: `grim`, `wl-clipboard`, `wtype` для меню приложений и вставки, `cliphist`, `wf-recorder`, `brightnessctl`, `nmcli`, `wlsunset`, `jq`, `inotify-tools`. Для Wi-Fi и Bluetooth нужны NetworkManager и BlueZ; их Python-fallback использует Gio из `python-gobject`. Для режимов питания нужен power-profiles-daemon или совместимый D-Bus сервис. Для записи — `wf-recorder` и `ffprobe` из ffmpeg; для области — `slurp`, для выбора звука — `pw-dump`. Поддерживаются Linux-сборки recorder, связанные с библиотеками PipeWire либо PulseAudio; для PulseAudio backend нужны `pipewire-pulse` и `pactl`. Для смеси — `pw-loopback` и рабочая политика соединений PipeWire. Для видеообоев — `mpvpaper` и `ffmpeg`. Без программы соответствующая дополнительная функция недоступна; превью без рабочего захвата заменяются значками приложений.
 
 Night Shift требует `wlsunset` в PATH оболочки и поддержки gamma-control композитором. Отдельный автозапуск, геолокация и расписание не нужны. Пользовательский каталог `~/.local/share/macshell-niri/runtime/bin` доступен оболочке при использовании находящегося там runtime Quickshell; проверка зависимостей учитывает его. Оценки батареи и доступные режимы питания зависят от оборудования и системных служб.
 

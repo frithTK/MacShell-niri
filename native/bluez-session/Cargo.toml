@@ -1,0 +1,20 @@
+[package]
+name = "macshell-bluez-session"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "macshell-bluetooth"
+path = "src/main.rs"
+
+[dependencies]
+macshell-bluez-agent = { path = "../bluez-agent" }
+macshell-bluez-discovery = { path = "../bluez-discovery" }
+macshell-bluez-snapshot = { path = "../bluez-snapshot" }
+macshell-bluetooth-core = { path = "../bluetooth-core" }
+macshell-gio-bridge = { path = "../gio-bridge" }
+serde_json = { version = "=1.0.150", features = ["preserve_order"] }
+libc = "=0.2.186"

@@ -21,7 +21,7 @@ Scope {
     function refresh() { service.send("refresh"); }
     onGamingChanged: service.send("game", {enabled: gaming})
     JsonService {
-        id: service; script: "power_control.py"
+        id: service; script: "power_control.py"; launcher: "power-profiles.sh"
         onConnected: { root.refresh(); send("game", {enabled: root.gaming}); }
         onReceived: m => {
             if (m.type === "state") {

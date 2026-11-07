@@ -1,5 +1,19 @@
 .pragma library
 
+function healthPercentage(devices) {
+    var battery = null;
+    for (var i = 0; devices && i < devices.length; ++i) {
+        var device = devices[i];
+        if (!device || !device.isLaptopBattery || !device.isPresent) continue;
+        if (battery) return -1;
+        battery = device;
+    }
+    if (!battery || !battery.ready || !battery.healthSupported ||
+            typeof battery.healthPercentage !== "number" || !isFinite(battery.healthPercentage) ||
+            battery.healthPercentage <= 0 || battery.healthPercentage > 100) return -1;
+    return Math.round(battery.healthPercentage);
+}
+
 function chargePercentage(present, ready, fraction) {
     return present && ready && typeof fraction === "number" && isFinite(fraction) && fraction >= 0 && fraction <= 1
         ? Math.round(fraction * 100) : -1;

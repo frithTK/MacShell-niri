@@ -1,6 +1,11 @@
 property int biometricPhase: 0
 property int biometricWaits: 0
 property bool biometricSaving: false
+property bool biometricVisualSeen: false
+property real biometricInitialPulse: -1
+property bool biometricAnimationSeen: false
+property bool biometricReleaseSeen: false
+property int biometricScanShots: 0
 Item { parent: macDock.testWindow().contentItem; TestEvent { id: biometricEvents } }
 function biometricFind(item, name) {
     if (!item) return null;
@@ -38,6 +43,14 @@ Timer {
                 var pane = biometricFind(win.contentItem, "biometricSettings");
                 if (!pane || pane.status === "checking") return;
                 biometricCheck(pane.status === "ok", "fixture sensor not found");
+                biometricCheck(pane.operationText("scan").indexOf("проведите") >= 0, "swipe reader gives a swipe instruction");
+                biometricCheck(pane.operationText("driver_error").indexOf("драйвер") >= 0, "driver error is explained");
+                var savedDevices = pane.devices;
+                pane.devices = [{path: "/fixture/0", name: "Demo", enrollment: "ok", scanType: "press", fingers: []}];
+                biometricCheck(pane.operationText("scan").indexOf("Приложите") >= 0, "press reader gives a press instruction");
+                pane.devices = [{path: "/fixture/0", name: "Demo", enrollment: "ok", fingers: []}];
+                biometricCheck(pane.operationText("scan").indexOf("или") >= 0, "unknown reader retains a neutral instruction");
+                pane.devices = savedDevices;
                 var device = biometricFind(win.contentItem, "biometricDeviceName");
                 var enrollment = biometricFind(win.contentItem, "biometricEnrollment");
                 biometricCheck(device && device.text === "Demo fingerprint reader", "device name");
@@ -56,6 +69,7 @@ Timer {
                 biometricCheck(enrollmentEn && enrollmentEn.text === "Registered fingers: 2", "English enrollment count");
                 var selection = biometricFind(win.contentItem, "fingerSelection");
                 var selectedPane = biometricFind(win.contentItem, "biometricSettings");
+                biometricCheck(selectedPane.operationText("scan").indexOf("Swipe") >= 0, "English swipe instruction");
                 biometricCheck(selection.contentItem.text === "Right index finger", "translated selected finger");
                 selection.currentIndex = 0;
                 biometricCheck(selectedPane.selectedFinger === "left-thumb" && selection.contentItem.text === "Left thumb ✓", "registered selection is consistent");
@@ -68,7 +82,26 @@ Timer {
                 biometricClick("fingerConfirm");
             } else if (biometricPhase === 7) {
                 var pane1 = biometricFind(win.contentItem, "biometricSettings");
+                var scanVisual = biometricFind(win.contentItem, "fingerprintScanVisual");
+                if (scanVisual && scanVisual.visible && pane1.fingerPresent === true) {
+                    biometricCheck(scanVisual.touching && Math.abs(scanVisual.progress - 1 / 3) < .001, "real presence and stage drive visual");
+                    biometricCheck(biometricFind(win.contentItem, "fingerPresenceText").text === "Finger on the reader", "presence label");
+                    if (biometricInitialPulse < 0) biometricInitialPulse = scanVisual.pulse;
+                    else if (Math.abs(scanVisual.pulse - biometricInitialPulse) > .05) biometricAnimationSeen = true;
+                    biometricVisualSeen = true;
+                    if (Quickshell.env("MACSHELL_BIOMETRIC_CAPTURE") && biometricScanShots < 2) {
+                        macDock.darkMode = biometricScanShots === 0;
+                        biometricCapture(biometricScanShots === 0 ? "biometric-scan-dark" : "biometric-scan-light");
+                        biometricScanShots++; return;
+                    }
+                }
+                if (scanVisual && scanVisual.visible && pane1.fingerPresent === false) {
+                    biometricCheck(!scanVisual.touching, "finger release stops scan animation");
+                    biometricReleaseSeen = true;
+                }
                 if (!pane1 || pane1.operationCode !== "enroll-completed" || pane1.status !== "ok" || !pane1.selectedEnrolled) return;
+                biometricCheck(biometricVisualSeen && (!scanVisual || !scanVisual.visible), "enrollment visual is visible only during the operation");
+                biometricCheck(biometricAnimationSeen && biometricReleaseSeen, "animation follows sensor presence");
                 biometricCheck(biometricFind(win.contentItem, "fingerSelection").contentItem.text === "Right index finger ✓", "selected finger remains correct after refresh");
                 biometricClick("fingerTest");
             } else if (biometricPhase === 8) {

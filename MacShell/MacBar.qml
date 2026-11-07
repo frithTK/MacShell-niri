@@ -1399,7 +1399,7 @@ Scope {
                 receiverAwaitingCode: root.mirroring.receiverPin !== "", senderError: root.mirroring.senderError, receiverError: root.mirroring.receiverError});
         }
     }
-    function pickColor() { Quickshell.execDetached(["python3", Qt.resolvedUrl("niri_tools.py").toString().replace(/^file:\/\//, ""), "color"]); }
+    function pickColor() { Quickshell.execDetached(["sh", decodeURIComponent(Qt.resolvedUrl("niri-color.sh").toString().replace(/^file:\/\//, ""))]); }
     Process {
         id: fileSearchProc
         command: ["sh", "-c", "find \"$HOME\" -type f -iname \"*$1*\" -not -path '*/.cache/*' -not -path '*/.local/share/Trash/*' 2>/dev/null | head -n 8", "sh", root.fileQuery]

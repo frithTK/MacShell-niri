@@ -14,7 +14,7 @@ Scope {
     onLevelChanged: if (managed) apply()
     JsonService {
         id: service
-        script: "native_blur.py"
+        script: "native_blur.py"; launcher: "native-blur.sh"
         enabled: root.active
         onConnected: {
             service.send("inspect");

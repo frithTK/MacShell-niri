@@ -41,7 +41,7 @@ Scope {
     }
     Process {
         id: worker
-        command: ["python3", "-u", Qt.resolvedUrl("niri_capture.py").toString().replace(/^file:\/\//, "")]
+        command: ["sh", Qt.resolvedUrl("capture-service.sh").toString().replace(/^file:\/\//, "")]
         running: root.enabled
         stdinEnabled: true
         stdout: SplitParser {

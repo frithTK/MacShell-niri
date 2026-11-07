@@ -13,6 +13,154 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  rust-components:
+    name: Rust bridge and system services
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      RUSTUP_TOOLCHAIN: '1.85.0'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install 1.85.0 --profile minimal
+      - name: Install Gio build and private D-Bus test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev python3-gi dbus ffmpeg libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-pipewire
+      - name: Build and test Rust components
+        run: |
+          cargo test --locked --manifest-path native/niri-bridge/Cargo.toml --target-dir "$RUNNER_TEMP/niri-build"
+          cargo test --locked --manifest-path native/boot-clock/Cargo.toml --target-dir "$RUNNER_TEMP/clock-build"
+          cargo test --locked --manifest-path native/system-stats/Cargo.toml --target-dir "$RUNNER_TEMP/stats-build"
+          cargo test --locked --manifest-path native/night-shift/Cargo.toml --target-dir "$RUNNER_TEMP/night-build"
+          cargo test --locked --manifest-path native/timed-modes/Cargo.toml --target-dir "$RUNNER_TEMP/timed-build"
+          cargo test --locked --manifest-path native/preferences-store/Cargo.toml --target-dir "$RUNNER_TEMP/preferences-store-build"
+          cargo test --locked --manifest-path native/activity-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/activity-build"
+          cargo test --locked --manifest-path native/bar-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/bar-build"
+          cargo test --locked --manifest-path native/widget-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/widget-build"
+          cargo test --locked --manifest-path native/locale-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/locale-build"
+          cargo test --locked --manifest-path native/native-blur/Cargo.toml --target-dir "$RUNNER_TEMP/blur-build"
+          cargo test --locked --manifest-path native/session-preflight/Cargo.toml --target-dir "$RUNNER_TEMP/preflight-build"
+          cargo test --locked --manifest-path native/power-profiles/Cargo.toml --target-dir "$RUNNER_TEMP/power-build"
+          cargo test --locked --manifest-path native/gio-bridge/Cargo.toml --target-dir "$RUNNER_TEMP/gio-build"
+          cargo test --locked --manifest-path native/bluetooth-core/Cargo.toml --target-dir "$RUNNER_TEMP/bluetooth-core-build"
+          cargo test --locked --manifest-path native/network-core/Cargo.toml --target-dir "$RUNNER_TEMP/network-core-build"
+          cargo test --locked --manifest-path native/recording-core/Cargo.toml --target-dir "$RUNNER_TEMP/recording-core-build"
+          cargo test --locked --manifest-path native/capture-stream/Cargo.toml --target-dir "$RUNNER_TEMP/capture-stream-build"
+          cargo test --locked --manifest-path native/capture-session/Cargo.toml --target-dir "$RUNNER_TEMP/capture-session-build"
+          cargo build --locked --offline --manifest-path native/capture-session/Cargo.toml --examples --target-dir "$RUNNER_TEMP/capture-session-build"
+          cargo test --locked --manifest-path native/capture-service/Cargo.toml --target-dir "$RUNNER_TEMP/capture-service-build"
+          cargo build --locked --offline --manifest-path native/capture-service/Cargo.toml --examples --target-dir "$RUNNER_TEMP/capture-service-build"
+          cargo build --locked --offline --manifest-path native/capture-service/Cargo.toml --bin macshell-capture-experimental --target-dir "$RUNNER_TEMP/capture-service-build"
+          cargo build --locked --offline --manifest-path native/recording-core/Cargo.toml --examples --target-dir "$RUNNER_TEMP/recording-core-build"
+          cargo build --locked --offline --manifest-path native/recording-core/Cargo.toml --bin macshell-recording-experimental --target-dir "$RUNNER_TEMP/recording-core-build"
+          cargo build --locked --offline --manifest-path native/network-core/Cargo.toml --examples --target-dir "$RUNNER_TEMP/network-core-build"
+          cargo test --locked --manifest-path native/network-snapshot/Cargo.toml --target-dir "$RUNNER_TEMP/network-snapshot-build"
+          cargo build --locked --offline --manifest-path native/network-snapshot/Cargo.toml --examples --target-dir "$RUNNER_TEMP/network-snapshot-build"
+          cargo build --locked --offline --manifest-path native/network-snapshot/Cargo.toml --bin macshell-network --target-dir "$RUNNER_TEMP/network-snapshot-build"
+          cargo test --locked --manifest-path native/network-agent/Cargo.toml --target-dir "$RUNNER_TEMP/network-agent-build"
+          cargo build --locked --offline --manifest-path native/network-agent/Cargo.toml --examples --target-dir "$RUNNER_TEMP/network-agent-build"
+          cargo test --locked --manifest-path native/bluez-agent/Cargo.toml --target-dir "$RUNNER_TEMP/bluez-agent-build"
+          cargo build --locked --offline --manifest-path native/bluez-agent/Cargo.toml --examples --target-dir "$RUNNER_TEMP/bluez-agent-build"
+          cargo test --locked --manifest-path native/bluez-snapshot/Cargo.toml --target-dir "$RUNNER_TEMP/bluez-snapshot-build"
+          cargo build --locked --offline --manifest-path native/bluez-snapshot/Cargo.toml --examples --target-dir "$RUNNER_TEMP/bluez-snapshot-build"
+          cargo test --locked --manifest-path native/bluez-discovery/Cargo.toml --target-dir "$RUNNER_TEMP/bluez-discovery-build"
+          cargo build --locked --offline --manifest-path native/bluez-discovery/Cargo.toml --examples --target-dir "$RUNNER_TEMP/bluez-discovery-build"
+          cargo test --locked --manifest-path native/bluez-session/Cargo.toml --target-dir "$RUNNER_TEMP/bluez-session-build"
+          cargo build --locked --offline --manifest-path native/bluez-session/Cargo.toml --examples --target-dir "$RUNNER_TEMP/bluez-session-build"
+          cargo test --locked --manifest-path native/niri-color/Cargo.toml --target-dir "$RUNNER_TEMP/color-build"
+          cargo build --release --locked --offline --manifest-path native/niri-bridge/Cargo.toml --target-dir "$RUNNER_TEMP/niri-build"
+          cargo build --release --locked --offline --manifest-path native/boot-clock/Cargo.toml --target-dir "$RUNNER_TEMP/clock-build"
+          cargo build --release --locked --offline --manifest-path native/system-stats/Cargo.toml --target-dir "$RUNNER_TEMP/stats-build"
+          cargo build --release --locked --offline --manifest-path native/night-shift/Cargo.toml --target-dir "$RUNNER_TEMP/night-build"
+          cargo build --release --locked --offline --manifest-path native/timed-modes/Cargo.toml --target-dir "$RUNNER_TEMP/timed-build"
+          cargo build --release --locked --offline --manifest-path native/activity-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/activity-build"
+          cargo build --release --locked --offline --manifest-path native/bar-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/bar-build"
+          cargo build --release --locked --offline --manifest-path native/widget-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/widget-build"
+          cargo build --release --locked --offline --manifest-path native/locale-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/locale-build"
+          cargo build --release --locked --offline --manifest-path native/native-blur/Cargo.toml --target-dir "$RUNNER_TEMP/blur-build"
+          cargo build --release --locked --offline --manifest-path native/session-preflight/Cargo.toml --target-dir "$RUNNER_TEMP/preflight-build"
+          cargo build --release --locked --offline --manifest-path native/power-profiles/Cargo.toml --target-dir "$RUNNER_TEMP/power-build"
+          cargo build --release --locked --offline --manifest-path native/niri-color/Cargo.toml --target-dir "$RUNNER_TEMP/color-build"
+          cargo build --release --locked --offline --manifest-path native/bluez-session/Cargo.toml --bin macshell-bluetooth --target-dir "$RUNNER_TEMP/bluez-session-build"
+      - name: Check protocols and temporary installation
+        run: |
+          export MACSHELL_NIRI_RUST_BINARY="$RUNNER_TEMP/niri-build/release/macshell-niri-bridge"
+          export MACSHELL_TEST_BOOT_CLOCK_BINARY="$RUNNER_TEMP/clock-build/release/macshell-boot-clock"
+          export MACSHELL_TEST_STATS_BINARY="$RUNNER_TEMP/stats-build/release/macshell-system-stats"
+          export MACSHELL_TEST_NIGHT_SHIFT_BINARY="$RUNNER_TEMP/night-build/release/macshell-night-shift"
+          export MACSHELL_TEST_TIMED_MODES_BINARY="$RUNNER_TEMP/timed-build/release/macshell-timed-modes"
+          export MACSHELL_TEST_ACTIVITY_PREFERENCES_BINARY="$RUNNER_TEMP/activity-build/release/macshell-activity-preferences"
+          export MACSHELL_TEST_BAR_PREFERENCES_BINARY="$RUNNER_TEMP/bar-build/release/macshell-bar-preferences"
+          export MACSHELL_TEST_WIDGET_PREFERENCES_BINARY="$RUNNER_TEMP/widget-build/release/macshell-widget-preferences"
+          export MACSHELL_TEST_LOCALE_PREFERENCES_BINARY="$RUNNER_TEMP/locale-build/release/macshell-locale-preferences"
+          export MACSHELL_TEST_NATIVE_BLUR_BINARY="$RUNNER_TEMP/blur-build/release/macshell-native-blur"
+          export MACSHELL_TEST_PREFLIGHT_BINARY="$RUNNER_TEMP/preflight-build/release/macshell-session-preflight"
+          export MACSHELL_TEST_POWER_PROFILES_BINARY="$RUNNER_TEMP/power-build/release/macshell-power-profiles"
+          export MACSHELL_TEST_NIRI_COLOR_BINARY="$RUNNER_TEMP/color-build/release/macshell-niri-color"
+          export MACSHELL_TEST_BLUEZ_AGENT_HARNESS="$RUNNER_TEMP/bluez-agent-build/debug/examples/private_bus_harness"
+          export MACSHELL_TEST_BLUEZ_REGISTRATION_HARNESS="$RUNNER_TEMP/bluez-agent-build/debug/examples/registration_harness"
+          export MACSHELL_TEST_BLUEZ_SNAPSHOT_HARNESS="$RUNNER_TEMP/bluez-snapshot-build/debug/examples/private_bus_snapshot"
+          export MACSHELL_TEST_BLUEZ_ASYNC_HARNESS="$RUNNER_TEMP/bluez-snapshot-build/debug/examples/async_snapshot_harness"
+          export MACSHELL_TEST_BLUEZ_DISCOVERY_HARNESS="$RUNNER_TEMP/bluez-discovery-build/debug/examples/private_discovery_harness"
+          export MACSHELL_TEST_BLUEZ_SESSION_HARNESS="$RUNNER_TEMP/bluez-session-build/debug/examples/private_session_harness"
+          export MACSHELL_TEST_BLUETOOTH_BINARY="$RUNNER_TEMP/bluez-session-build/release/macshell-bluetooth"
+          export MACSHELL_TEST_NETWORK_CORE_HARNESS="$RUNNER_TEMP/network-core-build/debug/examples/compat_harness"
+          export MACSHELL_TEST_NETWORK_SNAPSHOT_HARNESS="$RUNNER_TEMP/network-snapshot-build/debug/examples/private_snapshot"
+          export MACSHELL_TEST_NETWORK_WORKER_HARNESS="$RUNNER_TEMP/network-snapshot-build/debug/examples/private_worker"
+          export MACSHELL_TEST_NETWORK_RADIO_HARNESS="$RUNNER_TEMP/network-snapshot-build/debug/examples/private_radio"
+          export MACSHELL_TEST_NETWORK_ACTIVATE_HARNESS="$RUNNER_TEMP/network-snapshot-build/debug/examples/private_activate"
+          export MACSHELL_TEST_NETWORK_SESSION_HARNESS="$RUNNER_TEMP/network-snapshot-build/debug/examples/private_session"
+          export MACSHELL_TEST_NETWORK_SERVICE_BINARY="$RUNNER_TEMP/network-snapshot-build/debug/macshell-network"
+          export MACSHELL_TEST_NETWORK_AGENT_HARNESS="$RUNNER_TEMP/network-agent-build/debug/examples/private_agent"
+          export MACSHELL_TEST_NETWORK_AGENT_HOST_HARNESS="$RUNNER_TEMP/network-agent-build/debug/examples/private_host"
+          export MACSHELL_TEST_RECORDING_CORE_HARNESS="$RUNNER_TEMP/recording-core-build/debug/examples/geometry_harness"
+          export MACSHELL_TEST_RECORDING_AUDIO_HARNESS="$RUNNER_TEMP/recording-core-build/debug/examples/audio_harness"
+          export MACSHELL_TEST_RECORDING_BINARY="$RUNNER_TEMP/recording-core-build/debug/macshell-recording-experimental"
+          export MACSHELL_TEST_CAPTURE_SESSION_HARNESS="$RUNNER_TEMP/capture-session-build/debug/examples/private_session"
+          export MACSHELL_TEST_CAPTURE_MANAGER_HARNESS="$RUNNER_TEMP/capture-service-build/debug/examples/private_manager"
+          export MACSHELL_TEST_CAPTURE_SERVICE_BINARY="$RUNNER_TEMP/capture-service-build/debug/macshell-capture-experimental"
+          python3 -m unittest discover -s tests -p test_niri_rust_compat.py
+          python3 -m unittest discover -s tests -p test_niri_bridge_launcher.py
+          python3 -m unittest discover -s tests -p test_maclock_boot_clock.py
+          python3 -m unittest discover -s tests -p test_system_stats_rust.py
+          python3 -m unittest discover -s tests -p test_night_shift_rust.py
+          python3 -m unittest discover -s tests -p test_timed_modes_rust.py
+          python3 -m unittest discover -s tests -p test_activity_preferences_rust.py
+          python3 -m unittest discover -s tests -p test_bar_preferences_rust.py
+          python3 -m unittest discover -s tests -p test_widget_preferences_rust.py
+          python3 -m unittest discover -s tests -p test_locale_session_rust.py
+          python3 -m unittest discover -s tests -p test_native_blur_rust.py
+          python3 -m unittest discover -s tests -p test_session_preflight_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_power_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_agent_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_registration_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_snapshot_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_snapshot_async_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_discovery_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_session_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_pair_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_device_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluez_power_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_bluetooth_service_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_core_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_snapshot_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_radio_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_activate_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_session_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_service_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_agent_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_network_agent_host_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_recording_core_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_recording_service_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_capture_session_rust.py
+          /usr/bin/python3 -m unittest discover -s tests -p test_capture_manager_rust.py
+          python3 -m unittest discover -s tests -p test_niri_color_rust.py
+          MACSHELL_TEST_RUST_INSTALL=1 /usr/bin/python3 -m unittest discover -s tests -p test_niri_install_rust.py
+
   portable:
     name: Python regressions and source checks
     runs-on: ubuntu-24.04

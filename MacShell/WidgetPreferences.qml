@@ -51,7 +51,7 @@ Scope {
     }
     JsonService {
         id: service
-        script: "widget_layout_service.py"; enabled: root.enabled
+        script: "widget_layout_service.py"; launcher: "widget-preferences.sh"; enabled: root.enabled
         onConnected: root.refresh()
         onErrorChanged: if (error) root.error = error
         onReadyChanged: if (!ready) {

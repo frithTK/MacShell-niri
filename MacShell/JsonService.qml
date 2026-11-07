@@ -7,6 +7,7 @@ import Quickshell.Io
 Scope {
     id: root
     property string script: ""
+    property string launcher: ""
     property var arguments: []
     property bool enabled: true
     property bool ready: false
@@ -26,7 +27,8 @@ Scope {
     function start() {
         if (!enabled || process.running) return;
         generation++;
-        process.command = ["python3", "-u", helper].concat(root.arguments);
+        var command = root.launcher ? ["sh", decodeURIComponent(Qt.resolvedUrl(root.launcher).toString().replace(/^file:\/\//, ""))] : ["python3", "-u", helper];
+        process.command = command.concat(root.arguments);
         process.running = true;
     }
     onEnabledChanged: {

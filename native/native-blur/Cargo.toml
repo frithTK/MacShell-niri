@@ -1,0 +1,12 @@
+[package]
+name = "macshell-native-blur"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[dependencies]
+libc = "=0.2.186"
+regex = "=1.12.4"
+serde_json = { version = "=1.0.150", features = ["preserve_order"] }

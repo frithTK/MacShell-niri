@@ -176,7 +176,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='macshell-clock-nested-') as directory:
         root = Path(directory)
         config = root / 'niri.kdl'
-        config.write_text('window-rule {\n    match title="^Clock$"\n    open-floating true\n}\n')
+        config.write_text('hotkey-overlay { skip-at-startup; }\nwindow-rule {\n    match title="^Clock$"\n    open-floating true\n}\n')
         command = ['niri', '-c', str(config), '--', sys.executable, str(Path(__file__).resolve()), '--child', directory,
                    os.environ['WAYLAND_DISPLAY'], os.environ['NIRI_SOCKET']]
         log_path = root / 'niri.log'

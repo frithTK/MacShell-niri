@@ -10,11 +10,11 @@ Scope {
     property string bootId: ""
     property double bootMs: 0
     readonly property bool sampling: process.running
-    readonly property string helper: decodeURIComponent(Qt.resolvedUrl("boot_clock.py").toString().replace(/^file:\/\//, ""))
+    readonly property string helper: decodeURIComponent(Qt.resolvedUrl("boot-clock.sh").toString().replace(/^file:\/\//, ""))
 
     function start() {
         if (!active || process.running) return;
-        process.command = ["python3", "-u", helper].concat(continuous ? [] : ["--once"]);
+        process.command = ["sh", helper].concat(continuous ? [] : ["--once"]);
         process.running = true;
     }
     onActiveChanged: {

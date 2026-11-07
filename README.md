@@ -123,7 +123,7 @@ See the [utilities guide](docs/UTILITIES.md) for details.
 
 ## Get started
 
-Requires niri 26.04+, Qt 6.9+ and a compatible Quickshell build.
+Requires niri 26.04+, Qt 6.9+, a compatible Quickshell build and Rust/Cargo 1.85+ for the migrated system components. Other components still require Python during the migration.
 
 ```bash
 git clone https://github.com/frithTK/MacShell-niri.git

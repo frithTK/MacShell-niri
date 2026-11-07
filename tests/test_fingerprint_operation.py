@@ -70,6 +70,27 @@ class FingerprintOperationTests(unittest.TestCase):
         self.bus.respond('EnrollStop'); self.bus.respond('Release')
         self.assertEqual(self.result()['code'], 'enroll-completed')
 
+    def test_presence_tracks_real_properties_and_ignores_stale_events(self):
+        op = self.op(); self.claim(op)
+        self.bus.respond('ListEnrolledFingers', ([],))
+        # A newer signal must win over the earlier GetAll snapshot.
+        self.bus.signal('PropertiesChanged', (fp.DEVICE, {'finger-present': fp.GLib.Variant('b', True)}, []))
+        self.bus.respond('GetAll', ({'num-enroll-stages': 3, 'finger-present': False},))
+        self.bus.respond('EnrollStart')
+        self.assertEqual(self.messages[-1], {'type': 'finger-presence', 'present': True})
+        self.bus.signal('PropertiesChanged', ('unrelated.Interface', {'finger-present': fp.GLib.Variant('b', False)}, []))
+        self.assertEqual(self.messages[-1]['present'], True)
+        self.bus.signal('PropertiesChanged', (fp.DEVICE, {'finger-present': fp.GLib.Variant('b', False)}, []))
+        self.assertEqual(self.messages[-1], {'type': 'finger-presence', 'present': False})
+        self.bus.signal('PropertiesChanged', (fp.DEVICE, {}, ['finger-present']))
+        self.assertEqual(self.messages[-1], {'type': 'finger-presence', 'present': None})
+        self.bus.signal('EnrollStatus', ('enroll-completed', True))
+        before = len(self.messages)
+        self.bus.signal('PropertiesChanged', (fp.DEVICE, {'finger-present': fp.GLib.Variant('b', True)}, []))
+        self.assertEqual(len(self.messages), before, 'late presence events are not emitted')
+        self.bus.respond('EnrollStop'); self.bus.respond('Release')
+        self.assertEqual(self.bus.signals, {})
+
     def test_cancel_during_claim_and_after_start_releases(self):
         op=self.op(); op.start(); self.bus.respond('GetDevices', (['/reader/0'],)); op.cancel(); self.bus.respond('Claim'); self.bus.respond('Release')
         self.assertEqual(self.result()['code'], 'cancelled'); self.assertNotIn('EnrollStart',[x[1] for x in self.bus.calls])

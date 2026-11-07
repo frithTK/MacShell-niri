@@ -102,7 +102,7 @@ def main():
         raise RuntimeError('A parent Wayland/niri session is required')
     with tempfile.TemporaryDirectory(prefix='macshell-nested-lock-') as directory:
         config = Path(directory) / 'niri.kdl'
-        config.write_text('')
+        config.write_text('hotkey-overlay { skip-at-startup; }\n')
         command = ['niri', '-c', str(config), '--', sys.executable, str(Path(__file__).resolve()), '--child', directory,
                    os.environ['WAYLAND_DISPLAY'], os.environ['NIRI_SOCKET']]
         log_path = Path(directory) / 'niri.log'

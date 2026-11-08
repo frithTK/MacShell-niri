@@ -33,8 +33,13 @@
 | `notifications dismiss ID` | Удалить уведомление по числовому ID |
 | `session menu` | Переключить Control Center |
 | `session lock` | Запустить установленный MacLock |
+| `session save` / `session status` / `session inspect` | Запросить сохранение, сводку или полный снимок сеанса |
+| `session restorePlan` / `session restore` | Запросить план или восстановление открытых окон |
+| `session state` / `session result` | Состояние и последний завершённый ответ асинхронного запроса |
 
 Значения `controlcenter page`: `cc`, `wifi`, `bt`, `focus`, `awake`, `night`, `vol`, `stats`, `battery`, `record`, `airplay`. Страница `record` подготавливает выбор записи; сама запись начинается кнопкой Start после выбора источника. Страница `airplay` открывает меню повтора экрана и поиск устройств; передача и приём включаются отдельными действиями.
+
+Команды снимка возвращают ID запроса, `-1` если служба не готова и `-2` если занята. Дождитесь `busy: false` в `session state`, затем получите ответ через `session result`; пока новый запрос выполняется, сохраняется предыдущий ответ. Подробнее: [Session snapshot](SESSION_SNAPSHOT.md).
 
 ## Повтор экрана / AirPlay
 

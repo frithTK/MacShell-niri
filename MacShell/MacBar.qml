@@ -71,12 +71,39 @@ Scope {
     readonly property string inputSig: [kbRepeatRate, kbRepeatDelay, mouseSens, mouseNatural, tpNatural, tpTap, tpDwt, tpScroll].join("|")
     onInputSigChanged: if (settingsReady) inputApplyT.restart()
     Timer { id: inputApplyT; interval: 150; onTriggered: root.applyInput() }
+    property string inputApplyError: ""
+    property bool inputApplyQueued: false
     function applyInput() {
         // A dedicated optional include keeps the user's input configuration intact.
-        Quickshell.execDetached(["python3", Qt.resolvedUrl("niri_tools.py").toString().replace(/^file:\/\//, ""), "input", JSON.stringify({
+        var request = [Qt.resolvedUrl("niri-input-service.sh").toString().replace(/^file:\/\//, ""), "input", JSON.stringify({
             repeatRate: kbRepeatRate, repeatDelay: kbRepeatDelay, mouseSens: mouseSens,
             mouseNatural: mouseNatural, tpNatural: tpNatural, tpTap: tpTap, tpDwt: tpDwt, tpScroll: tpScroll
-        })]);
+        })];
+        if (inputApplyProc.running) {
+            inputApplyQueued = true;
+            return;
+        }
+        inputApplyQueued = false;
+        inputApplyProc.command = request;
+        inputApplyProc.running = true;
+    }
+    Process {
+        id: inputApplyProc
+        stderr: StdioCollector { id: inputApplyStderr }
+        onExited: (code, status) => {
+            var detail = (inputApplyStderr.text || "").trim().replace(/\s+/g, " ");
+            if (code === 0) {
+                root.inputApplyError = "";
+            } else {
+                if (detail.length > 240) detail = detail.substring(0, 237) + "...";
+                root.inputApplyError = detail || "Could not apply input preferences.";
+                Quickshell.execDetached(["notify-send", "-a", "macbar", "Input preferences", root.inputApplyError]);
+            }
+            if (root.inputApplyQueued) {
+                root.inputApplyQueued = false;
+                inputApplyT.restart();
+            }
+        }
     }
     property int toneEpoch: 0
     function invalidateTone() { toneEpoch++; bgTone = 0; }

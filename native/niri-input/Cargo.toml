@@ -1,0 +1,16 @@
+[package]
+name = "macshell-niri-input"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[dependencies]
+libc = "=0.2.186"
+serde_json = "=1.0.150"
+sha2 = "=0.10.9"
+
+[[bin]]
+name = "macshell-niri-input"
+path = "src/main.rs"

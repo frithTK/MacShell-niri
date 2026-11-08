@@ -15,12 +15,18 @@ Scope {
     property int generation: 0
     property int sequence: 0
     property int failures: 0
+    property bool serializeRequests: false
+    property bool busy: false
+    property string lastAction: ""
+    property string lastError: ""
     readonly property string helper: decodeURIComponent(Qt.resolvedUrl(script).toString().replace(/^file:\/\//, ""))
     signal received(var message)
     signal connected()
     function send(action, data) {
         if (!ready) return -1;
+        if (serializeRequests && busy) return -2;
         var id = ++sequence;
+        lastAction = action; lastError = ""; busy = true;
         process.write(JSON.stringify({action: action, data: data || {}, id: id, generation: generation}) + "\n");
         return id;
     }
@@ -44,12 +50,21 @@ Scope {
                 try {
                     var m = JSON.parse(line);
                     if (m.generation !== undefined && m.generation !== root.generation) return;
+                    if (m.type === "ready") { root.ready = true; root.failures = 0; root.error = ""; root.connected(); return; }
+                    if (m.id !== undefined && m.id === root.sequence) {
+                        root.busy = false;
+                        if (m.success === false) root.lastError = String(m.error || "Service request failed");
+                    }
                     if (!root.ready && m.type !== "unavailable" && m.type !== "error") { root.ready = true; root.failures = 0; root.error = ""; root.connected(); }
                     root.received(m);
                 } catch (e) { root.error = "Invalid service response"; }
             }
         }
         onExited: (code, status) => {
+            if (root.busy) {
+                root.busy = false;
+                root.lastError = "Service disconnected before completing request";
+            }
             if (root.enabled) {
                 root.error = "Service disconnected; retrying…";
                 root.ready = false;

@@ -43,6 +43,31 @@ class RustInstallationTests(unittest.TestCase):
                     check = subprocess.run(['sh', str(shell / (service + '-service.sh')), '--protocol-version'],
                                            capture_output=True, text=True, check=True, timeout=5)
                     self.assertEqual(check.stdout.strip(), protocol)
+                input_service = shell / 'niri-input-service.sh'
+                self.assertTrue(os.access(input_service, os.X_OK))
+                input_binary = shell / 'niri-input-rust'
+                self.assertTrue(os.access(input_binary, os.X_OK))
+                input_check = subprocess.run([str(input_service), '--protocol-version'],
+                                             capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(input_check.stdout.strip(), 'macshell-niri-input 1')
+                session_service = shell / 'session-service.sh'
+                self.assertTrue(os.access(session_service, os.X_OK))
+                session_binary = shell / 'session-service-rust'
+                self.assertTrue(os.access(session_binary, os.X_OK))
+                protocol = subprocess.run([str(session_binary), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(protocol.stdout.strip(), 'macshell-session-service 1')
+                currency = shell / 'currency-fetch-rust'
+                self.assertTrue(os.access(currency, os.X_OK))
+                currency_check = subprocess.run(['sh', str(shell / 'currency-fetch.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(currency_check.stdout.strip(), 'macshell-currency-fetch 1')
+                widget_fetch = shell / 'widget-fetch-rust'
+                self.assertTrue(os.access(widget_fetch, os.X_OK))
+                widget_check = subprocess.run(['sh', str(shell / 'widget-fetch.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(widget_check.stdout.strip(), 'macshell-widget-fetch 1')
+                wallpaper_binary = shell / 'wallpaper-discovery-rust'
+                self.assertTrue(os.access(wallpaper_binary, os.X_OK))
+                wallpaper_check = subprocess.run(['sh', str(shell / 'wallpaper-discovery.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(wallpaper_check.stdout.strip(), 'macshell-wallpaper-discovery 1')
                 fake_network = HoldingBus()
                 network = Client(['sh', str(shell / 'network-service.sh')],
                                  env=dict(os.environ, DBUS_SYSTEM_BUS_ADDRESS=fake_network.address))

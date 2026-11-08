@@ -595,6 +595,81 @@ def build_network(target):
     return binary
 
 
+def build_niri_input(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust niri input needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/niri-input/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--bin", "macshell-niri-input", "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust niri input build failed before installation.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-niri-input"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-niri-input 1":
+        raise RuntimeError("Built Rust niri input failed the protocol check")
+    return binary
+
+
+def build_session_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust session service needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/session-service/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust session service build failed before installation.\n" + result.stderr[-3000:])
+    return target / "release/macshell-session-service"
+
+
+def build_currency_fetch(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust currency fetch needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/currency-fetch/Cargo.toml"
+    env = dict(os.environ)
+    env.pop("MACSHELL_CURRENCY_TEST_API", None)
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300, env=env)
+    if result.returncode:
+        raise RuntimeError("Rust currency fetch build failed before installation.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-currency-fetch"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-currency-fetch 1":
+        raise RuntimeError("Built Rust currency fetch failed the protocol check")
+    return binary
+
+
+def build_widget_fetch(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust widget fetch needs Cargo; install Rust or select --python-bridge")
+    env = dict(os.environ)
+    env.pop("MACSHELL_WIDGET_TEST_API", None)
+    manifest = SOURCE / "native/widget-fetch/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300, env=env)
+    if result.returncode:
+        raise RuntimeError("Rust widget fetch build failed before installation.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-widget-fetch"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-widget-fetch 1":
+        raise RuntimeError("Built Rust widget fetch failed the protocol check")
+    return binary
+
+
+def build_wallpaper_discovery(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust wallpaper discovery needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/wallpaper-discovery/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust wallpaper discovery build failed before installation.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-wallpaper-discovery"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-wallpaper-discovery 1":
+        raise RuntimeError("Built Rust wallpaper discovery failed the protocol check")
+    return binary
+
+
 def install(activate=False, session=False, rust_bridge=None):
     if os.geteuid() == 0:
         raise RuntimeError("Run as your desktop user, without sudo.")
@@ -630,6 +705,11 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
         capture_binary = build_media_service(Path(temporary) / "capture-build", "capture") if use_rust else None
         recording_binary = build_media_service(Path(temporary) / "recording-build", "recording") if use_rust else None
         network_binary = build_network(Path(temporary) / "network-build") if use_rust else None
+        input_binary = build_niri_input(Path(temporary) / "input-build") if use_rust else None
+        session_binary = build_session_service(Path(temporary) / "session-build") if use_rust else None
+        currency_binary = build_currency_fetch(Path(temporary) / "currency-build") if use_rust else None
+        widget_fetch_binary = build_widget_fetch(Path(temporary) / "widget-fetch-build") if use_rust else None
+        wallpaper_binary = build_wallpaper_discovery(Path(temporary) / "wallpaper-build") if use_rust else None
         staged = Path(temporary) / "niri"
         previous_port = activate and NIRI.is_file() and NIRI.read_text().startswith("// Original config snapshot:")
         if activate or session:
@@ -646,7 +726,10 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
                 previous_stopped = stop_shell("MacShell-niri")
             for source, destination in ((SOURCE / "MacShell", SHELL), (SOURCE / "MacLock", LOCK)):
                 remove(destination)
-                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust"))
+                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust", "niri-input-rust"))
+            (SHELL / "niri-input-service.sh").chmod(0o755)
+            shutil.copy2(SOURCE / "MacShell/session-service.sh", SHELL / "session-service.sh")
+            (SHELL / "session-service.sh").chmod(0o755)
             if rust_binary:
                 shutil.copy2(rust_binary, SHELL / "niri-bridge-rust")
                 (SHELL / "niri-bridge-rust").chmod(0o755)
@@ -684,6 +767,16 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
                 (SHELL / "recording-service-rust").chmod(0o755)
                 shutil.copy2(network_binary, SHELL / "network-service-rust")
                 (SHELL / "network-service-rust").chmod(0o755)
+                shutil.copy2(input_binary, SHELL / "niri-input-rust")
+                (SHELL / "niri-input-rust").chmod(0o755)
+                shutil.copy2(session_binary, SHELL / "session-service-rust")
+                (SHELL / "session-service-rust").chmod(0o755)
+                shutil.copy2(currency_binary, SHELL / "currency-fetch-rust")
+                (SHELL / "currency-fetch-rust").chmod(0o755)
+                shutil.copy2(widget_fetch_binary, SHELL / "widget-fetch-rust")
+                (SHELL / "widget-fetch-rust").chmod(0o755)
+                shutil.copy2(wallpaper_binary, SHELL / "wallpaper-discovery-rust")
+                (SHELL / "wallpaper-discovery-rust").chmod(0o755)
             shutil.copy2(SOURCE / "VERSION", SHELL / "VERSION")
             (PROFILE / "settings").mkdir(parents=True, exist_ok=True)
             BIN.mkdir(parents=True, exist_ok=True)

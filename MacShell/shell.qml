@@ -63,7 +63,7 @@ ShellRoot {
         // wallpaper the glass refracts (Noctalia settings.toml -> awww/swww)
         Process {
             id: wpProc
-            command: ["python3", Qt.resolvedUrl("niri_wallpaper.py").toString().replace(/^file:\/\//, "")]
+            command: ["sh", decodeURIComponent(Qt.resolvedUrl("wallpaper-discovery.sh").toString().replace(/^file:\/\//, ""))]
             stdout: StdioCollector {
                 onStreamFinished: {
                     var m = {}, lines = text.split("\n");
@@ -107,7 +107,6 @@ ShellRoot {
         target: "status"
         function state(): string { return JSON.stringify({ connected: Niri.connected, windows: Niri.toplevels.values.length, capture: NiriCapture.available, captureEnabled: NiriCapture.enabled, captureFrames: Object.keys(NiriCapture.frames).length }); }
     }
-
     // Keep the user's wallpaper when the previous shell is no longer running.
     Variants {
         model: Quickshell.screens
@@ -149,6 +148,25 @@ ShellRoot {
         target: "session"
         function lock(): void { Quickshell.execDetached(["sh", Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, "")]); }
         function menu(): void { macBar.ccRequest(true); }
+        function save(): string { return sessionService.send("save", {}); }
+        function inspect(): string { return sessionService.send("inspect", {}); }
+        function status(): string { return sessionService.send("status", {}); }
+        function restorePlan(): string { return sessionService.send("restore-plan", {}); }
+        function restore(): string { return sessionService.send("restore", {}); }
+        function state(): string { return JSON.stringify({ready: sessionService.ready, busy: sessionService.busy, action: sessionService.lastAction, error: sessionService.lastError}); }
+        function result(): string { return JSON.stringify(sessionService.lastResponse); }
+    }
+    JsonService {
+        id: sessionService; launcher: "session-service.sh"; enabled: true; serializeRequests: true
+        property var lastResponse: null
+        onReceived: message => {
+            if (message.id !== undefined && message.id === sequence)
+                lastResponse = {id: message.id, action: lastAction, success: message.success, result: message.result, error: message.error};
+        }
+        onLastErrorChanged: {
+            if (lastError && !busy && (!lastResponse || lastResponse.id !== sequence))
+                lastResponse = {id: sequence, action: lastAction, success: false, error: lastError};
+        }
     }
 
     // reopen settings even when both the Dock and the Menu Bar are disabled:

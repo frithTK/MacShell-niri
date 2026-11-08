@@ -22,7 +22,7 @@ Scope {
     readonly property string status: loading ? (available ? Language.I18n.text("ui.t_1a9fcf78f03b") : Language.I18n.text("ui.t_f39854cec420"))
         : error ? (available ? Language.I18n.text("ui.t_0f4ce14ca373") : Language.I18n.text("ui.t_12ccf0382fab"))
         : available ? (saved ? Language.I18n.text("ui.t_a8197c82243f") : Language.I18n.text("ui.t_c3ced8005a03")) : Language.I18n.text("ui.t_d77a2b373c2a")
-    readonly property string helper: decodeURIComponent(Qt.resolvedUrl("currency_fetch.py").toString().replace(/^file:\/\//, ""))
+    readonly property string helper: decodeURIComponent(Qt.resolvedUrl("currency-fetch.sh").toString().replace(/^file:\/\//, ""))
     function schedule(delay) { if (enabled) { refreshTimer.interval = Math.max(1000, delay); refreshTimer.restart(); } }
     function refresh(force) {
         if (!enabled) return;
@@ -32,7 +32,7 @@ Scope {
         var age = Date.now() - checkedAt;
         if (!force && available && age >= 0 && age < 3600000) { schedule(3600000 - age); return; }
         epoch++; error = ""; warning = ""; loading = true;
-        request.command = ["python3", "-u", helper, String(epoch)].concat(force ? ["--refresh"] : []);
+        request.command = ["sh", helper, String(epoch)].concat(force ? ["--refresh"] : []);
         request.running = true; watchdog.restart();
     }
     function accept(text) {

@@ -549,10 +549,10 @@ Scope {
         }
         lyricsLines = []; lyricsSynced = false; lyricsState = "none";
     }
-    readonly property string fetchHelper: decodeURIComponent(Qt.resolvedUrl("widget_fetch.py").toString().replace(/^file:\/\//, ""))
+    readonly property string fetchHelper: decodeURIComponent(Qt.resolvedUrl("widget-fetch.sh").toString().replace(/^file:\/\//, ""))
     Process {
         id: lrcProc
-        command: ["python3", root.fetchHelper, "lyrics", String(root.lyricsEpoch), root.lrcTitle, root.lrcArtist, root.lrcAlbum, root.lrcDur]
+        command: ["sh", root.fetchHelper, "lyrics", String(root.lyricsEpoch), root.lrcTitle, root.lrcArtist, root.lrcAlbum, root.lrcDur]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -682,7 +682,7 @@ Scope {
     }
     Process {
         id: weatherProc
-        command: ["python3", root.fetchHelper, "weather", String(root.weatherEpoch), root.locMode, root.cityName, root.tempUnit]
+        command: ["sh", root.fetchHelper, "weather", String(root.weatherEpoch), root.locMode, root.cityName, root.tempUnit]
         stdout: StdioCollector { onStreamFinished: root.acceptWeather(text) }
         onExited: (code, status) => {
             if (root.weatherWanted && root.weatherQueued) Qt.callLater(root.refresh);

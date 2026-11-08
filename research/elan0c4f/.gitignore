@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.npy
+*.npz
+*.pgm
+*.ppm
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.pcap
+*.pcapng
+*.log
+*.core

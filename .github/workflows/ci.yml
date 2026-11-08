@@ -72,6 +72,10 @@ jobs:
           cargo test --locked --manifest-path native/bluez-session/Cargo.toml --target-dir "$RUNNER_TEMP/bluez-session-build"
           cargo build --locked --offline --manifest-path native/bluez-session/Cargo.toml --examples --target-dir "$RUNNER_TEMP/bluez-session-build"
           cargo test --locked --manifest-path native/niri-color/Cargo.toml --target-dir "$RUNNER_TEMP/color-build"
+          cargo test --locked --manifest-path native/niri-input/Cargo.toml --target-dir "$RUNNER_TEMP/input-build"
+          cargo build --release --locked --offline --manifest-path native/niri-input/Cargo.toml --bin macshell-niri-input --target-dir "$RUNNER_TEMP/input-build"
+          cargo build --locked --offline --manifest-path native/niri-input/Cargo.toml --example compat --target-dir "$RUNNER_TEMP/input-build"
+          cargo build --release --locked --offline --manifest-path native/session-service/Cargo.toml --target-dir "$RUNNER_TEMP/session-build"
           cargo build --release --locked --offline --manifest-path native/niri-bridge/Cargo.toml --target-dir "$RUNNER_TEMP/niri-build"
           cargo build --release --locked --offline --manifest-path native/boot-clock/Cargo.toml --target-dir "$RUNNER_TEMP/clock-build"
           cargo build --release --locked --offline --manifest-path native/system-stats/Cargo.toml --target-dir "$RUNNER_TEMP/stats-build"
@@ -101,6 +105,8 @@ jobs:
           export MACSHELL_TEST_PREFLIGHT_BINARY="$RUNNER_TEMP/preflight-build/release/macshell-session-preflight"
           export MACSHELL_TEST_POWER_PROFILES_BINARY="$RUNNER_TEMP/power-build/release/macshell-power-profiles"
           export MACSHELL_TEST_NIRI_COLOR_BINARY="$RUNNER_TEMP/color-build/release/macshell-niri-color"
+          export MACSHELL_TEST_NIRI_INPUT_HARNESS="$RUNNER_TEMP/input-build/debug/examples/compat"
+          export MACSHELL_TEST_NIRI_INPUT_BINARY="$RUNNER_TEMP/input-build/release/macshell-niri-input"
           export MACSHELL_TEST_BLUEZ_AGENT_HARNESS="$RUNNER_TEMP/bluez-agent-build/debug/examples/private_bus_harness"
           export MACSHELL_TEST_BLUEZ_REGISTRATION_HARNESS="$RUNNER_TEMP/bluez-agent-build/debug/examples/registration_harness"
           export MACSHELL_TEST_BLUEZ_SNAPSHOT_HARNESS="$RUNNER_TEMP/bluez-snapshot-build/debug/examples/private_bus_snapshot"
@@ -159,6 +165,7 @@ jobs:
           /usr/bin/python3 -m unittest discover -s tests -p test_capture_session_rust.py
           /usr/bin/python3 -m unittest discover -s tests -p test_capture_manager_rust.py
           python3 -m unittest discover -s tests -p test_niri_color_rust.py
+          python3 -m unittest discover -s tests -p test_niri_input_rust.py
           MACSHELL_TEST_RUST_INSTALL=1 /usr/bin/python3 -m unittest discover -s tests -p test_niri_install_rust.py
 
   portable:

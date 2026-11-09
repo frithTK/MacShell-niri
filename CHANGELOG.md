@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2
+
+- Fixed CI dependency preparation for offline Rust builds and installation tests.
+- Updated the installation requirement to Rust/Cargo 1.86 or newer.
+
 ## 1.2.1
 
 - Removed the previously bundled third-party sound recordings and default alarm/timer audio. Users can import their own sounds.

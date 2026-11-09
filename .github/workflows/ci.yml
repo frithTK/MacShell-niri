@@ -195,7 +195,7 @@ jobs:
             python3-gi python3-pil python3-gst-1.0 \
             gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-            dbus-daemon ffmpeg desktop-file-utils
+            dbus-daemon ffmpeg desktop-file-utils libglib2.0-dev
       - name: Prepare Rust dependencies for offline tests
         run: |
           rustup toolchain install 1.86.0 --profile minimal

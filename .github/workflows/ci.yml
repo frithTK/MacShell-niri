@@ -73,6 +73,8 @@ jobs:
           cargo build --locked --offline --manifest-path native/bluez-session/Cargo.toml --examples --target-dir "$RUNNER_TEMP/bluez-session-build"
           cargo test --locked --manifest-path native/niri-color/Cargo.toml --target-dir "$RUNNER_TEMP/color-build"
           cargo test --locked --manifest-path native/niri-input/Cargo.toml --target-dir "$RUNNER_TEMP/input-build"
+          cargo fetch --locked --manifest-path native/session-service/Cargo.toml
+          cargo fetch --locked --manifest-path native/biometric-probe/Cargo.toml
           cargo build --release --locked --offline --manifest-path native/niri-input/Cargo.toml --bin macshell-niri-input --target-dir "$RUNNER_TEMP/input-build"
           cargo build --locked --offline --manifest-path native/niri-input/Cargo.toml --example compat --target-dir "$RUNNER_TEMP/input-build"
           cargo build --release --locked --offline --manifest-path native/session-service/Cargo.toml --target-dir "$RUNNER_TEMP/session-build"

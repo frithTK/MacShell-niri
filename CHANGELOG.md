@@ -1,8 +1,12 @@
 # Changelog
 
-## 1.2.0
+## 1.2.1
 
 - Removed the previously bundled third-party sound recordings and default alarm/timer audio. Users can import their own sounds.
+- Migrated new shell and session installations to Rust-only services and installer; legacy profiles retain their existing compatibility paths.
+- Added Calendar screenshots and updated installation documentation.
+
+## 1.2.0
 - Added a standalone Calendar app with local event storage and integration with the Dock and app search.
 - Moved system services including Wi-Fi, Bluetooth, window capture, screen recording and desktop settings to Rust, with Python fallback during the transition.
 - Added isolated integration coverage for installation and rollback, system buses, and screen capture and recording with virtual sources. Hardware and normal-session acceptance remain outstanding.

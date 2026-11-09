@@ -48,7 +48,7 @@ ControlMenu {
         if (probe.running || operation.running || !selectedDevice || selectedDevice.enrollment !== "ok") return;
         if (action !== "enroll" && action !== "verify" && action !== "delete") return;
         confirmAction = ""; gotResult = false; cancelling = false; cleanupFailed = false; operationCode = "checking"; operationAction = action; fingerPresent = null; stage = 0; total = 0;
-        operation.command = ["python3", decodeURIComponent(Qt.resolvedUrl("fingerprint_operation.py").toString().replace(/^file:\/\//, "")), action, selectedDevice.path, selectedFinger];
+        operation.command = ["sh", decodeURIComponent(Qt.resolvedUrl("fingerprint-operation.sh").toString().replace(/^file:\/\//, "")), action, selectedDevice.path, selectedFinger];
         operation.running = true; operationTimeout.restart();
     }
     function message() {
@@ -90,7 +90,7 @@ ControlMenu {
     Component.onCompleted: refresh()
     Process {
         id: probe
-        command: ["python3", decodeURIComponent(Qt.resolvedUrl("biometric_probe.py").toString().replace(/^file:\/\//, ""))]
+        command: [decodeURIComponent(Qt.resolvedUrl("biometric-probe.sh").toString().replace(/^file:\/\//, ""))]
         stdout: StdioCollector {
             onStreamFinished: {
                 timeout.stop();

@@ -18,6 +18,8 @@ Scope {
     property string advertisedName: "MacShell"
     property string receiverPin: ""
     property string receiverClient: ""
+    property int fps: 60
+    property int volumePercent: 20
     property bool scanning: false
     property var devices: []
     property var streams: []
@@ -32,16 +34,18 @@ Scope {
                                    : receiving ? Language.I18n.text("ui.t_3c95a1ae6eda") : Language.I18n.text("ui.t_5d9bbb593f62")
     signal hideRequested()
     signal showRequested()
-    function observe() { service.send("watch", {enabled: watching}); }
-    function refresh() { error = ""; service.send("refresh"); }
+    function observe() { service.send("watch", {enabled: watching, fps: fps, volumePercent: volumePercent}); }
+    function refresh() { error = ""; service.send("refresh", {fps: fps, volumePercent: volumePercent}); }
     function connectDevice(key) { if (blocked) { error = "Stop AirDrop before starting AirPlay."; return; } error = ""; service.send("connect", {key: key}); }
     function submitCredential(value) { error = ""; service.send("credential", {value: value}); }
     function disconnect() { error = ""; service.send("disconnect"); }
     function setAudio(enabled) { error = ""; service.send("audio", {enabled: enabled}); }
     function setReceiver(enabled) { if (enabled && blocked) { error = "Stop AirDrop before starting AirPlay."; return; } error = ""; service.send("receive", {enabled: enabled, name: receiverName}); }
     onWatchingChanged: observe()
+    onFpsChanged: if (ready) observe()
+    onVolumePercentChanged: if (ready) observe()
     JsonService {
-        id: service; script: "screen_mirroring.py"; enabled: root.active
+        id: service; script: "screen_mirroring.py"; launcher: "screen-mirroring-service.sh"; enabled: root.active
         onConnected: root.observe()
         onReadyChanged: if (!ready) {
             root.senderState = "off"; root.receiverState = "off"; root.streams = [];

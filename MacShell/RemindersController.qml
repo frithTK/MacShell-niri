@@ -70,6 +70,7 @@ Scope {
     JsonService {
         id: service
         script: "reminders_service.py"
+        launcher: "reminders-service.sh"
         arguments: ["--store", root.storePath]
         enabled: root.enabled && root.storePath !== ""
         onConnected: {

@@ -74,6 +74,15 @@ class SessionPreflightRustTests(unittest.TestCase):
         def launch(): return subprocess.run(['sh',str(folder/'session-preflight.sh'),'config','qs'],env=self.env,capture_output=True,text=True,timeout=5,check=True).stdout.strip()
         self.assertEqual(launch(),'rust config qs'); binary.write_text('#!/bin/sh\necho wrong\n'); self.assertEqual(launch(),'legacy config qs')
         binary.unlink(); self.assertEqual(launch(),'legacy config qs')
+    def test_ready_launcher_requires_specific_protocol(self):
+        folder=self.root/'ready'; folder.mkdir(); shutil.copy(ROOT/'scripts/session-ready.sh',folder/'session-ready.sh')
+        (folder/'session-ready.py').write_text('print("legacy", *__import__("sys").argv[1:])\n')
+        binary=folder/'session-preflight-rust'
+        binary.write_text('#!/bin/sh\nif [ "${1-}" = --ready-protocol-version ]; then echo "macshell-session-ready 1"; else echo "rust $*"; fi\n'); binary.chmod(0o755)
+        def launch(): return subprocess.run(['sh',str(folder/'session-ready.sh'),'launcher path'],env=self.env,capture_output=True,text=True,timeout=5,check=True).stdout.strip()
+        self.assertEqual(launch(),'rust --ready launcher path')
+        binary.write_text('#!/bin/sh\necho "macshell-session-preflight 1"\n')
+        self.assertEqual(launch(),'legacy launcher path')
     def test_session_check_invokes_installed_preflight_without_starting_session(self):
         folder=self.root/'profile with spaces'; folder.mkdir()
         shutil.copy(ROOT/'scripts/session-preflight.sh',folder/'session-preflight.sh')

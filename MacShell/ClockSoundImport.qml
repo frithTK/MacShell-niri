@@ -17,7 +17,7 @@ Scope {
     property int failedCount: 0
     property bool aacSupported: false
     property bool codecsProbed: false
-    readonly property string helper: decodeURIComponent(Qt.resolvedUrl("clock_sound_import.py").toString().replace(/^file:\/\//, ""))
+    readonly property string helper: decodeURIComponent(Qt.resolvedUrl("clock-sound-import.sh").toString().replace(/^file:\/\//, ""))
     signal finished()
 
     function probeCodecs() {
@@ -48,7 +48,7 @@ Scope {
         if (!queue.length) { finished(); return; }
         var paths = queue.slice(), path = paths.shift(); queue = paths;
         workerSuccess = false; workerReported = false;
-        process.command = ["python3", "-u", helper, "--library", directory, path];
+        process.command = ["sh", helper, "--library", directory, path];
         process.running = true;
     }
     Process {

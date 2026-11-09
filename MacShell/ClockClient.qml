@@ -13,6 +13,7 @@ Scope {
     readonly property bool busy: pending !== null
     readonly property string serviceError: service.error
     property string error: ""
+    property string playbackErrorEventId: ""
     property var sounds: []
     property bool showBuiltins: false
     property var soundRequests: ({})
@@ -48,6 +49,7 @@ Scope {
     function fail(message) {
         pending = null;
         error = message;
+        playbackErrorEventId = "";
         completed(false, null, message);
     }
     function resumePending() {
@@ -72,6 +74,7 @@ Scope {
     JsonService {
         id: service
         script: "clock_service.py"
+        launcher: "clock-service.sh"
         arguments: ["--store", root.storePath].concat(root.soundDirectory ? ["--audio-dir", root.soundDirectory] : [])
         enabled: root.enabled && root.storePath !== ""
         onConnected: service.send("load", {})
@@ -99,8 +102,11 @@ Scope {
             } else if (message.type === "state") {
                 root.snapshot = message;
                 root.initialized = true;
-                if (root.error !== "Clock sound failed; using the built-in sound" ||
-                        !message.timing || !message.timing.completion) root.error = "";
+                var event = message.timing && message.timing.completion;
+                if (!root.playbackErrorEventId || !event || event.eventId !== root.playbackErrorEventId) {
+                    root.error = "";
+                    root.playbackErrorEventId = "";
+                }
                 root.resumePending();
             } else if (message.type === "prepared" && root.pending && root.pending.stage === "prepare"
                        && message.id === root.pending.requestId) {
@@ -115,7 +121,10 @@ Scope {
                        && message.id === root.pending.requestId) {
                 var success = !!message.success, result = message.result || null, detail = message.error || "";
                 root.pending = null;
-                root.error = detail;
+                if (!success || !root.playbackErrorEventId) {
+                    root.error = detail;
+                    root.playbackErrorEventId = "";
+                }
                 root.completed(success, result, detail);
                 if (!success) service.send("load", {});
             } else if (message.type === "result" && root.pending && root.pending.stage === "prepare"
@@ -124,6 +133,10 @@ Scope {
                 service.send("load", {});
             } else if (message.type === "error") {
                 root.error = message.error || "Clock service error";
+                var active = root.snapshot && root.snapshot.timing && root.snapshot.timing.completion;
+                root.playbackErrorEventId = active &&
+                    (root.error === "Clock sound failed; using the built-in sound" ||
+                     root.error === "Clock sound playback failed") ? active.eventId || "" : "";
             }
         }
     }

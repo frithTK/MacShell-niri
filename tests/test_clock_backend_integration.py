@@ -24,6 +24,12 @@ class ClockBackendIntegrationTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            prototype = os.environ.get('MACSHELL_TEST_CLOCK_PROTOTYPE')
+            if prototype:
+                shutil.copy(prototype, shell / 'clock-service-prototype')
+                shutil.copy(ROOT / 'tests/clock-prototype-launcher.sh', shell / 'clock-prototype-launcher.sh')
+                client = shell / 'ClockClient.qml'
+                client.write_text(client.read_text().replace('script: "clock_service.py"', 'script: "clock_service.py"; launcher: "clock-prototype-launcher.sh"'))
             rust_clock = os.environ.get('MACSHELL_TEST_BOOT_CLOCK_BINARY')
             if rust_clock:
                 shutil.copy(rust_clock, shell / 'boot-clock-rust')
@@ -55,6 +61,12 @@ class ClockBackendIntegrationTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            prototype = os.environ.get('MACSHELL_TEST_CLOCK_PROTOTYPE')
+            if prototype:
+                shutil.copy(prototype, shell / 'clock-service-prototype')
+                shutil.copy(ROOT / 'tests/clock-prototype-launcher.sh', shell / 'clock-prototype-launcher.sh')
+                client = shell / 'ClockClient.qml'
+                client.write_text(client.read_text().replace('script: "clock_service.py"', 'script: "clock_service.py"; launcher: "clock-prototype-launcher.sh"'))
             shutil.copy(ROOT / 'tests/clock-backend-queue.qml', shell / 'shell.qml')
             for name in ('config', 'cache', 'runtime'):
                 (root / name).mkdir()

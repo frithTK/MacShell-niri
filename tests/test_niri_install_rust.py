@@ -68,6 +68,74 @@ class RustInstallationTests(unittest.TestCase):
                 self.assertTrue(os.access(wallpaper_binary, os.X_OK))
                 wallpaper_check = subprocess.run(['sh', str(shell / 'wallpaper-discovery.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
                 self.assertEqual(wallpaper_check.stdout.strip(), 'macshell-wallpaper-discovery 1')
+                notes_binary = shell / 'notes-service-rust'
+                self.assertTrue(os.access(notes_binary, os.X_OK))
+                notes_check = subprocess.run(['sh', str(shell / 'notes-service.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(notes_check.stdout.strip(), 'macshell-notes-service 1')
+                calendar_binary = shell / 'calendar-service-rust'
+                self.assertTrue(os.access(calendar_binary, os.X_OK))
+                calendar_check = subprocess.run(['sh', str(shell / 'calendar-service.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(calendar_check.stdout.strip(), 'macshell-calendar-service 1')
+                reminders_binary = shell / 'reminders-service-rust'
+                self.assertTrue(os.access(reminders_binary, os.X_OK))
+                reminders_check = subprocess.run(['sh', str(shell / 'reminders-service.sh'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(reminders_check.stdout.strip(), 'macshell-reminders-service 1')
+                clock_binary = shell / 'clock-service-prototype-rust'
+                self.assertTrue(os.access(clock_binary, os.X_OK))
+                clock_check = subprocess.run([str(clock_binary), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(clock_check.stdout.strip(), 'macshell-clock-service 1')
+                importer_check = subprocess.run([str(shell / 'clock-sound-import-rust'), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(importer_check.stdout.strip(), 'macshell-clock-import 1')
+                mirroring_binary = shell / 'screen-mirroring-service-rust'
+                airdrop_binary = shell / 'airdrop-service-rust'
+                biometric_binary = shell / 'biometric-probe-rust'
+                self.assertTrue(os.access(airdrop_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(airdrop_binary), '--protocol-version'], text=True).strip(), 'macshell-airdrop-service 1')
+                self.assertTrue(os.access(biometric_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(biometric_binary), '--protocol-version'], text=True).strip(), 'macshell-biometric-probe 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'biometric-probe.sh'), '--protocol-version'], text=True).strip(), 'macshell-biometric-probe 1')
+                update_binary = shell / 'update-service-rust'
+                self.assertTrue(os.access(update_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(update_binary), '--protocol-version'], text=True).strip(), 'macshell-update-service 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'update-service.sh'), '--protocol-version'], text=True).strip(), 'macshell-update-service 1')
+                (shell / 'airdrop_service.py').write_text('raise SystemExit("unexpected Python fallback")\n')
+                airdrop = Client(['sh', str(shell / 'airdrop-service.sh')])
+                try:
+                    airdrop.message(lambda message: message.get('type') == 'ready')
+                    self.assertEqual(Path(f'/proc/{airdrop.process.pid}/exe').resolve(), airdrop_binary.resolve())
+                    airdrop.send({'id': 1, 'generation': 1, 'action': 'status', 'data': {}})
+                    self.assertEqual(airdrop.message(lambda message: message.get('type') == 'state')['status'], 'off')
+                finally:
+                    airdrop.close()
+                self.assertTrue(os.access(mirroring_binary, os.X_OK))
+                mirroring_check = subprocess.run([str(mirroring_binary), '--protocol-version'], capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(mirroring_check.stdout.strip(), 'macshell-screen-mirroring 1')
+                (shell / 'screen_mirroring.py').write_text('raise SystemExit("unexpected Python fallback")\n')
+                mirroring = Client(['sh', str(shell / 'screen-mirroring-service.sh')])
+                try:
+                    mirroring.message(lambda message: message.get('type') == 'ready')
+                    self.assertEqual(Path(f'/proc/{mirroring.process.pid}/exe').resolve(), mirroring_binary.resolve())
+                    mirroring.send({'id': 1, 'generation': 1, 'action': 'watch', 'data': {'enabled': False}})
+                    self.assertEqual(mirroring.message(lambda message: message.get('type') == 'state')['senderState'], 'off')
+                finally:
+                    mirroring.close()
+                clock_store = root / 'clock-check/clock.json'
+                (shell / 'clock_service.py').write_text('raise SystemExit("unexpected Python fallback")\n')
+                clock = Client(['sh', str(shell / 'clock-service.sh'), '--store', str(clock_store)])
+                try:
+                    clock.message(lambda message: message.get('type') == 'ready')
+                    self.assertEqual(Path(f'/proc/{clock.process.pid}/exe').resolve(), clock_binary.resolve())
+                    clock.send({'id': 1, 'generation': 1, 'action': 'prepare', 'data': {}})
+                    prepared = clock.message(lambda message: message.get('type') == 'prepared')
+                    self.assertFalse(clock_store.exists())
+                    envelope = dict(id=prepared['commandId'], bootId=prepared['bootId'],
+                                    issuedBootMs=prepared['issuedBootMs'], revision=prepared['revision'],
+                                    action='start', args={'sessionId': prepared['sessionId'], 'durationMs': 30000})
+                    clock.send({'id': 2, 'generation': 1, 'action': 'command', 'data': envelope})
+                    self.assertTrue(clock.message(lambda message: message.get('type') == 'result')['success'])
+                    self.assertEqual(json.loads(clock_store.read_text())['timing']['timer']['state'], 'running')
+                finally:
+                    clock.close()
                 fake_network = HoldingBus()
                 network = Client(['sh', str(shell / 'network-service.sh')],
                                  env=dict(os.environ, DBUS_SYSTEM_BUS_ADDRESS=fake_network.address))

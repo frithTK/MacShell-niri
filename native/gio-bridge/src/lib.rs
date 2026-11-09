@@ -189,6 +189,7 @@ extern "C" {
     pub fn g_variant_get_type_string(value: Ptr) -> *const c_char;
     pub fn g_variant_get_string(value: Ptr, length: *mut usize) -> *const c_char;
     pub fn g_variant_get_boolean(value: Ptr) -> c_int;
+    pub fn g_variant_get_int32(value: Ptr) -> i32;
     pub fn g_variant_get_uint32(value: Ptr) -> u32;
     pub fn g_variant_get_uint64(value: Ptr) -> u64;
     pub fn g_variant_get_uint16(value: Ptr) -> u16;

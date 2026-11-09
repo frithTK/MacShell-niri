@@ -20,7 +20,7 @@ fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
 }
 
-pub(crate) fn journal_name(name: &OsStr) -> io::Result<CString> {
+pub fn journal_name(name: &OsStr) -> io::Result<CString> {
     let raw = name.as_bytes();
     let suffix = raw
         .strip_prefix(b".macshell-input-journal-")

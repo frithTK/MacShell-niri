@@ -18,13 +18,15 @@ class JsonServiceSessionTests(unittest.TestCase):
             shutil.copy(ROOT / "MacShell/JsonService.qml", root / "JsonService.qml")
             helper = root / "helper.py"
             helper.write_text('import json,sys,time\nprint(json.dumps({"type":"ready"}),flush=True)\nfor line in sys.stdin:\n time.sleep(.2)\n')
+            launcher = root / 'helper.sh'
+            launcher.write_text('#!/bin/sh\nexec /usr/bin/python3 -u "$(dirname "$0")/helper.py"\n')
             (root / "shell.qml").write_text('''import QtQuick
 import Quickshell
 ShellRoot {
-    JsonService { id: ordinary; script: "%s"; onConnected: {
+    JsonService { id: ordinary; launcher: "%s"; onConnected: {
         if (send("one", {}) < 1 || send("two", {}) < 1) Qt.exit(2);
     } }
-    JsonService { id: serial; script: "%s"; serializeRequests: true; onConnected: {
+    JsonService { id: serial; launcher: "%s"; serializeRequests: true; onConnected: {
         if (send("one", {}) < 1 || send("two", {}) !== -2) Qt.exit(3);
         enabled = false;
     } }
@@ -33,7 +35,7 @@ ShellRoot {
     } }
     Timer { interval: 4000; running: true; onTriggered: Qt.exit(5) }
 }
-''' % (helper, helper))
+''' % (launcher, launcher))
             env = dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QPA_PLATFORMTHEME="", QT_QUICK_CONTROLS_STYLE="Basic", XDG_RUNTIME_DIR=str(root / "runtime"), XDG_CACHE_HOME=directory, DBUS_SESSION_BUS_ADDRESS="unix:path=" + str(root / "no-bus"))
             env.pop("WAYLAND_DISPLAY", None)
             env.pop("DISPLAY", None)

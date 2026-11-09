@@ -86,10 +86,16 @@ fn check_file(
     let mut includes = Vec::new();
     while i < data.len() {
         let mut raw = i;
-        if data[i] == b'r' { raw += 1; }
-        while raw < data.len() && data[raw] == b'#' { raw += 1; }
+        if data[i] == b'r' {
+            raw += 1;
+        }
+        while raw < data.len() && data[raw] == b'#' {
+            raw += 1;
+        }
         if raw > i && data[raw..].starts_with(b"\"") && data[i..raw].contains(&b'#') {
-            if node_start { return fail(); }
+            if node_start {
+                return fail();
+            }
             let hashes = raw - i - 1;
             i = raw + 1;
             let mut closed = false;
@@ -97,13 +103,22 @@ fn check_file(
                 if data[i] == b'"' {
                     let mut end = i + 1;
                     let mut count = 0;
-                    while count < hashes && end < data.len() && data[end] == b'#' { end += 1; count += 1; }
-                    if count == hashes { i = end; closed = true; break; }
+                    while count < hashes && end < data.len() && data[end] == b'#' {
+                        end += 1;
+                        count += 1;
+                    }
+                    if count == hashes {
+                        i = end;
+                        closed = true;
+                        break;
+                    }
                 }
                 if data[i] == b'\n' { /* raw strings may contain newlines */ }
                 i += 1;
             }
-            if !closed { return fail(); }
+            if !closed {
+                return fail();
+            }
             node_start = false;
         } else if data[i..].starts_with(b"//") {
             while i < data.len() && data[i] != b'\n' {
@@ -143,9 +158,15 @@ fn check_file(
                 if data[i] == b'"' {
                     i += 1;
                     while i < data.len() && data[i] != b'"' {
-                        if data[i] == b'\\' { i = (i + 2).min(data.len()); } else { i += 1; }
+                        if data[i] == b'\\' {
+                            i = (i + 2).min(data.len());
+                        } else {
+                            i += 1;
+                        }
                     }
-                    if i >= data.len() { return fail(); }
+                    if i >= data.len() {
+                        return fail();
+                    }
                 }
                 i += 1;
             }
@@ -156,23 +177,37 @@ fn check_file(
                 i += 1;
                 while i < data.len() && nested > 0 {
                     if data[i..].starts_with(b"//") {
-                        while i < data.len() && data[i] != b'\n' { i += 1; }
-                    } else if data[i] == b'{' { nested += 1; i += 1; }
-                    else if data[i] == b'}' { nested -= 1; i += 1; }
-                    else if data[i] == b'"' {
+                        while i < data.len() && data[i] != b'\n' {
+                            i += 1;
+                        }
+                    } else if data[i] == b'{' {
+                        nested += 1;
+                        i += 1;
+                    } else if data[i] == b'}' {
+                        nested -= 1;
+                        i += 1;
+                    } else if data[i] == b'"' {
                         i += 1;
                         while i < data.len() && data[i] != b'"' {
-                            if data[i] == b'\\' { i = (i + 2).min(data.len()); } else { i += 1; }
+                            if data[i] == b'\\' {
+                                i = (i + 2).min(data.len());
+                            } else {
+                                i += 1;
+                            }
                         }
-                        if i < data.len() { i += 1; }
-                    } else { i += 1; }
+                        if i < data.len() {
+                            i += 1;
+                        }
+                    } else {
+                        i += 1;
+                    }
                 }
-                if nested != 0 { return fail(); }
+                if nested != 0 {
+                    return fail();
+                }
             }
             node_start = true;
-        } else if data[i] == b'\\'
-            || data[i..].starts_with(b"\"\"\"")
-        {
+        } else if data[i] == b'\\' || data[i..].starts_with(b"\"\"\"") {
             return fail();
         } else if matches!(data[i], b'\n' | b';' | b'{' | b'}') {
             if data[i] == b'{' {
@@ -313,11 +348,15 @@ mod tests {
     #[test]
     fn accepts_installed_disabled_output_template() {
         let mut files = profile("include \"./nested/local.kdl\"\n");
-        files.insert(PathBuf::from("display.kdl"), br#"/- output "DP-1" {
+        files.insert(
+            PathBuf::from("display.kdl"),
+            br#"/- output "DP-1" {
     mode "2560x1440@359.979"
     scale 1
 }
-"#.to_vec());
+"#
+            .to_vec(),
+        );
         assert!(check(&files).is_ok());
     }
     #[test]

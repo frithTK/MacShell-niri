@@ -2,10 +2,12 @@
 
 ## 1.2.0
 
+- Removed the previously bundled third-party sound recordings and default alarm/timer audio. Users can import their own sounds.
 - Added a standalone Calendar app with local event storage and integration with the Dock and app search.
 - Moved system services including Wi-Fi, Bluetooth, window capture, screen recording and desktop settings to Rust, with Python fallback during the transition.
 - Added isolated integration coverage for installation and rollback, system buses, and screen capture and recording with virtual sources. Hardware and normal-session acceptance remain outstanding.
 - Updated installation requirements for the Rust build and native capture dependencies.
+- Added a Rust-first on-demand update service with stable release checks, tagged checkout verification, package checks and explicit preparation without automatic MacShell installation; Python remains the fallback.
 
 ## 1.1.2
 

@@ -15,6 +15,17 @@ MACSHELL_STICKIES_LANG=ru MACSHELL_STICKIES_CAPTURE=/tmp/macshell-readme-en/stic
 
 The app checks capture both themes as `notes-{dark,light}.png` and `reminders-{dark,light}.png`; the English README uses the dark captures with an `-en-` suffix. Timer previews use `timer-widget-en-{dark,light}.png`. Pass `ru` to the timer preview script for Russian images. The existing Russian app captures use the same tests without `MACSHELL_README_CAPTURE_EN`.
 
+Calendar images use the real Calendar QML and Rust service in an isolated nested niri session with a disposable sample event. Capture each language into a separate directory:
+
+```bash
+mkdir -p /tmp/macshell-calendar-en /tmp/macshell-calendar-ru
+cargo build --offline --locked --manifest-path native/calendar-service/Cargo.toml
+MACSHELL_CALENDAR_TEST_RUST=1 MACSHELL_CALENDAR_CAPTURE_LANGUAGE=en python3 scripts/check-calendar-native.py --capture /tmp/macshell-calendar-en
+MACSHELL_CALENDAR_TEST_RUST=1 MACSHELL_CALENDAR_CAPTURE_LANGUAGE=ru python3 scripts/check-calendar-native.py --capture /tmp/macshell-calendar-ru
+```
+
+The resulting `calendar-{dark,light}.png` files can be copied to `docs/images/calendar-{en,ru}-{dark,light}.png` for the corresponding language. The capture also verifies event creation, editing, restoration, persistence and localization. The test uses `grabToImage` on the application content rather than a full desktop capture.
+
 ## Liquid Glass showcase
 
 Run deliberately from an active niri session with the repository's compatible Quickshell/Qt runtime, `niri`, `grim`, `wf-recorder` and `ffmpeg` installed:

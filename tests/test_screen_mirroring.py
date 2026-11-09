@@ -73,6 +73,32 @@ class ScreenMirroringTests(unittest.TestCase):
         self.assertIn(dict(cmd='connect', target='127.0.0.42', pin='0042'), requests)
         self.assertNotIn('0042', json.dumps(client.lines))
 
+    def test_sender_starts_at_60_fps_and_receiver_volume_defaults_to_20_percent(self):
+        client = self.client()
+        self.discover(client)
+        start = next(line for line in self.trace(client) if line.get('program') == 'doubletake')
+        self.assertEqual(start['arguments'][start['arguments'].index('-fps') + 1], '60')
+        self.assertEqual(start['arguments'][start['arguments'].index('-volume-percent') + 1], '20')
+
+    def test_old_doubletake_is_refused_instead_of_resetting_tv_to_100_percent(self):
+        client = self.client(AIRPLAY_TEST_VOLUME_SUPPORT='0')
+        client.send('watch', enabled=True)
+        state = client.wait(lambda m: m.get('senderState') == 'error')
+        self.assertIn('-volume-percent', state['senderError'])
+        self.assertFalse(client.trace.exists())
+
+    def test_runtime_doubletake_takes_precedence_over_path(self):
+        client = self.client()
+        folder = client.trace.parent
+        runtime = folder / 'data/macshell-niri/runtime/bin'
+        runtime.mkdir(parents=True)
+        executable = runtime / 'doubletake'
+        executable.write_text((folder / 'doubletake').read_text())
+        executable.chmod(0o755)
+        self.discover(client)
+        start = next(line for line in self.trace(client) if line.get('program') == 'doubletake')
+        self.assertEqual(start['executable'], str(executable))
+
     def test_configured_password_has_a_distinct_prompt_and_wrong_value_can_retry(self):
         client = self.client(AIRPLAY_TEST_CREDENTIAL='password')
         state = self.connect(client)

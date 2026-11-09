@@ -26,11 +26,26 @@ cargo fetch --locked --manifest-path native/bluez-session/Cargo.toml
 cargo fetch --locked --manifest-path native/network-snapshot/Cargo.toml
 cargo fetch --locked --manifest-path native/capture-service/Cargo.toml
 cargo fetch --locked --manifest-path native/recording-core/Cargo.toml
+cargo fetch --locked --manifest-path native/niri-input/Cargo.toml
+cargo fetch --locked --manifest-path native/session-service/Cargo.toml
+cargo fetch --locked --manifest-path native/currency-fetch/Cargo.toml
+cargo fetch --locked --manifest-path native/widget-fetch/Cargo.toml
+cargo fetch --locked --manifest-path native/wallpaper-discovery/Cargo.toml
+cargo fetch --locked --manifest-path native/notes-service/Cargo.toml
+cargo fetch --locked --manifest-path native/calendar-service/Cargo.toml
+cargo fetch --locked --manifest-path native/reminders-service/Cargo.toml
+cargo fetch --locked --manifest-path native/clock-core/Cargo.toml
+cargo fetch --locked --manifest-path native/screen-mirroring/Cargo.toml
+cargo fetch --locked --manifest-path native/airdrop-service/Cargo.toml
+cargo fetch --locked --manifest-path native/biometric-probe/Cargo.toml
+cargo fetch --locked --manifest-path native/update-service/Cargo.toml
 ```
+
+Rust-сборка также включает службы ввода, сеанса, валют, загрузки виджетов, поиска обоев, «Заметок», «Календаря», «Напоминаний», Clock, Screen Mirroring, AirDrop, биометрии и обновлений. Screen Mirroring использует Doubletake и UxPlay, а AirDrop — MacShell Owly. Исходные launcher сохраняют Python fallback для старых профилей; новые установки Rust-only сообщают об отсутствии или несовместимости бинарника как об ошибке. «Заметки», «Календарь» и «Напоминания» используют встроенную SQLite. Rust-служба Clock пока сохраняет название prototype; она проверена с временными данными, вложенным niri и изолированным PipeWire, но приёмка в установленном сеансе ещё не проводилась. Параметры Doubletake описаны в [DOUBLETAKE_RUNTIME.md](DOUBLETAKE_RUNTIME.md).
 
 Отдельный скрипт входа, его предпроверка и обработчик локали обновляются командой `bash install.sh --session`; обычная установка обновляет оболочку и сохраняет существующий скрипт входа.
 
-Установщик собирает компоненты без доступа к сети **до изменения пользовательских файлов**. `--check` проверяет наличие Cargo, но не полноту кэша зависимостей. Во время перехода `bash install.sh --python-bridge` явно выбирает прежние версии на Python, если собрать Rust пока невозможно. Остальные службы и установщик пока продолжают требовать Python.
+Установщик на Rust собирает компоненты без доступа к сети **до изменения пользовательских файлов**. `--check` проверяет Cargo и runtime Quickshell, но не полноту кэша зависимостей всех компонентов. Новые установки запускают службы без Python; при отсутствии или несовместимости бинарника сообщается ошибка. Обычная установка сохраняет прежние помощники сеанса, которым всё ещё может требоваться Python; для их обновления используйте `--session` вне сеанса MacShell. Прежний параметр `--python-bridge` больше не поддерживается.
 
 Для превью нужны GStreamer с элементами `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, `appsrc`, `pngenc`, а также PipeWire и D-Bus ScreenCast в сессии niri. Для Python fallback дополнительно нужны `python` 3.11+, `python-gobject`, `python-pillow` и `gst-python`. В Arch/CachyOS это обычно `gst-plugin-pipewire`, `gst-plugins-base`, `gst-plugins-good` и `gst-plugins-bad`. Проверка:
 

@@ -31,6 +31,8 @@ function migrate(source) {
     value.statsMetrics = value.statsMetrics.filter(k => ["cpu", "memory", "network", "disk"].indexOf(k) >= 0);
     if ([1, 2, 5].indexOf(value.statsInterval) < 0) value.statsInterval = 1;
     value.nightTemp = Math.max(2500, Math.min(6000, Number(value.nightTemp) || 4000));
+    value.airplayFps = Math.max(15, Math.min(60, Number(value.airplayFps) || 60));
+    value.airplayVolumePercent = Math.max(1, Math.min(100, Number(value.airplayVolumePercent) || 20));
     if (!value.modesMigrated) {
         value.modeState = {focus: {mode: (value.dnd !== undefined ? value.dnd : value.notifDnd) ? "manual" : "off"}, awake: {mode: "off"}};
         value.nightDesired = !!value.nightOn;

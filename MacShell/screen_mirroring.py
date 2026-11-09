@@ -23,10 +23,12 @@ RECEIVER_PORT = 7100
 
 
 def backend(name):
+    runtime = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'macshell-niri/runtime/bin' / name
+    if name == 'doubletake' and runtime.is_file() and os.access(runtime, os.X_OK):
+        return str(runtime)
     installed = shutil.which(name)
     if installed:
         return installed
-    runtime = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'macshell-niri/runtime/bin' / name
     return str(runtime) if runtime.is_file() and os.access(runtime, os.X_OK) else None
 
 
@@ -74,6 +76,8 @@ class ScreenMirroring(LineService):
         self.started = {}
         self.last_publication = None
         self.credentials_to_hide = deque(maxlen=4)
+        self.fps = 60
+        self.volume_percent = 20
 
     def clean_error(self, error):
         message = str(error or '')[:400]
@@ -105,6 +109,13 @@ class ScreenMirroring(LineService):
         self.started[kind] = time.monotonic()
         return child
 
+    def doubletake_supports_volume(self, executable):
+        try:
+            result = subprocess.run([executable, '-help'], capture_output=True, text=True, timeout=3)
+            return 'volume-percent' in result.stdout + result.stderr
+        except (OSError, subprocess.SubprocessError):
+            return False
+
     def stop_process(self, kind):
         child = getattr(self, kind)
         if child is None:
@@ -132,8 +143,16 @@ class ScreenMirroring(LineService):
             return
         config = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'macshell-niri/airplay'
         config.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.sender = self.spawn([executable, '-daemonize', '-socket', self.socket_path,
-                                  '-creds', str(config / 'credentials.json')], 'sender')
+        command = [executable, '-daemonize', '-socket', self.socket_path,
+                   '-fps', str(self.fps), '-creds', str(config / 'credentials.json')]
+        supports_volume = self.doubletake_supports_volume(executable)
+        if self.volume_percent != 100 and not supports_volume:
+            self.sender_state = 'error'
+            self.sender_error = 'This Doubletake runtime cannot set the TV volume. Install the patched runtime with -volume-percent.'
+            return
+        if supports_volume:
+            command += ['-volume-percent', str(self.volume_percent)]
+        self.sender = self.spawn(command, 'sender')
         self.sender_state = 'starting'
         self.sender_error = ''
         self.next_poll = 0
@@ -287,6 +306,7 @@ class ScreenMirroring(LineService):
     def command(self, request):
         action = request['action']
         data = request.get('data', {})
+        self.apply_preferences(data)
         if action == 'watch':
             self.watching = bool(data.get('enabled'))
             if self.watching:
@@ -335,6 +355,20 @@ class ScreenMirroring(LineService):
         elif action != 'status':
             raise ValueError('Unknown screen mirroring action.')
         self.publish()
+
+    def apply_preferences(self, data):
+        if 'fps' in data:
+            value = int(data['fps'])
+            if not 1 <= value <= 60:
+                raise ValueError('AirPlay FPS must be between 1 and 60.')
+            if self.sender and value != self.fps:
+                raise ValueError('Stop Screen Mirroring before changing FPS.')
+            self.fps = value
+        if 'volumePercent' in data:
+            value = int(data['volumePercent'])
+            if not 1 <= value <= 100:
+                raise ValueError('AirPlay volume must be between 1 and 100 percent.')
+            self.volume_percent = value
 
     def tick(self):
         now = time.monotonic()

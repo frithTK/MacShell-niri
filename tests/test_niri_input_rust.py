@@ -81,7 +81,7 @@ class InputCompatibilityTests(unittest.TestCase):
                                    capture_output=True, text=True, timeout=20)
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertNotEqual(fragment.read_text(), initial)
-            journals = list(profile.glob(".macshell-input-journal-*"))
+            journals = [path for path in profile.glob(".macshell-input-journal-*") if "-progress-" not in path.name]
             candidates = list(profile.glob(".macshell-input-[0-9a-f][0-9a-f]*"))
             self.assertTrue(journals)
             self.assertTrue(candidates)
@@ -89,6 +89,32 @@ class InputCompatibilityTests(unittest.TestCase):
                                     capture_output=True, text=True, timeout=20)
             self.assertNotEqual(second.returncode, 0)
             self.assertIn("unfinished input transaction", second.stderr)
+
+            diagnostic = subprocess.run([PROTOCOL_BINARY, "diagnose", journals[0].name], env=env,
+                                        capture_output=True, text=True, timeout=20)
+            self.assertEqual(diagnostic.returncode, 0, diagnostic.stderr)
+            report = json.loads(diagnostic.stdout)
+            self.assertTrue(report["cleanupAllowed"])
+            self.assertEqual(report["profile"], "all_exchanged")
+            self.assertEqual(report["agreement"], "consistent")
+            automatic = subprocess.run([PROTOCOL_BINARY, "diagnose"], env=env,
+                                       capture_output=True, text=True, timeout=20)
+            self.assertEqual(automatic.returncode, 0, automatic.stderr)
+            self.assertEqual(json.loads(automatic.stdout)["status"], "cleanup_safe")
+            cleaned = subprocess.run([PROTOCOL_BINARY, "resolve-cleanup", journals[0].name], env=env,
+                                     capture_output=True, text=True, timeout=20)
+            self.assertEqual(cleaned.returncode, 0, cleaned.stderr)
+            self.assertFalse(journals[0].exists())
+            self.assertFalse(any(profile.glob(".macshell-input-*-progress-*")))
+            self.assertFalse(any(profile.glob(".macshell-input-[0-9a-f][0-9a-f]*")))
+
+    def test_diagnose_is_clear_without_retained_journal(self):
+        with tempfile.TemporaryDirectory(prefix="macshell-input-clear-") as directory:
+            result = subprocess.run([PROTOCOL_BINARY, "diagnose"],
+                                    env=dict(os.environ, MACSHELL_NIRI_PROFILE=directory),
+                                    capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["status"], "clear")
 
     @unittest.skipUnless(PROTOCOL_BINARY, "set MACSHELL_TEST_NIRI_INPUT_BINARY")
     def test_service_launcher_prefers_rust_and_falls_back_before_transaction(self):

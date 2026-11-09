@@ -23,7 +23,7 @@ from scripts.install_niri import quickshell
 class ManagedClockAppTests(unittest.TestCase):
     def prepare_shell(self, root, fixture):
         shell = root / 'shell'
-        shutil.copytree(ROOT / 'MacShell', shell)
+        shutil.copytree(ROOT / 'MacShell', shell, ignore=shutil.ignore_patterns('apple', 'alarm.wav', 'timer.wav'))
         shutil.copy(ROOT / fixture, shell / 'shell.qml')
         app = shell / 'ClockApp.qml'
         source = app.read_text()

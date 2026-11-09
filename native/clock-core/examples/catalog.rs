@@ -1,0 +1,5 @@
+use macshell_clock_core::sound_catalog::SoundCatalog;
+use serde_json::{json,Value};
+use std::io::{self,BufRead};
+use std::path::PathBuf;
+fn main(){let args:Vec<_>=std::env::args().skip(1).collect();let catalog=SoundCatalog{library:PathBuf::from(&args[0]),sounds:PathBuf::from(&args[1])};for line in io::stdin().lock().lines().map_while(std::result::Result::ok){let request:Value=serde_json::from_str(&line).unwrap();let result=match request["op"].as_str(){Some("state")=>catalog.state(),Some("visible")=>catalog.set_visible(request["value"].as_bool().unwrap()).map(|_|json!(null)),Some("favorite")=>catalog.set_favorite(request["id"].as_str().unwrap(),request["value"].as_bool().unwrap()).map(|_|json!(null)),Some("rename")=>catalog.rename_imported(request["id"].as_str().unwrap(),request["name"].as_str().unwrap()).map(|_|json!(null)),Some("delete")=>catalog.delete_imported(request["id"].as_str().unwrap()).map(|v|json!(v)),_=>catalog.resolve(request["id"].as_str().unwrap()).map(|p|json!(p))};println!("{}",match result{Ok(v)=>json!({"success":true,"result":v}),Err(e)=>json!({"success":false,"error":e})});}}

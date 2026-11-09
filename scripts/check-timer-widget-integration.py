@@ -29,6 +29,10 @@ with tempfile.TemporaryDirectory(prefix='macshell-timer-widget-') as directory:
     root = Path(directory)
     shell = root / 'shell'
     shutil.copytree(project / 'MacShell', shell)
+    if os.environ.get('MACSHELL_CLOCK_TEST_RUST') == '1':
+        for name in ('clock-service-prototype', 'clock-audio-worker', 'clock-sound-import'):
+            shutil.copy2(project / 'native/clock-core/target/debug' / name, shell / (name + '-rust'))
+        (shell / 'clock_service.py').write_text('raise SystemExit("unexpected Python Clock fallback")\n')
     path = shell / 'shell.qml'
     source = path.read_text().replace('import QtQuick\n', 'import QtQuick\nimport QtQuick.Window\nimport QtTest\n', 1)
     source = source.replace('ShellRoot {', 'ShellRoot {\n' + (project / 'tests/timer-widget-integration.qml').read_text(), 1)

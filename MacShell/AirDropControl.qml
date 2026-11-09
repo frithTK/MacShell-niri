@@ -28,7 +28,7 @@ Scope {
     function cancel() { send("cancel"); }
     onAirplayBusyChanged: service.send("blocked", {enabled: airplayBusy})
     JsonService {
-        id: service; script: "airdrop_service.py"; enabled: root.enabled
+        id: service; script: "airdrop_service.py"; launcher: "airdrop-service.sh"; enabled: root.enabled
         onConnected: { service.send("blocked", {enabled: root.airplayBusy}); if (root.probeRequested) service.send("probe"); }
         onReadyChanged: if (!ready) {
             root.state = Object.assign({}, root.state, {status: Language.I18n.text("ui.t_b4dc66dde806"), pending: null, receiving: false, scanning: false, transfer: "idle"});

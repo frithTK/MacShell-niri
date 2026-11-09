@@ -21,12 +21,19 @@ A macOS-inspired desktop for **niri**, with a Dock, Spotlight, Liquid Glass and 
 - **Desktop:** Dock, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes.
 - **Clock:** world clocks, alarms, stopwatch and a shared timer, with a desktop Timer widget and a customizable sound library.
 - **Notes, Stickies and Reminders:** local notes with search and autosave, floating sticky notes and task lists with due dates, notifications and repeating tasks.
+- **Calendar:** a local month view with all-day and timed events, editing and recovery of deleted events. Recurrence, notifications and synchronization are not yet available.
 - **Calculator:** basic and scientific modes, unit and currency conversion.
 - **Settings and lock screen:** Russian and English interface, regional formats and a separate MacLock screen locker.
 
 See the [utilities guide](docs/UTILITIES.md) for details.
 
 ## A closer look
+
+**Calendar**
+
+| Dark | Light |
+| --- | --- |
+| <a href="docs/images/calendar-en-dark.png"><img src="docs/images/calendar-en-dark.png" alt="Calendar with a sample event, dark theme" width="420"></a> | <a href="docs/images/calendar-en-light.png"><img src="docs/images/calendar-en-light.png" alt="Calendar with a sample event, light theme" width="420"></a> |
 
 **Notes and Reminders**
 
@@ -123,7 +130,9 @@ See the [utilities guide](docs/UTILITIES.md) for details.
 
 ## Get started
 
-Requires niri 26.04+, Qt 6.9+, a compatible Quickshell build and Rust/Cargo 1.85+ for the migrated system components. Other components still require Python during the migration.
+Requires niri 26.04+, Qt 6.9+, a compatible Quickshell build and Rust/Cargo 1.85+. New shell and session installations use Rust services without a Python runtime dependency. Legacy session profiles and rollback snapshots can still require Python; development tests also use Python.
+
+Clock supports imported audio and optional built-in synthesized sounds. The distribution does not include default alarm or timer recordings: select a sound in Clock or provide your own defaults. Without one, alerts cannot play audio.
 
 ```bash
 git clone https://github.com/frithTK/MacShell-niri.git

@@ -112,7 +112,7 @@ class ClockServiceTests(unittest.TestCase):
         client.send('set-builtins-visible', {'visible': False})
         hidden = client.read()
         self.assertFalse(hidden['showBuiltins'])
-        self.assertEqual(len(hidden['sounds']), 66)
+        self.assertEqual(len(hidden['sounds']), len(SoundLibrary(root / 'library').list_apple()) + 1)
         self.assertIn(identifier, [item['id'] for item in hidden['sounds']])
         self.assertFalse(any(item['id'].startswith('builtin-') for item in hidden['sounds']))
         client.send('sounds')
@@ -169,6 +169,8 @@ class ClockServiceTests(unittest.TestCase):
 
     def test_packaged_apple_sound_can_be_saved_and_reopened(self):
         root = Path(self.directory.name)
+        if not SoundLibrary(root / 'library').list_apple():
+            self.skipTest('Optional packaged sound collection is not present')
         client = self.client(sound_dir=root)
         self.assertEqual(client.read()['type'], 'ready')
         client.send('sounds')
@@ -657,7 +659,7 @@ while True:
         client.send('sounds')
         catalog = client.read()
         self.assertEqual(catalog['type'], 'sounds')
-        self.assertEqual(len(catalog['sounds']), 65)
+        self.assertEqual(len(catalog['sounds']), len(SoundLibrary(root / 'library').list_apple()))
         client.send('preview-sound', {'soundId': 'builtin-chime-01'})
         self.assertEqual(client.read()['soundId'], 'builtin-chime-01')
         deadline = time.monotonic() + 4

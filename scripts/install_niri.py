@@ -86,6 +86,7 @@ def doctor():
         if not present and name in ("doubletake", "uxplay"):
             present = shutil.which(name, path=str(DATA / "runtime/bin"))
         print(("OK: " if present else "OPTIONAL MISSING: ") + name)
+    print("OK: Rust update backend is built during Rust installation")
     if not (shutil.which("qsb") or Path("/usr/lib/qt6/bin/qsb").exists()):
         print("ERROR: Liquid Glass needs qt6-shadertools")
         ok = False
@@ -114,11 +115,17 @@ def launcher(lock=False):
     if lock:
         return text + f'exec sh {shlex.quote(str(LOCK / "lock-via-ipc.sh"))} "$@"\n'
     text += 'if [[ $# -eq 0 && ${MACSHELL_MANAGED_SHELL:-} == 1 && ${MACSHELL_SERVICE_CHILD:-} != 1 ]]; then\n'
-    text += f'    exec /usr/bin/python3 {shlex.quote(str(PROFILE / "shell-supervisor.py"))} start\nfi\n'
+    supervisor = shlex.quote(str(PROFILE / "shell-supervisor.sh"))
+    legacy = shlex.quote(str(PROFILE / "shell-supervisor.py"))
+    text += f'    if [[ -f {supervisor} ]]; then\n        exec sh {supervisor} start\n    fi\n    exec python3 {legacy} start\nfi\n'
     return text + 'unset MACSHELL_SERVICE_CHILD\nexec "$MACSHELL_QS_BIN" -c MacShell-niri "$@"\n'
 
 
 def session_files(locale_binary=None, preflight_binary=None):
+    # A legacy session can replace a Rust session in the same profile.
+    # Do not retain its Rust-only policy when installing Python helpers.
+    if not locale_binary or not preflight_binary:
+        (PROFILE / ".macshell-rust-only").unlink(missing_ok=True)
     shutil.copy2(SOURCE / "scripts/session_preflight.py", PROFILE / "session-preflight.py")
     preflight = PROFILE / "session-preflight.sh"
     shutil.copy2(SOURCE / "scripts/session-preflight.sh", preflight)
@@ -130,8 +137,14 @@ def session_files(locale_binary=None, preflight_binary=None):
         installed_preflight.chmod(0o755)
     ready = PROFILE / "session-ready.py"
     shutil.copy2(SOURCE / "scripts/session_ready.py", ready)
+    ready_launcher = PROFILE / "session-ready.sh"
+    shutil.copy2(SOURCE / "scripts/session-ready.sh", ready_launcher)
+    ready_launcher.chmod(0o755)
     supervisor = PROFILE / "shell-supervisor.py"
     shutil.copy2(SOURCE / "scripts/shell_supervisor.py", supervisor)
+    supervisor_launcher = PROFILE / "shell-supervisor.sh"
+    shutil.copy2(SOURCE / "scripts/shell-supervisor.sh", supervisor_launcher)
+    supervisor_launcher.chmod(0o755)
     shutil.copy2(SOURCE / "scripts/session_locale.py", PROFILE / "session-locale.py")
     shutil.copy2(SOURCE / "MacShell/locale_preferences.py", PROFILE / "locale_preferences.py")
     locale_helper = PROFILE / "session-locale.sh"
@@ -151,8 +164,8 @@ def session_files(locale_binary=None, preflight_binary=None):
     SESSION_UNIT.parent.mkdir(parents=True, exist_ok=True)
     def unit_arg(path):
         return '"' + str(path).replace("%", "%%").replace("\\", "\\\\").replace('"', '\\"') + '"'
-    SESSION_UNIT.write_text('[Unit]\nDescription=niri with the separate MacShell profile\nBindsTo=graphical-session.target\nBefore=graphical-session.target\nWants=graphical-session-pre.target\nAfter=graphical-session-pre.target\nWants=xdg-desktop-autostart.target\nBefore=xdg-desktop-autostart.target\n\n[Service]\nSlice=session.slice\nType=notify\nTimeoutStartSec=30\nTimeoutStopSec=10\nExecStart=/usr/bin/niri --session --config ' + unit_arg(PROFILE / "niri/config.kdl") + '\nExecStartPost=/usr/bin/python3 ' + unit_arg(ready) + ' ' + unit_arg(BIN / "macshell-niri") + '\nExecStopPost=-/usr/bin/systemctl --user stop macshell-niri-shell.service\n')
-    SHELL_UNIT.write_text('[Unit]\nDescription=MacShell for the niri session\nPartOf=niri-macshell.service\nStartLimitIntervalSec=60\nStartLimitBurst=5\n\n[Service]\nSlice=session.slice\nType=exec\nEnvironment=MACSHELL_SERVICE_CHILD=1\nExecStartPre=/usr/bin/python3 ' + unit_arg(supervisor) + ' check ' + unit_arg(quickshell()) + '\nExecStart=' + unit_arg(BIN / "macshell-niri") + '\nRestart=on-failure\nRestartSec=2\nTimeoutStopSec=10\nKillMode=control-group\n')
+    SESSION_UNIT.write_text('[Unit]\nDescription=niri with the separate MacShell profile\nBindsTo=graphical-session.target\nBefore=graphical-session.target\nWants=graphical-session-pre.target\nAfter=graphical-session-pre.target\nWants=xdg-desktop-autostart.target\nBefore=xdg-desktop-autostart.target\n\n[Service]\nSlice=session.slice\nType=notify\nTimeoutStartSec=30\nTimeoutStopSec=10\nExecStart=/usr/bin/niri --session --config ' + unit_arg(PROFILE / "niri/config.kdl") + '\nExecStartPost=/bin/sh ' + unit_arg(ready_launcher) + ' ' + unit_arg(BIN / "macshell-niri") + '\nExecStopPost=-/usr/bin/systemctl --user stop macshell-niri-shell.service\n')
+    SHELL_UNIT.write_text('[Unit]\nDescription=MacShell for the niri session\nPartOf=niri-macshell.service\nStartLimitIntervalSec=60\nStartLimitBurst=5\n\n[Service]\nSlice=session.slice\nType=exec\nEnvironment=MACSHELL_SERVICE_CHILD=1\nExecStartPre=/bin/sh ' + unit_arg(supervisor_launcher) + ' check ' + unit_arg(quickshell()) + '\nExecStart=' + unit_arg(BIN / "macshell-niri") + '\nRestart=on-failure\nRestartSec=2\nTimeoutStopSec=10\nKillMode=control-group\n')
     bundle = DATA / "session"
     bundle.mkdir(parents=True, exist_ok=True)
     for source in ("scripts/register-session.sh", "scripts/session-entry.sh", "config/niri-macshell.desktop"):
@@ -492,6 +505,12 @@ def build_session_preflight(target):
     check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
     if check.returncode or check.stdout.strip() != "macshell-session-preflight 1":
         raise RuntimeError("Built Rust session preflight failed the protocol check")
+    check = subprocess.run([str(binary), "--ready-protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-session-ready 1":
+        raise RuntimeError("Built Rust session readiness helper failed the protocol check")
+    check = subprocess.run([str(binary), "--supervisor-protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-shell-supervisor 1":
+        raise RuntimeError("Built Rust shell supervisor failed the protocol check")
     return binary
 
 
@@ -670,6 +689,134 @@ def build_wallpaper_discovery(target):
     return binary
 
 
+def build_notes_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Notes service needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/notes-service/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Notes service build failed before installation. SQLite development libraries and cached Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-notes-service"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-notes-service 1":
+        raise RuntimeError("Built Rust Notes service failed the protocol check")
+    return binary
+
+
+def build_calendar_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Calendar service needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/calendar-service/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Calendar service build failed before installation. SQLite development libraries and cached Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-calendar-service"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-calendar-service 1":
+        raise RuntimeError("Built Rust Calendar service failed the protocol check")
+    return binary
+
+
+def build_reminders_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Reminders service needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/reminders-service/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Reminders service build failed before installation. SQLite development libraries and cached Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-reminders-service"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-reminders-service 1":
+        raise RuntimeError("Built Rust Reminders service failed the protocol check")
+    return binary
+
+
+def build_clock_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Clock service needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/clock-core/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target), "--bin", "clock-service-prototype", "--bin", "clock-audio-worker", "--bin", "clock-sound-import"], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Clock service build failed before installation.\n" + result.stderr[-3000:])
+    binaries = {name: target / "release" / name for name in ("clock-service-prototype", "clock-audio-worker", "clock-sound-import")}
+    check = subprocess.run([str(binaries["clock-service-prototype"]), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-clock-service 1":
+        raise RuntimeError("Built Rust Clock service failed the protocol check")
+    check = subprocess.run([str(binaries["clock-sound-import"]), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-clock-import 1":
+        raise RuntimeError("Built Rust Clock sound importer failed the protocol check")
+    return binaries
+
+
+def build_screen_mirroring(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust Screen Mirroring needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/screen-mirroring/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust Screen Mirroring build failed before installation.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-screen-mirroring"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-screen-mirroring 1":
+        raise RuntimeError("Built Rust Screen Mirroring failed the protocol check")
+    return binary
+
+
+def build_airdrop_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust AirDrop needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/airdrop-service/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust AirDrop build failed before installation.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-airdrop-service"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-airdrop-service 1":
+        raise RuntimeError("Built Rust AirDrop failed the protocol check")
+    return binary
+
+
+def build_biometric_probe(target):
+    """Build the read-only fprintd discovery helper before installation."""
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust biometric discovery needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/biometric-probe/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust biometric discovery build failed before installation. Rust 1.85+, Gio/GLib linker libraries and cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-biometric-probe"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-biometric-probe 1":
+        raise RuntimeError("Built Rust biometric discovery failed the protocol check")
+    operation = target / "release/fingerprint-operation"
+    check = subprocess.run([str(operation), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-fingerprint-operation 1":
+        raise RuntimeError("Built Rust fingerprint operation failed the protocol check")
+    return binary
+
+
+def build_update_service(target):
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise RuntimeError("Rust update service needs Cargo; install Rust or select --python-bridge")
+    manifest = SOURCE / "native/update-service/Cargo.toml"
+    result = subprocess.run([cargo, "build", "--release", "--locked", "--offline", "--manifest-path", str(manifest), "--target-dir", str(target)], capture_output=True, text=True, timeout=300)
+    if result.returncode:
+        raise RuntimeError("Rust update service build failed before installation. Cached locked Cargo dependencies are required.\n" + result.stderr[-3000:])
+    binary = target / "release/macshell-update-service"
+    check = subprocess.run([str(binary), "--protocol-version"], capture_output=True, text=True, timeout=5)
+    if check.returncode or check.stdout.strip() != "macshell-update-service 1":
+        raise RuntimeError("Built Rust update service failed the protocol check")
+    return binary
+
+
 def install(activate=False, session=False, rust_bridge=None):
     if os.geteuid() == 0:
         raise RuntimeError("Run as your desktop user, without sudo.")
@@ -710,6 +857,14 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
         currency_binary = build_currency_fetch(Path(temporary) / "currency-build") if use_rust else None
         widget_fetch_binary = build_widget_fetch(Path(temporary) / "widget-fetch-build") if use_rust else None
         wallpaper_binary = build_wallpaper_discovery(Path(temporary) / "wallpaper-build") if use_rust else None
+        notes_binary = build_notes_service(Path(temporary) / "notes-build") if use_rust else None
+        calendar_binary = build_calendar_service(Path(temporary) / "calendar-build") if use_rust else None
+        reminders_binary = build_reminders_service(Path(temporary) / "reminders-build") if use_rust else None
+        clock_binaries = build_clock_service(Path(temporary) / "clock-build") if use_rust else None
+        mirroring_binary = build_screen_mirroring(Path(temporary) / "mirroring-build") if use_rust else None
+        airdrop_binary = build_airdrop_service(Path(temporary) / "airdrop-build") if use_rust else None
+        biometric_binary = build_biometric_probe(Path(temporary) / "biometric-build") if use_rust else None
+        update_binary = build_update_service(Path(temporary) / "update-build") if use_rust else None
         staged = Path(temporary) / "niri"
         previous_port = activate and NIRI.is_file() and NIRI.read_text().startswith("// Original config snapshot:")
         if activate or session:
@@ -726,11 +881,21 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
                 previous_stopped = stop_shell("MacShell-niri")
             for source, destination in ((SOURCE / "MacShell", SHELL), (SOURCE / "MacLock", LOCK)):
                 remove(destination)
-                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust", "niri-input-rust"))
+                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust", "niri-input-rust", "biometric-probe-rust", "update-service-rust"))
             (SHELL / "niri-input-service.sh").chmod(0o755)
             shutil.copy2(SOURCE / "MacShell/session-service.sh", SHELL / "session-service.sh")
             (SHELL / "session-service.sh").chmod(0o755)
             if rust_binary:
+                shutil.copy2(airdrop_binary, SHELL / "airdrop-service-rust")
+                (SHELL / "airdrop-service-rust").chmod(0o755)
+                shutil.copy2(biometric_binary, SHELL / "biometric-probe-rust")
+                (SHELL / "biometric-probe-rust").chmod(0o755)
+                shutil.copy2(biometric_binary.parent / "fingerprint-operation", SHELL / "fingerprint-operation-rust")
+                (SHELL / "fingerprint-operation-rust").chmod(0o755)
+                shutil.copy2(update_binary, SHELL / "update-service-rust")
+                (SHELL / "update-service-rust").chmod(0o755)
+                shutil.copy2(mirroring_binary, SHELL / "screen-mirroring-service-rust")
+                (SHELL / "screen-mirroring-service-rust").chmod(0o755)
                 shutil.copy2(rust_binary, SHELL / "niri-bridge-rust")
                 (SHELL / "niri-bridge-rust").chmod(0o755)
                 shutil.copy2(clock_binary, LOCK / "boot-clock-rust")
@@ -777,6 +942,15 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
                 (SHELL / "widget-fetch-rust").chmod(0o755)
                 shutil.copy2(wallpaper_binary, SHELL / "wallpaper-discovery-rust")
                 (SHELL / "wallpaper-discovery-rust").chmod(0o755)
+                shutil.copy2(notes_binary, SHELL / "notes-service-rust")
+                (SHELL / "notes-service-rust").chmod(0o755)
+                shutil.copy2(calendar_binary, SHELL / "calendar-service-rust")
+                (SHELL / "calendar-service-rust").chmod(0o755)
+                shutil.copy2(reminders_binary, SHELL / "reminders-service-rust")
+                (SHELL / "reminders-service-rust").chmod(0o755)
+                for name, binary in clock_binaries.items():
+                    shutil.copy2(binary, SHELL / (name + "-rust"))
+                    (SHELL / (name + "-rust")).chmod(0o755)
             shutil.copy2(SOURCE / "VERSION", SHELL / "VERSION")
             (PROFILE / "settings").mkdir(parents=True, exist_ok=True)
             BIN.mkdir(parents=True, exist_ok=True)

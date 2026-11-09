@@ -73,6 +73,9 @@ Scope {
     Timer { id: inputApplyT; interval: 150; onTriggered: root.applyInput() }
     property string inputApplyError: ""
     property bool inputApplyQueued: false
+    property string inputRecoveryStatus: "unknown"
+    property string inputRecoveryMessage: ""
+    property bool inputRecoveryBusy: false
     function applyInput() {
         // A dedicated optional include keeps the user's input configuration intact.
         var request = [Qt.resolvedUrl("niri-input-service.sh").toString().replace(/^file:\/\//, ""), "input", JSON.stringify({
@@ -102,6 +105,35 @@ Scope {
             if (root.inputApplyQueued) {
                 root.inputApplyQueued = false;
                 inputApplyT.restart();
+            }
+        }
+    }
+    function diagnoseInput() {
+        if (inputRecoveryProc.running) return;
+        inputRecoveryBusy = true;
+        inputRecoveryProc.command = [Qt.resolvedUrl("niri-input-service.sh").toString().replace(/^file:\/\//, ""), "diagnose"];
+        inputRecoveryProc.running = true;
+    }
+    function cleanupInput() {
+        if (inputRecoveryProc.running || inputRecoveryStatus !== "cleanup_safe") return;
+        inputRecoveryBusy = true;
+        inputRecoveryProc.command = [Qt.resolvedUrl("niri-input-service.sh").toString().replace(/^file:\/\//, ""), "resolve-cleanup"];
+        inputRecoveryProc.running = true;
+    }
+    Process {
+        id: inputRecoveryProc
+        stdout: StdioCollector { id: inputRecoveryStdout }
+        stderr: StdioCollector { id: inputRecoveryStderr }
+        onExited: (code, status) => {
+            root.inputRecoveryBusy = false;
+            var text = (inputRecoveryStdout.text || "").trim(), result = null;
+            try { result = JSON.parse(text); } catch (e) {}
+            if (code === 0 && result) {
+                root.inputRecoveryStatus = result.status || "conflict";
+                root.inputRecoveryMessage = result.error || "";
+            } else {
+                root.inputRecoveryStatus = "unsupported";
+                root.inputRecoveryMessage = (inputRecoveryStdout.text || inputRecoveryStderr.text || "Recovery diagnostics unavailable.").trim();
             }
         }
     }
@@ -203,6 +235,8 @@ Scope {
     property bool ccMirroringMigrated: false
     property bool ccAirDropMigrated: false
     property string airplayReceiverName: "MacShell"
+    property int airplayFps: 60
+    property int airplayVolumePercent: 20
     property string airdropReceiverName: "MacShell"
     property bool ccMigRec: false              // one-time: add the Screen Recording tile to an existing Control Center layout
     readonly property bool recording: recordingControl.recording
@@ -225,7 +259,7 @@ Scope {
         "filesCmd", "clipboardCmd", "appUsage", "clipHistory", "clipAutoPaste", "emojiRecent", "screenshotDir", "screenshotSave", "screenshotClipboard", "screenshotNotify", "nightTemp", "ccControls", "ccMigRec", "wallpaperDir", "wallpaperFavs", "wallpaperCmd", "wallpaperVideo", "uiSounds", "gamingMode", "gamingAuto", "ccMigGame", "lockArtBackground",
         "lockClockStyle", "switcherStyle", "lockClockFont", "lockClockWeight", "lockClockMaterial", "lockClockIntensity", "lockClockTint", "lockClockTall", "lockClockDate", "autoContrast", "wallpaperAppearance", "wpPairLight", "wpPairDark",
         "notifDnd", "dnd", "nightOn", "keepAwake",
-        "kbRepeatRate", "kbRepeatDelay", "mouseSens", "mouseNatural", "tpNatural", "tpTap", "tpDwt", "tpScroll", "statsMigrated", "statsMetrics", "statsInterval", "statsInterface", "statsDevice", "statsMemoryPercent", "modesMigrated", "modeState", "nightDesired", "recordOutput", "recordMicrophone", "recordSink", "recordAudio", "ccMirroringMigrated", "ccAirDropMigrated", "airplayReceiverName", "airdropReceiverName"]
+        "kbRepeatRate", "kbRepeatDelay", "mouseSens", "mouseNatural", "tpNatural", "tpTap", "tpDwt", "tpScroll", "statsMigrated", "statsMetrics", "statsInterval", "statsInterface", "statsDevice", "statsMemoryPercent", "modesMigrated", "modeState", "nightDesired", "recordOutput", "recordMicrophone", "recordSink", "recordAudio", "ccMirroringMigrated", "ccAirDropMigrated", "airplayReceiverName", "airplayFps", "airplayVolumePercent", "airdropReceiverName"]
     // Optional bar widgets; tray and Spotlight use their existing showTray/showSearch settings.
     property var barWidgets: ["monitoring", "appleMenu", "appMenus", "workspaces", "volume", "keyboard", "notifications", "wifi", "bluetooth", "privacy", "controlCenter", "clock"]
     property bool statsMigrated: false
@@ -1388,6 +1422,8 @@ Scope {
         active: root.settingsReady
         watching: root.activeControl === "airplay"
         receiverName: root.airplayReceiverName
+        fps: root.airplayFps
+        volumePercent: root.airplayVolumePercent
         blocked: airDropControl.active
         onReceiverNameChanged: root.airplayReceiverName = receiverName
         onHideRequested: root.controlRequested("close-airplay")
@@ -1944,16 +1980,31 @@ Scope {
         var all = [
             { title: Language.I18n.text("ui.t_91a007b58b9d"), glyph: "lock", run: function () { Quickshell.execDetached(["sh", (Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, ""))]); } },
             { title: Language.I18n.text("ui.t_d466bcf52eb6"), glyph: "moon", run: function () { sh("systemctl suspend"); } },
-            { title: Language.I18n.text("ui.t_85c35c367d93"), glyph: "gear", run: function () { openSettings(); } },
+            { title: Language.I18n.text("ui.t_85c35c367d93"), keywords: "settings system preferences настройка настройки системные параметры", glyph: "gear", run: function () { openSettings(); } },
             { title: Language.I18n.text("ui.t_d57d48b71020"), glyph: "logout", confirm: true, run: function () { root.logOut(); } },
             { title: Language.I18n.text("ui.t_6b983a81e5e8"), glyph: "restart", confirm: true, run: function () { sh("systemctl reboot"); } },
             { title: Language.I18n.text("ui.t_3e45a33d2260"), glyph: "power", confirm: true, run: function () { sh("systemctl poweroff"); } }
         ];
         var s = (q || "").trim().toLowerCase(), out = [];
         for (var i = 0; i < all.length; i++) {
-            if (s !== "" && all[i].title.toLowerCase().indexOf(s) < 0) continue;
+            if (s !== "" && (all[i].title + " " + (all[i].keywords || "")).toLowerCase().indexOf(s) < 0) continue;
             out.push({ title: all[i].title, sub: Language.I18n.text("ui.t_64cff1319d2f"), icon: "", glyph: all[i].glyph,
                        confirm: all[i].confirm === true, run: all[i].run });
+        }
+        return out;
+    }
+    function settingsItems(q) {
+        var s = (q || "").trim().toLowerCase(), out = [];
+        if (s.length < 2 || !hub || !hub.dock || !hub.dock.settingsEnabled) return out;
+        var panes = hub.dock.settingsSearchPanes || [];
+        for (var i = 0; i < panes.length; i++) {
+            var pane = panes[i];
+            var hay = (pane.name + " " + (pane.searchName || "") + " " + (pane.keys || "")).toLowerCase();
+            if (hay.indexOf(s) < 0) continue;
+            (function (id, name) {
+                out.push({ title: name, sub: Language.I18n.text("ui.t_85c35c367d93"), glyph: "gear",
+                           run: function () { root.openSettings(id); } });
+            })(pane.id, pane.name);
         }
         return out;
     }
@@ -2001,8 +2052,9 @@ Scope {
         if(s.length>0) out=appItems(q,4);
         var cv=conversion(s); if(cv) out.unshift(cv);
         else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:"Calculator · Return to copy",glyph:"search",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
+        var acts=actionItems(q); for(var k=0;k<acts.length&&out.length<6;k++)out.push(acts[k]);
+        var settings=settingsItems(q); for(var p=0;p<settings.length&&out.length<6;p++)out.push(settings[p]);
         var wins=windowItems(q); for(var j=0;j<wins.length&&out.length<6;j++)out.push(wins[j]);
-        var acts=actionItems(q); for(var k=0;k<acts.length&&out.length<6;k++)if(acts[k].title.toLowerCase().indexOf(s)===0)out.push(acts[k]);
         if(s.length>0 && out.length<7) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:"Web Search · Return to open",glyph:"search",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
         return out.slice(0,8);
     }

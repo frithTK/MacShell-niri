@@ -8,7 +8,7 @@ The credits images in `MacShell/assets/credits/` are inherited from upstream. Sc
 
 The legacy Clock sound groups in `MacShell/sounds/` are synthesized by `scripts/generate-clock-sounds.py` from mathematical waveforms and are covered by the project's MIT license.
 
-The 65 recordings under `MacShell/sounds/apple/` come from the [macOS System Sounds archive](https://github.com/extratone/macOSsystemsounds/tree/f3e8dcd8d2318d099ade479ad1b9778ce4e65cc7/m4r). The archive identifies them as macOS system sounds; their provenance has not been independently verified. `MacShell/sounds/alarm.wav` and `timer.wav` are PCM conversions of its Radar and Chimes files. Apple and other rights holders retain any rights in these recordings; the project's MIT license does not grant rights to them. Permission to redistribute these recordings has not been confirmed.
+The distribution does not include the previously bundled third-party macOS sound collection or its converted default sounds. Users may import their own audio into Clock.
 
 ## Runtime dependencies and services
 
@@ -18,6 +18,6 @@ Quickshell, Qt, niri, GStreamer, PipeWire and the other system programs used by 
 
 Optional AirPlay integration controls [Doubletake](https://github.com/omarroth/doubletake) through a private JSON control socket and [UxPlay](https://github.com/FDH2/UxPlay) through its command line and process events. Both are separate programs with their own licenses; their implementation and binaries are not included in this repository.
 
-Some widgets request external data: weather from Open-Meteo, IP-based location from ipwho.is/ipapi.co, and lyrics from LRCLIB. These are external services with their own terms and availability. Requests are implemented in `MacShell/widget_fetch.py` and owned by the QML widget controller; weather/location and media metadata may be sent to the selected service.
+Some widgets request external data: weather from Open-Meteo, IP-based location from ipwho.is/ipapi.co, and lyrics from LRCLIB. These are external services with their own terms and availability. Requests are implemented by the widget-fetch service and owned by the QML widget controller; weather/location and media metadata may be sent to the selected service.
 
 Apple, macOS, Tahoe and related names and logos belong to their respective owners. This community project is not affiliated with Apple. The project's MIT license covers its code and does not grant rights to third-party trademarks.

@@ -9,7 +9,7 @@
 | Desktop | niri 26.04+; Quickshell with Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower and BackgroundEffect modules |
 | Qt | Compatible Qt 6.9+ Declarative, Wayland, SVG and ShaderTools packages |
 | Rust build | Rust and Cargo 1.85+, Gio/GLib and GStreamer development libraries, and the locked dependencies available locally |
-| Helpers | Python 3.11+, PyGObject/Gio, Pillow, gst-python, GStreamer and `timeout` from coreutils |
+| Helpers | GStreamer and `timeout` from coreutils; Python 3.11+ and feature-specific Python modules are needed for legacy profiles, rollback tools and development tests |
 | Window previews | PipeWire, niri ScreenCast D-Bus, and GStreamer `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, `appsrc`, `pngenc` |
 | MacLock | Quickshell PAM and session-lock modules, with an existing PAM service |
 
@@ -17,7 +17,7 @@ Additional programs enable optional features: `curl`, `grim`, `wl-clipboard`, `w
 
 Night Shift needs `wlsunset` in the shell's PATH and compositor gamma-control support. It requires no separate autostart, location or schedule setup. The icon toggles it directly; the adjacent arrow opens temperature controls. Battery estimates and available power profiles depend on the hardware and system services.
 
-AirPlay uses optional, separately installed [Doubletake](https://github.com/omarroth/doubletake) (sender) and [UxPlay](https://github.com/FDH2/UxPlay) (receiver), with their GStreamer dependencies. Both are detected on PATH or under `~/.local/share/macshell-niri/runtime/bin`. Receiving is enabled manually and stops with MacShell. See the [Screen Mirroring guide](CONTROL_CENTER.md#повтор-экрана--airplay).
+AirPlay uses optional, separately installed [Doubletake](https://github.com/omarroth/doubletake) (sender) and [UxPlay](https://github.com/FDH2/UxPlay) (receiver), with their GStreamer dependencies. Both are detected on PATH or under `~/.local/share/macshell-niri/runtime/bin`. Receiving is enabled manually and stops with MacShell. Screen Mirroring defaults to 60 FPS and 20% receiver volume on the next connection; the volume option requires the patched Doubletake runtime described in [DOUBLETAKE_RUNTIME.md](DOUBLETAKE_RUNTIME.md). See the [Screen Mirroring guide](CONTROL_CENTER.md#повтор-экрана--airplay).
 
 The installer checks dependencies and does not run a package manager. It builds the Rust niri bridge and color picker, shared boot clock, system statistics, Night Shift, timed modes, native blur, power profiles, Wi-Fi, Bluetooth, window capture and screen recording services, session preflight, Activity, menu bar, widget and locale preferences offline before replacing any installed files. On a new build machine, prepare the locked Cargo dependencies explicitly while online:
 
@@ -39,9 +39,24 @@ cargo fetch --locked --manifest-path native/bluez-session/Cargo.toml
 cargo fetch --locked --manifest-path native/network-snapshot/Cargo.toml
 cargo fetch --locked --manifest-path native/capture-service/Cargo.toml
 cargo fetch --locked --manifest-path native/recording-core/Cargo.toml
+cargo fetch --locked --manifest-path native/niri-input/Cargo.toml
+cargo fetch --locked --manifest-path native/session-service/Cargo.toml
+cargo fetch --locked --manifest-path native/currency-fetch/Cargo.toml
+cargo fetch --locked --manifest-path native/widget-fetch/Cargo.toml
+cargo fetch --locked --manifest-path native/wallpaper-discovery/Cargo.toml
+cargo fetch --locked --manifest-path native/notes-service/Cargo.toml
+cargo fetch --locked --manifest-path native/calendar-service/Cargo.toml
+cargo fetch --locked --manifest-path native/reminders-service/Cargo.toml
+cargo fetch --locked --manifest-path native/clock-core/Cargo.toml
+cargo fetch --locked --manifest-path native/screen-mirroring/Cargo.toml
+cargo fetch --locked --manifest-path native/airdrop-service/Cargo.toml
+cargo fetch --locked --manifest-path native/biometric-probe/Cargo.toml
+cargo fetch --locked --manifest-path native/update-service/Cargo.toml
 ```
 
-The `--check` command verifies Cargo is present, not that every dependency is cached. During the transition, `bash install.sh --python-bridge` explicitly selects the previous Python components if a Rust build is unavailable; other services and the installer still require Python. Quickshell must be built for the installed Qt version. `MACSHELL_QS_BIN` can select a compatible runtime; installing this port does not replace the system `qs` binary.
+The Rust build also includes input, session, currency, widget fetch, wallpaper discovery, Notes, Calendar, Reminders, Clock, Screen Mirroring, AirDrop, biometric helpers and the on-demand update service. Screen Mirroring uses Doubletake and UxPlay; AirDrop uses the MacShell Owly backend. Source launchers retain Python fallback for legacy profiles; new Rust-only installations report missing or incompatible helpers as errors. Notes, Calendar and Reminders use bundled SQLite. The Rust Clock service retains its prototype binary name and has been tested with temporary data, nested niri and an isolated PipeWire sink; installed-session acceptance remains outstanding.
+
+The Rust installer builds offline before changing installed files. `--check` verifies Cargo and the Quickshell runtime, not that every component dependency is cached. New installations use Rust-only runtime services; missing or incompatible binaries produce errors rather than invoking Python. A plain install preserves any existing session helpers, which may still require Python; use `--session` from outside MacShell to migrate those helpers. The former `--python-bridge` installer option is retired. Quickshell must be built for the installed Qt version. `MACSHELL_QS_BIN` can select a compatible runtime; installing this port does not replace the system `qs` binary.
 
 The separate login script and its locale and preflight helpers are refreshed with `bash install.sh --session`; a plain installation updates the shell but leaves an existing login script in place.
 

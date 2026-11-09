@@ -5,7 +5,7 @@ import "." as Port
 ShellRoot {
     id: root
     property int phase: 0
-    Port.JsonService { id: shared; script: "notes_service.py"; arguments: ["--store", Quickshell.env("MACSHELL_NOTES_TEST_STORE")]; enabled: true }
+    Port.JsonService { id: shared; script: "notes_service.py"; launcher: "notes-service.sh"; arguments: ["--store", Quickshell.env("MACSHELL_NOTES_TEST_STORE")]; enabled: true }
     Port.NotesController { id: first; enabled: true; sharedService: shared; selectFirst: false }
     Port.NotesController { id: second; enabled: true; sharedService: shared; selectFirst: false }
     Timer {

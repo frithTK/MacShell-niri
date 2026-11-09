@@ -19,7 +19,6 @@ Scope {
     property bool busy: false
     property string lastAction: ""
     property string lastError: ""
-    readonly property string helper: decodeURIComponent(Qt.resolvedUrl(script).toString().replace(/^file:\/\//, ""))
     signal received(var message)
     signal connected()
     function send(action, data) {
@@ -32,8 +31,9 @@ Scope {
     }
     function start() {
         if (!enabled || process.running) return;
+        if (!launcher) { error = "Service launcher is not configured"; return; }
         generation++;
-        var command = root.launcher ? ["sh", decodeURIComponent(Qt.resolvedUrl(root.launcher).toString().replace(/^file:\/\//, ""))] : ["python3", "-u", helper];
+        var command = ["sh", decodeURIComponent(Qt.resolvedUrl(root.launcher).toString().replace(/^file:\/\//, ""))];
         process.command = command.concat(root.arguments);
         process.running = true;
     }

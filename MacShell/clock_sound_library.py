@@ -297,6 +297,8 @@ class SoundLibrary:
     @staticmethod
     def list_apple():
         directory = Path(__file__).with_name('sounds') / 'apple'
+        if not directory.exists():
+            return []
         try:
             with (directory / 'catalog.json').open(encoding='utf-8') as source:
                 catalog = json.load(source)

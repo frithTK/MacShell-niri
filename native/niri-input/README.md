@@ -4,6 +4,9 @@ This crate contains configuration transformations, a bounded profile snapshot,
 validation in a private temporary directory, a cooperative lock and the Rust
 input service used by the shell. The service performs a single-file transaction
 with a durable journal, progress snapshots and explicit recovery cleanup.
+The binary exposes `diagnose <journal>` for read-only JSON diagnostics and
+`resolve-cleanup <journal>` for explicit cleanup after a diagnostic reports
+`cleanupAllowed: true`.
 Taking the lock can create a private lock file in a profile. The launcher selects
 the compatible Rust service and falls back to `niri_tools.py` when it is absent or
 incompatible.
@@ -25,7 +28,8 @@ repeated reachable include paths are conservatively rejected.
 Single-fragment preparation rejects reserved `.macshell-input-` artifact names
 anywhere in the traversed profile, including incomplete or malformed names;
 it preserves them and repeats the check when rechecking a prepared snapshot.
-This is only a point-in-time observation, not an artifact recovery mechanism.
+This is only a point-in-time observation; the public `diagnose` command exposes
+the same evidence without authorizing a reverse exchange.
 The locked variant retains an advisory lock and can create its lock file; it
 does not commit the plan or prevent uncooperative edits.
 The transformation rejects managed nodes whose removal would discard or split
@@ -39,9 +43,10 @@ serializes only cooperating Rust writers, not Python or other editors. File
 exchange retains both names and detects some conflicts after a swap, but an
 unexpected result may already have changed the target pathname. It must not
 be treated as a compare-and-swap or used for real profile writes without a
-complete recovery strategy. Read-only inspection can classify the two names
-using still-open handles and expected contents, but is racy and does not
-implement restart recovery or authorize an automatic rollback.
+complete recovery strategy. Restart handling is fail-closed: retained evidence
+blocks a new write, `diagnose` reports it, and only explicit cleanup of a
+consistent, fully exchanged transaction can remove evidence. No automatic
+rollback is performed.
 The exchange detects changes to basic mode, owner, group and link count during
 the operation; the future caller must check snapshot attributes before exchange
 and preserve them on the replacement. The primitive rejects files with visible
@@ -62,10 +67,16 @@ and conflicting observations; its per-file checks do not form an atomic view.
 `recovery::compare_progress` compares those observations with a ledger bound to
 the manifest, and detects disagreements or an exchange with outstanding intent.
 It is diagnostic only; agreement neither authenticates records nor authorizes
-automatic recovery, cleanup or further writes.
+automatic recovery, cleanup or further writes. The public command exposes the
+diagnostic state and cleanup only after the same checks are repeated under the
+lock.
 `recovery::inspect_journal` combines the saved manifest and progress chain with
 file observations, and rechecks the saved evidence after inspection. Its
 results remain non-atomic and cannot establish authenticity or durability.
+The public `diagnose` command holds the cooperative lock while producing the
+same report. Cleanup is allowed only for a consistent, fully exchanged
+transaction; pending or conflicting transactions remain blocked and all
+artifacts are preserved.
 `progress` models ordered intent and completion events bound to an exact
 manifest by SHA-256. `progress_store` experimentally stores immutable snapshots
 of those events. A separate scan checks the supported sequence for gaps and

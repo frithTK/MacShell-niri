@@ -81,6 +81,47 @@ raise SystemExit(impl.main())
     def test_uncertain_sound_claim_is_not_replayed_after_crash(self):
         self.run_client(crash_after_commit=True, action='claim-sound')
 
+    def test_playback_error_follows_active_event(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / 'MacShell', root / 'shell')
+            shutil.copy(ROOT / 'tests/clock-client-playback-error.qml', root / 'shell/shell.qml')
+            (root / 'shell/clock-service.sh').write_text('exec python3 -u "$(dirname "$0")/fake-clock.py"\n')
+            (root / 'shell/fake-clock.py').write_text('''import json, sys
+def emit(**value):
+    print(json.dumps(value), flush=True)
+def state(event, generation):
+    emit(type='state', generation=generation, timing={'completion': {'eventId': event}})
+emit(type='ready')
+for line in sys.stdin:
+    request = json.loads(line)
+    generation = request['generation']
+    if request['action'] == 'load':
+        state('event-a', generation)
+        emit(type='error', generation=generation, error='Clock sound playback failed')
+        state('event-a', generation)
+    elif request['action'] == 'prepare':
+        emit(type='prepared', generation=generation, id=request['id'], commandId='command', sessionId='session', bootId='boot', issuedBootMs=1, revision=1)
+    elif request['action'] == 'command':
+        emit(type='result', generation=generation, id=request['id'], success=True, result={})
+        state('event-b', generation)
+''')
+            for name in ('config', 'cache', 'runtime'):
+                (root / name).mkdir()
+            (root / 'runtime').chmod(0o700)
+            environment = dict(os.environ, XDG_CONFIG_HOME=str(root / 'config'), XDG_CACHE_HOME=str(root / 'cache'),
+                               XDG_RUNTIME_DIR=str(root / 'runtime'), QT_QPA_PLATFORM='offscreen',
+                               QT_QPA_PLATFORMTHEME='', QT_QUICK_CONTROLS_STYLE='Basic',
+                               DBUS_SESSION_BUS_ADDRESS='unix:path=' + str(root / 'no-bus'),
+                               MACSHELL_CLOCK_TEST_STORE=str(root / 'config/clock.json'))
+            environment.pop('DISPLAY', None)
+            environment.pop('WAYLAND_DISPLAY', None)
+            result = subprocess.run([quickshell(), '-p', str(root / 'shell')], env=environment,
+                                    capture_output=True, text=True, timeout=12)
+            output = result.stdout + result.stderr
+            self.assertEqual(result.returncode, 0, output)
+            self.assertIn('CLOCK_CLIENT_PASS', output)
+
 
 if __name__ == '__main__':
     unittest.main()

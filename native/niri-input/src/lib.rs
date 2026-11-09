@@ -169,31 +169,47 @@ pub fn without_input_preferences(text: &str) -> Result<String, String> {
             // scanner below.
             let start_disabled = i;
             i += 2;
-            while i < bytes.len() && bytes[i].is_ascii_whitespace() && bytes[i] != b'\n' { i += 1; }
+            while i < bytes.len() && bytes[i].is_ascii_whitespace() && bytes[i] != b'\n' {
+                i += 1;
+            }
             let mut braces = 0usize;
             let mut quote = false;
             while i < bytes.len() {
                 if !quote && bytes[i..].starts_with(b"//") {
-                    while i < bytes.len() && bytes[i] != b'\n' { i += 1; }
+                    while i < bytes.len() && bytes[i] != b'\n' {
+                        i += 1;
+                    }
                 } else if !quote && bytes[i] == b'"' {
-                    quote = true; i += 1;
+                    quote = true;
+                    i += 1;
                 } else if quote && bytes[i] == b'\\' {
                     i = (i + 2).min(bytes.len());
                 } else if quote && bytes[i] == b'"' {
-                    quote = false; i += 1;
+                    quote = false;
+                    i += 1;
                 } else if !quote && bytes[i] == b'{' {
-                    braces += 1; i += 1;
+                    braces += 1;
+                    i += 1;
                 } else if !quote && bytes[i] == b'}' {
                     braces = braces.checked_sub(1).ok_or("Unmatched disabled node")?;
                     i += 1;
-                    if braces == 0 { break; }
+                    if braces == 0 {
+                        break;
+                    }
                 } else if !quote && braces == 0 && bytes[i] == b';' {
-                    i += 1; break;
-                } else { i += 1; }
+                    i += 1;
+                    break;
+                } else {
+                    i += 1;
+                }
             }
-            if quote || braces != 0 { return Err("Unclosed disabled node".into()); }
+            if quote || braces != 0 {
+                return Err("Unclosed disabled node".into());
+            }
             for byte in &mut masked[start_disabled..i] {
-                if *byte != b'\n' { *byte = b' '; }
+                if *byte != b'\n' {
+                    *byte = b' ';
+                }
             }
         } else if bytes[i..].starts_with(b"\"\"\"") || bytes[i] == b'\\' {
             return Err("Unsupported KDL syntax".into());

@@ -1,0 +1,129 @@
+diff --git a/cmd/doubletake/main.go b/cmd/doubletake/main.go
+--- a/cmd/doubletake/main.go
++++ b/cmd/doubletake/main.go
+@@ -65,6 +65,7 @@ func main() {
+ 	credBackend := flag.String("cred-backend", "file", "Credential storage backend: file or keyring (system keyring via Secret Service)")
+ 	forcePair := flag.Bool("pair", false, "Force new pairing even if credentials exist")
+ 	fps := flag.Int("fps", 30, "Frames per second")
++	volumePercent := flag.Int("volume-percent", 20, "Initial AirPlay receiver volume percent (1-100)")
+ 	bitrate := flag.Int("bitrate", 0, "Video bitrate in kbps (0 = auto, default tunes for resolution/FPS)")
+ 	targetLatencyMs := flag.Int("target-latency-ms", 0, "Joint audio/video playout latency override in milliseconds (0 = automatic connection profile)")
+ 	hwaccel := flag.String("hwaccel", "auto", "Encoder: auto, nvenc, vaapi, openh264, none (x264/x265)")
+@@ -87,6 +88,9 @@ func main() {
+ 	if err := airplay.ValidateVideoCodec(*videoCodec); err != nil {
+ 		log.Fatalf("invalid -video-codec: %v", err)
+ 	}
++	if *volumePercent < 1 || *volumePercent > 100 {
++		log.Fatalf("invalid -volume-percent %d: want 1-100", *volumePercent)
++	}
+ 	portMin, portMax, err := parsePortRange(*portRange)
+ 	if err != nil {
+ 		log.Fatalf("invalid -port-range: %v", err)
+@@ -119,6 +123,7 @@ func main() {
+ 			NoEncrypt:   *noEncrypt,
+ 			DirectKey:   *directKey,
+ 			NoAudio:     *noAudio,
++			VolumePercent: *volumePercent,
+ 			ShowCursor:  !*noCursor,
+ 			Code:        credential,
+ 		})
+@@ -331,6 +336,7 @@ func main() {
+ 		NoEncrypt:  *noEncrypt,
+ 		DirectKey:  *directKey,
+ 		NoAudio:    *noAudio,
++		VolumePercent: *volumePercent,
+ 		PortMin:    portMin,
+ 		PortMax:    portMax,
+ 	}
+diff --git a/internal/airplay/client.go b/internal/airplay/client.go
+--- a/internal/airplay/client.go
++++ b/internal/airplay/client.go
+@@ -1326,6 +1326,7 @@ type StreamConfig struct {
+ 	NoEncrypt              bool          // Disable encryption for debugging
+ 	DirectKey              bool          // Use shk/shiv directly without SHA-512 derivation
+ 	NoAudio                bool          // Disable audio streaming
++	VolumePercent          int           // Initial AirPlay receiver volume, 1-100
+ 
+ 	// PortMin/PortMax bound the local ports used for the audio UDP triple
+ 	// (timing/control/data, 3 consecutive ports). The receiver's event channel
+diff --git a/internal/airplay/mirror.go b/internal/airplay/mirror.go
+--- a/internal/airplay/mirror.go
++++ b/internal/airplay/mirror.go
+@@ -239,6 +239,7 @@ type MirrorSession struct {
+ 	// Audio
+ 	audioStream *AudioStream
+ 	noAudio     bool
++	volumePercent int
+ }
+ 
+ func selectAudioSecurityMode(encrypted bool) audioSecurityMode {
+@@ -1125,7 +1126,7 @@ func (c *AirPlayClient) setupMirrorSession(ctx context.Context, cfg StreamConfig
+ 		// Positive dB values are invalid here and current receivers may
+ 		// interpret them as zero gain. Real senders send the sender's own
+ 		// slider value; 0 dB is this sender's fixed choice.
+-		volumeBody := audioVolumeBody(false)
++		volumeBody := audioVolumeBodyPercent(cfg.VolumePercent)
+ 		if _, _, err := setupRTSPRequest("SET_PARAMETER", audioURI, "text/parameters", volumeBody, nil); err != nil {
+ 			if !controlConnectionUsable {
+ 				return nil, fmt.Errorf("SET_PARAMETER volume: %w", err)
+@@ -1157,6 +1158,7 @@ func (c *AirPlayClient) setupMirrorSession(ctx context.Context, cfg StreamConfig
+ 		firstFrameSent: make(chan struct{}),
+ 		streamDone:     make(chan struct{}),
+ 		noAudio:        cfg.NoAudio,
++		volumePercent:  cfg.VolumePercent,
+ 		sessionURI:     audioURI,
+ 		timingConn:     timingConn,
+ 		timestampBias:  latencies.video,
+@@ -2424,7 +2426,11 @@ func (s *MirrorSession) SetAudioMuted(muted bool) error {
+ 		return fmt.Errorf("audio control unavailable: session was started with audio disabled")
+ 	}
+ 
+-	if _, _, err := s.client.rtspRequest("SET_PARAMETER", s.sessionURI, "text/parameters", audioVolumeBody(muted), nil); err != nil {
++	volumeBody := audioVolumeBody(muted)
++	if !muted {
++		volumeBody = audioVolumeBodyPercent(s.volumePercent)
++	}
++	if _, _, err := s.client.rtspRequest("SET_PARAMETER", s.sessionURI, "text/parameters", volumeBody, nil); err != nil {
+ 		return fmt.Errorf("set audio muted=%t: %w", muted, err)
+ 	}
+ 	return nil
+@@ -2437,6 +2443,20 @@ func audioVolumeBody(muted bool) []byte {
+ 	return []byte("volume: 0.000000\r\n")
+ }
+ 
++func audioVolumeBodyPercent(percent int) []byte {
++	if percent < 1 {
++		percent = 1
++	}
++	if percent > 100 {
++		percent = 100
++	}
++	if percent == 100 {
++		return []byte("volume: 0.000000\r\n")
++	}
++	db := -30 * (1 - float64(percent)/100)
++	return []byte(fmt.Sprintf("volume: %.6f\r\n", db))
++}
++
+ // AudioStream returns the audio stream for this session (may be nil).
+ func (s *MirrorSession) AudioStream() *AudioStream {
+ 	return s.audioStream
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -101,6 +101,7 @@ type Config struct {
+ 	NoAudio     bool
+ 	ShowCursor  bool
+ 	Code        string // default pairing/Digest credential; request Pin overrides it
++	VolumePercent int
+ }
+ 
+ func (d *Daemon) mirrorStreamConfig() airplay.StreamConfig {
+@@ -112,6 +113,7 @@ func (d *Daemon) mirrorStreamConfig() airplay.StreamConfig {
+ 		NoEncrypt:  d.cfg.NoEncrypt,
+ 		DirectKey:  d.cfg.DirectKey,
+ 		NoAudio:    d.cfg.NoAudio,
++		VolumePercent: d.cfg.VolumePercent,
+ 		PortMin:    d.cfg.PortMin,
+ 		PortMax:    d.cfg.PortMax,
+ 	}

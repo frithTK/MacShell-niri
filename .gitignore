@@ -38,3 +38,9 @@ htmlcov/
 /docs/PERFORMANCE.md
 /docs/performance/
 /docs/releases/v1.1.0-draft.md
+/docs/MACSHELL_PRODUCT_PLAN.md
+
+# Local recordings excluded from the public distribution.
+/MacShell/sounds/apple/
+/MacShell/sounds/alarm.wav
+/MacShell/sounds/timer.wav

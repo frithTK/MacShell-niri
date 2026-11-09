@@ -87,6 +87,8 @@ jobs:
           cargo build --release --locked --offline --manifest-path native/locale-preferences/Cargo.toml --target-dir "$RUNNER_TEMP/locale-build"
           cargo build --release --locked --offline --manifest-path native/native-blur/Cargo.toml --target-dir "$RUNNER_TEMP/blur-build"
           cargo build --release --locked --offline --manifest-path native/session-preflight/Cargo.toml --target-dir "$RUNNER_TEMP/preflight-build"
+          cargo build --release --locked --offline --manifest-path native/biometric-probe/Cargo.toml --target-dir "$RUNNER_TEMP/biometric-build"
+          cargo test --locked --offline --manifest-path native/biometric-probe/Cargo.toml --target-dir "$RUNNER_TEMP/biometric-build"
           cargo build --release --locked --offline --manifest-path native/power-profiles/Cargo.toml --target-dir "$RUNNER_TEMP/power-build"
           cargo build --release --locked --offline --manifest-path native/niri-color/Cargo.toml --target-dir "$RUNNER_TEMP/color-build"
           cargo build --release --locked --offline --manifest-path native/bluez-session/Cargo.toml --bin macshell-bluetooth --target-dir "$RUNNER_TEMP/bluez-session-build"
@@ -141,6 +143,9 @@ jobs:
           python3 -m unittest discover -s tests -p test_locale_session_rust.py
           python3 -m unittest discover -s tests -p test_native_blur_rust.py
           python3 -m unittest discover -s tests -p test_session_preflight_rust.py
+          python3 -m unittest discover -s tests -p test_shell_supervisor_rust.py
+          python3 -m unittest discover -s tests -p test_installer_transaction_rust.py
+          MACSHELL_TEST_FINGERPRINT_BINARY="$RUNNER_TEMP/biometric-build/release/fingerprint-operation" dbus-run-session -- /usr/bin/python3 tests/fixtures/fingerprint_dbus.py
           /usr/bin/python3 -m unittest discover -s tests -p test_power_rust.py
           /usr/bin/python3 -m unittest discover -s tests -p test_bluez_agent_rust.py
           /usr/bin/python3 -m unittest discover -s tests -p test_bluez_registration_rust.py

@@ -12,13 +12,19 @@ signal.signal(signal.SIGINT, lambda *_: sys.exit(0))
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 trace = Path(os.environ['AIRPLAY_TEST_TRACE'])
 
+if '-help' in sys.argv:
+    print('  -fps int')
+    if os.environ.get('AIRPLAY_TEST_VOLUME_SUPPORT', '1') == '1':
+        print('  -volume-percent int')
+    raise SystemExit(0)
+
 
 def record(**data):
     with trace.open('a') as output:
         output.write(json.dumps(data) + '\n')
 
 
-record(pid=os.getpid(), program=Path(sys.argv[0]).name, arguments=sys.argv[1:])
+record(pid=os.getpid(), program=Path(sys.argv[0]).name, executable=sys.argv[0], arguments=sys.argv[1:])
 if Path(sys.argv[0]).name == 'uxplay':
     if os.environ.get('AIRPLAY_TEST_RECEIVER') == 'fail':
         print('Failed to initialize GStreamer sink', flush=True)

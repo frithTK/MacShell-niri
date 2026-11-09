@@ -115,6 +115,15 @@ pub fn cleanup_completed(profile: &Path, journal: &OsStr) -> io::Result<()> {
     Ok(())
 }
 
+/// Inspect one retained transaction while holding the cooperative profile lock.
+/// This is diagnostic only; it never changes the profile or authorizes cleanup.
+pub fn diagnose(profile: &Path, journal: &OsStr) -> io::Result<Diagnostic> {
+    let guard = crate::lock::Guard::acquire(profile)?;
+    let diagnostic = inspect_journal(guard.root(), journal)?;
+    guard.check_profile(profile)?;
+    Ok(diagnostic)
+}
+
 fn unlink_relative(root: &File, path: &Path) -> io::Result<()> {
     let mut parent = root.try_clone()?;
     for component in path.parent().unwrap_or(Path::new("")).components() {

@@ -61,7 +61,7 @@ Timer {
             } else if (calendarPhase === 4) {
                 var title = calendarFind(win.contentItem, "calendarEventTitle");
                 if (!title || !title.visible) return;
-                title.text = "Вечерняя встреча"; calendarFind(win.contentItem, "calendarAllDay").checked = false;
+                title.text = Quickshell.env("MACSHELL_CALENDAR_CAPTURE_LANGUAGE") === "en" ? "Evening meeting" : "Вечерняя встреча"; calendarFind(win.contentItem, "calendarAllDay").checked = false;
                 var start = calendarFind(win.contentItem, "calendarEventStart"), end = calendarFind(win.contentItem, "calendarEventEnd");
                 start.text = "2030-01-02 23:00"; end.text = "2030-01-02 22:00";
                 calendarCheck(!calendarFind(win.contentItem, "calendarSave").enabled, "end before start rejected");
@@ -94,6 +94,9 @@ Timer {
             } else if (calendarPhase === 11) {
                 var capture = Quickshell.env("MACSHELL_CALENDAR_CAPTURE");
                 if (capture && calendarShots < 2) {
+                    var captureLanguage = Quickshell.env("MACSHELL_CALENDAR_CAPTURE_LANGUAGE") === "en" ? "en" : "ru";
+                    if (sharedHub.translations.activeLanguage !== captureLanguage) { sharedHub.translations.language = captureLanguage; return; }
+                    sharedHub.translations.region = captureLanguage === "en" ? "en_US" : "ru_RU";
                     macDock.darkMode = calendarShots === 0;
                     var theme = calendarShots === 0 ? "dark" : "light";
                     calendarSaving = true;
@@ -112,7 +115,7 @@ Timer {
                 calendarApp.open();
             } else if (calendarPhase === 13) {
                 if (!c.ready || c.busy || c.events.length !== 1) return;
-                calendarCheck(c.events[0].title === "Вечерняя встреча", "event survives restart");
+                calendarCheck(c.events[0].title === (Quickshell.env("MACSHELL_CALENDAR_CAPTURE_LANGUAGE") === "en" ? "Evening meeting" : "Вечерняя встреча"), "event survives restart");
                 console.log("MACSHELL_CALENDAR_PASS: catalog, dates, create, edit, restore, restart and localization"); Qt.quit(); return;
             }
             calendarPhase++;

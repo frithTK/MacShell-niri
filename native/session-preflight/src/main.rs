@@ -4,7 +4,8 @@ use std::ffi::OsStr;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -272,13 +273,286 @@ fn check_runtime(binary: &OsStr) -> io::Result<()> {
     }
     Ok(())
 }
+fn graphical_agent_running(proc: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(proc) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name();
+        if !name.to_string_lossy().bytes().all(|b| b.is_ascii_digit()) || name.is_empty() {
+            return false;
+        }
+        let path = entry.path();
+        if !fs::metadata(&path).is_ok_and(|m| m.uid() == unsafe { libc::getuid() }) {
+            return false;
+        }
+        let executable = fs::read_link(path.join("exe")).ok().or_else(|| {
+            let bytes = fs::read(path.join("cmdline")).ok()?;
+            use std::os::unix::ffi::OsStringExt;
+            Some(PathBuf::from(std::ffi::OsString::from_vec(
+                bytes.split(|b| *b == 0).next()?.to_vec(),
+            )))
+        });
+        let name = executable
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|s| s.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        name != "pkttyagent"
+            && name.contains("polkit")
+            && (name.contains("agent") || name.contains("auth"))
+    })
+}
+
+fn executable(path: &Path) -> bool {
+    fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+}
+
+fn ensure_polkit_agent() -> io::Result<()> {
+    if graphical_agent_running(Path::new("/proc")) {
+        return Ok(());
+    }
+    let candidates = [
+        "/usr/lib/polkit-kde-authentication-agent-1",
+        "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
+        "/usr/libexec/polkit-gnome-authentication-agent-1",
+        "lxqt-policykit-agent",
+        "hyprpolkitagent",
+        "polkit-mate-authentication-agent-1",
+    ];
+    let paths = env::var_os("PATH").unwrap_or_default();
+    let agent = candidates.iter().find_map(|name| {
+        let path = Path::new(name);
+        if path.is_absolute() {
+            return executable(path).then(|| path.to_path_buf());
+        }
+        env::split_paths(&paths)
+            .map(|p| p.join(path))
+            .find(|p| executable(p))
+    });
+    let Some(agent) = agent else {
+        eprintln!("MacShell: no graphical PolicyKit agent is available.");
+        return Ok(());
+    };
+    let output = run(
+        Command::new("systemd-run")
+            .args([
+                "--user",
+                "--unit=macshell-polkit-agent",
+                "--collect",
+                "--service-type=exec",
+                "--property=Restart=on-failure",
+                "--property=RestartSec=2",
+                "--property=PartOf=niri-macshell.service",
+            ])
+            .arg(agent),
+        Duration::from_secs(10),
+    )?;
+    if !output.status.success() {
+        eprintln!("MacShell: no graphical PolicyKit agent is available.");
+    }
+    Ok(())
+}
+
+fn wait_ready(launcher: &OsStr, timeout: Duration) -> io::Result<()> {
+    let deadline = Instant::now() + timeout;
+    let mut last = String::from("No status received");
+    while Instant::now() < deadline {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        match run(
+            Command::new(launcher).args(["ipc", "call", "status", "state"]),
+            remaining.min(Duration::from_secs(2)),
+        ) {
+            Ok(output) => {
+                if output.status.success()
+                    && serde_json::from_slice::<serde_json::Value>(&output.stdout)
+                        .ok()
+                        .and_then(|v| v.get("connected").and_then(|v| v.as_bool()))
+                        == Some(true)
+                {
+                    return Ok(());
+                }
+                last = String::from_utf8_lossy(if output.stderr.is_empty() {
+                    &output.stdout
+                } else {
+                    &output.stderr
+                })
+                .into_owned();
+            }
+            Err(error) => last = error.to_string(),
+        }
+        std::thread::sleep(
+            Duration::from_millis(200).min(deadline.saturating_duration_since(Instant::now())),
+        );
+    }
+    let tail: String = last
+        .chars()
+        .rev()
+        .take(1500)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    Err(io::Error::other(format!(
+        "MacShell did not connect within the startup deadline: {tail}"
+    )))
+}
+
+fn checked_output(command: &mut Command, timeout: Duration) -> io::Result<String> {
+    let output = run(command, timeout)?;
+    if !output.status.success() {
+        return Err(io::Error::other(format!(
+            "command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid command output"))
+}
+
+fn check_no_instance(qs: &OsStr) -> io::Result<()> {
+    let output = checked_output(
+        Command::new(qs).args(["-c", "MacShell-niri", "list", "--any-display", "--json"]),
+        Duration::from_secs(5),
+    )?;
+    if output.starts_with("No running instances for \"")
+        && output
+            .trim_end()
+            .ends_with("Use --all to list all instances.")
+    {
+        return Ok(());
+    }
+    let instances: serde_json::Value = serde_json::from_str(&output)
+        .map_err(|_| io::Error::other("Unexpected Quickshell instance list"))?;
+    let list = instances
+        .as_array()
+        .ok_or_else(|| io::Error::other("Unexpected Quickshell instance list"))?;
+    if !list.is_empty() {
+        return Err(io::Error::other(
+            "MacShell is already running; refusing to start a second instance",
+        ));
+    }
+    Ok(())
+}
+
+fn start_managed_shell() -> io::Result<()> {
+    let required = ["WAYLAND_DISPLAY", "NIRI_SOCKET", "MACSHELL_SESSION_TOKEN"];
+    let values: Vec<_> = required
+        .iter()
+        .map(|name| env::var_os(name).filter(|v| !v.is_empty()))
+        .collect();
+    if values.iter().any(Option::is_none) {
+        return Err(io::Error::other("Missing compositor session environment"));
+    }
+    let status = checked_output(
+        Command::new("systemctl").args([
+            "--user",
+            "show",
+            "niri-macshell.service",
+            "--property=ActiveState",
+            "--value",
+        ]),
+        Duration::from_secs(5),
+    )?;
+    if !["active", "activating"].contains(&status.trim()) {
+        return Err(io::Error::other(
+            "The MacShell compositor session is not running",
+        ));
+    }
+    let pid = checked_output(
+        Command::new("systemctl").args([
+            "--user",
+            "show",
+            "niri-macshell.service",
+            "--property=MainPID",
+            "--value",
+        ]),
+        Duration::from_secs(5),
+    )?
+    .trim()
+    .parse::<libc::pid_t>()
+    .map_err(|_| io::Error::other("The MacShell compositor has no process"))?;
+    if pid <= 0 {
+        return Err(io::Error::other("The MacShell compositor has no process"));
+    }
+    use std::os::unix::ffi::OsStrExt;
+    let mut token = b"MACSHELL_SESSION_TOKEN=".to_vec();
+    token.extend_from_slice(values[2].as_ref().unwrap().as_bytes());
+    let environ = fs::read(format!("/proc/{pid}/environ"))?;
+    if !environ.split(|b| *b == 0).any(|value| value == token) {
+        return Err(io::Error::other(
+            "The compositor belongs to another session",
+        ));
+    }
+    let stream = UnixStream::connect(values[1].as_ref().unwrap())?;
+    let mut peer: libc::ucred = unsafe { std::mem::zeroed() };
+    let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+    if unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            (&mut peer as *mut libc::ucred).cast(),
+            &mut len,
+        )
+    } != 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    if len as usize != std::mem::size_of::<libc::ucred>()
+        || peer.pid != pid
+        || peer.uid != unsafe { libc::getuid() }
+    {
+        return Err(io::Error::other(
+            "The niri socket belongs to another compositor",
+        ));
+    }
+    let mut import = Command::new("systemctl");
+    import.args(["--user", "import-environment"]);
+    for name in [
+        "WAYLAND_DISPLAY",
+        "NIRI_SOCKET",
+        "MACSHELL_SESSION_TOKEN",
+        "XDG_CURRENT_DESKTOP",
+        "XDG_SESSION_TYPE",
+    ] {
+        if env::var_os(name).is_some_and(|v| !v.is_empty()) {
+            import.arg(name);
+        }
+    }
+    checked_output(&mut import, Duration::from_secs(5))?;
+    checked_output(
+        Command::new("systemctl").args(["--user", "start", "macshell-niri-shell.service"]),
+        Duration::from_secs(15),
+    )?;
+    Ok(())
+}
+
 fn main() {
     let args: Vec<_> = env::args_os().skip(1).collect();
     if args == ["--protocol-version"] {
         println!("macshell-session-preflight 1");
         return;
     }
-    let outcome = if args.len() == 2 && args[0] == "--runtime" {
+    if args == ["--ready-protocol-version"] {
+        println!("macshell-session-ready 1");
+        return;
+    }
+    if args == ["--supervisor-protocol-version"] {
+        println!("macshell-shell-supervisor 1");
+        return;
+    }
+    let outcome = if args == ["--supervisor-start"] {
+        start_managed_shell()
+    } else if args.len() == 2 && args[0] == "--supervisor-check" {
+        check_no_instance(&args[1])
+    } else if args.len() == 2 && args[0] == "--ready" {
+        wait_ready(&args[1], Duration::from_secs(15)).map(|_| {
+            if let Err(error) = ensure_polkit_agent() {
+                eprintln!("MacShell: could not start the PolicyKit agent: {error}");
+            }
+        })
+    } else if args.len() == 2 && args[0] == "--runtime" {
         check_runtime(&args[1])
     } else if args.len() == 2 {
         validate(Path::new(&args[0]))
@@ -299,6 +573,33 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn readiness_requires_connected_json_and_retries() {
+        let scratch = Scratch::new().unwrap();
+        let launcher = scratch.0.join("launcher");
+        let counter = scratch.0.join("counter");
+        fs::write(&launcher, format!("#!/bin/sh\nif [ ! -e '{}' ]; then touch '{}'; printf '{{\"connected\":false}}'; else printf '{{\"connected\":true}}'; fi\n", counter.display(), counter.display())).unwrap();
+        fs::set_permissions(&launcher, fs::Permissions::from_mode(0o755)).unwrap();
+        wait_ready(launcher.as_os_str(), Duration::from_secs(3)).unwrap();
+        fs::write(&launcher, "#!/bin/sh\nprintf '{\"connected\":1}'\n").unwrap();
+        assert!(wait_ready(launcher.as_os_str(), Duration::from_millis(250)).is_err());
+    }
+    #[test]
+    fn graphical_agent_ignores_terminal_and_checks_cmdline() {
+        use std::os::unix::fs::symlink;
+        let scratch = Scratch::new().unwrap();
+        let proc = scratch.0.join("42");
+        fs::create_dir(&proc).unwrap();
+        symlink("/usr/bin/pkttyagent", proc.join("exe")).unwrap();
+        assert!(!graphical_agent_running(&scratch.0));
+        fs::remove_file(proc.join("exe")).unwrap();
+        fs::write(
+            proc.join("cmdline"),
+            b"/usr/lib/polkit-kde-authentication-agent-1\0",
+        )
+        .unwrap();
+        assert!(graphical_agent_running(&scratch.0));
+    }
     #[test]
     fn timeout_cleans_a_child_holding_pipes_after_parent_exit() {
         let scratch = Scratch::new().unwrap();

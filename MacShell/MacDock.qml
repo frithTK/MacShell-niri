@@ -635,7 +635,8 @@ Scope {
             { id: "updates",    sec: 2, name: Language.I18n.text("updates.title"), searchName: Language.I18n.english("updates.title"), glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "update upgrade version packages pacman обновление обновления версия пакеты система" },
             { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
             { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font" },
-            { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
+             { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
+             { id: "airplay",     sec: 2, name: Language.I18n.text("ui.t_a72c5d7ed939"), searchName: Language.I18n.english("ui.t_a72c5d7ed939"), wg: "mirroring", c1: "#BF5AF2", c2: "#8E44AD", keys: "airplay screen mirroring fps frame rate volume television tv дублирование экран телевизор частота громкость" },
             { id: "dock",       sec: 2, name: Language.I18n.text("ui.t_7517ffc8943c"), searchName: Language.I18n.english("ui.t_7517ffc8943c"),  glyph: "dock",     c1: "#2C2C2E", c2: "#1C1C1E", keys: "size icon magnification zoom spacing margin distance edge hide auto labels indicators bounce trash monitor preview" },
             { id: "widgets", sec: 2, name: Language.I18n.text("ui.t_1fda79ffb659"), searchName: Language.I18n.english("ui.t_1fda79ffb659"), glyph: "apps", c1: "#9A7BF8", c2: "#6B48C8", keys: "desktop widgets gallery weather calendar clock player activity batteries charge cpu memory network disk size style forecast temperature city виджеты галерея погода календарь часы плеер батареи заряд устройства нагрузка процессор память сеть диск размер стиль город" },
             { id: "displays",   sec: 2, name: Language.I18n.text("ui.t_5a3452eb50bc"), searchName: Language.I18n.english("ui.t_5a3452eb50bc"),        wg: "sun",        c1: "#3D9BFF", c2: "#0A6CFF", keys: "brightness night shift monitor resolution refresh scale" },
@@ -1096,7 +1097,7 @@ Scope {
                     width: flick.width - 44
                     sourceComponent: ({
                         wifi: paneWifi, bluetooth: paneBt, network: paneNetwork, battery: paneBattery,
-                        general: paneGeneral, updates: paneUpdates, language: paneLanguage, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, dock: paneDesktopDock,
+                        general: paneGeneral, updates: paneUpdates, language: paneLanguage, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, airplay: paneAirplay, dock: paneDesktopDock,
                         displays: paneDisplays, menubar: paneMenuBar, wallpaper: paneWallpaper,
                         notifications: paneNotif, sound: paneSound, focus: paneFocus,
                         security: paneSecurity, lockscreen: paneLock, users: paneUsers, keyboard: paneKeyboard, mouse: paneMouse, trackpad: paneTrackpad,
@@ -1140,11 +1141,11 @@ Scope {
                 property string output: ""
                 property string notice: ""
                 readonly property bool busy: updateProcess.running
-                readonly property string helper: decodeURIComponent(Qt.resolvedUrl("update_service.py").toString().replace(/^file:\/\//, ""))
+                 readonly property string helper: decodeURIComponent(Qt.resolvedUrl("update-service.sh").toString().replace(/^file:\/\//, ""))
                 function run(action, arg) {
                     if (updateProcess.running) return;
                     notice = ""; output = ""; operation = action;
-                    updateProcess.command = ["python3", "-u", helper, action].concat(arg ? [arg] : []);
+                     updateProcess.command = [helper, action].concat(arg ? [arg] : []);
                     updateProcess.running = true;
                 }
                 function errorMessage(code) {
@@ -2489,6 +2490,38 @@ Scope {
             }
         }
 
+        Component {
+            id: paneAirplay
+            Column {
+                spacing: 12
+                SLabel { t: pal; text: Language.I18n.text("ui.t_a72c5d7ed939") }
+                SLabel { t: pal; text: Language.I18n.text("ui.t_airplay_settings_intro") }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal; title: Language.I18n.text("ui.t_airplay_fps")
+                        subtitle: Language.I18n.text("ui.t_airplay_fps_subtitle")
+                        SSlider {
+                            t: pal; from: 15; to: 60; stepSize: 1; width: 240
+                            leftLabel: "15"; rightLabel: "60"
+                            value: root.bar ? root.bar.airplayFps : 60
+                            onMoved: v => { if (root.bar) root.bar.airplayFps = Math.round(v); }
+                        }
+                    }
+                    SRow {
+                        t: pal; title: Language.I18n.text("ui.t_airplay_volume")
+                        subtitle: Language.I18n.text("ui.t_airplay_volume_subtitle")
+                        SSlider {
+                            t: pal; from: 1; to: 100; stepSize: 1; width: 240
+                            leftLabel: "1%"; rightLabel: "100%"
+                            value: root.bar ? root.bar.airplayVolumePercent : 20
+                            onMoved: v => { if (root.bar) root.bar.airplayVolumePercent = Math.round(v); }
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Desktop & Dock = Dock + Dock Behavior ──
         Component {
             id: paneDesktopDock
@@ -3009,6 +3042,26 @@ Scope {
                         SSlider { t: pal; leftLabel: "Long"; rightLabel: "Short"; from: 0; to: 1; value: root.bar ? 1 - (root.bar.kbRepeatDelay - 150) / 650 : 0.6; onMoved: v => { if (root.bar) root.bar.kbRepeatDelay = Math.round(150 + (1 - v) * 650); } }
                     }
                 }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("ui.t_input_recovery_title")
+                        subtitle: root.bar && root.bar.inputRecoveryStatus === "cleanup_safe" ? Language.I18n.text("ui.t_input_recovery_safe") : root.bar && root.bar.inputRecoveryStatus === "pending" ? Language.I18n.text("ui.t_input_recovery_pending") : root.bar && root.bar.inputRecoveryStatus === "conflict" ? Language.I18n.text("ui.t_input_recovery_conflict") : Language.I18n.text("ui.t_input_recovery_hint")
+                        SButton {
+                            t: pal
+                            text: root.bar && root.bar.inputRecoveryStatus === "cleanup_safe" ? Language.I18n.text("ui.t_input_cleanup") : Language.I18n.text("ui.t_input_diagnose")
+                            enabled: !!root.bar && !root.bar.inputRecoveryBusy
+                            onClicked: root.bar && root.bar.inputRecoveryStatus === "cleanup_safe" ? root.bar.cleanupInput() : root.bar.diagnoseInput()
+                        }
+                    }
+                    Text {
+                        visible: !!root.bar && !!root.bar.inputRecoveryMessage
+                        width: parent.width - 28; x: 14; bottomPadding: 10; wrapMode: Text.WordWrap
+                        text: root.bar ? root.bar.inputRecoveryMessage : ""
+                        color: pal.text2; font.family: pal.fam; font.pixelSize: 11
+                    }
+                }
                 SLabel { t: pal; text: Language.I18n.text("ui.t_3e407e62a746") + "us" + Language.I18n.text("ui.t_27fc12360ab5") }
             }
         }
@@ -3520,6 +3573,7 @@ Scope {
     property string lastSig: ""
 
     // ───────────── LOGIC ─────────────
+    readonly property var settingsSearchPanes: prefsWindow.panes
     function openPrefs(pane) {
         if (!settingsEnabled) return;
         if (pane !== undefined && pane !== "") {

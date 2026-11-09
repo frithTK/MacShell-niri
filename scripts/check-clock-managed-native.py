@@ -48,6 +48,12 @@ def child(directory, parent_display, parent_socket):
             shell = case_dir / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
             shutil.copy(ROOT / fixture, shell / 'shell.qml')
+            if os.environ.get('MACSHELL_CLOCK_TEST_RUST') == '1':
+                build = ROOT / 'native/clock-core/target/debug'
+                for name in ('clock-service-prototype', 'clock-audio-worker', 'clock-sound-import'):
+                    shutil.copy2(build / name, shell / (name + '-rust'))
+                (shell / 'clock_service.py').write_text('raise SystemExit("unexpected Python Clock fallback")\n')
+                (shell / 'clock_sound_import.py').write_text('raise SystemExit("unexpected Python sound import")\n')
             app = shell / 'ClockApp.qml'
             source = app.read_text().replace('    property string clockMessage: ""\n',
                 '    property string clockMessage: ""\n    readonly property var testBackend: clockBackend\n    readonly property var testClockWindow: win\n    readonly property var testClockBanner: banner\n    readonly property var testSoundImporter: soundImporter\n', 1)
@@ -74,6 +80,8 @@ def child(directory, parent_display, parent_socket):
                        QT_QUICK_CONTROLS_STYLE='Basic', LANG='C.UTF-8',
                        DBUS_SESSION_BUS_ADDRESS='unix:path=' + str(case_dir / 'no-bus'),
                        DBUS_SYSTEM_BUS_ADDRESS='unix:path=' + str(case_dir / 'no-bus'))
+            if os.environ.get('MACSHELL_CLOCK_TEST_RUST') == '1':
+                env['MACSHELL_EXPERIMENTAL_RUST_CLOCK'] = '1'
             env.pop('MACSHELL_CLOCK_SERVICE', None)
             if case in ('recovery_light', 'recovery_ru_light'):
                 env['MACSHELL_CLOCK_TEST_THEME'] = 'light'
@@ -151,6 +159,7 @@ with open(os.environ['TEST_CLOCK_AUDIO_LOG'], 'a') as output:
         log = result.stdout + result.stderr
         if result.returncode or 'TIMER_WIDGET_NATIVE_PASS' not in log:
             raise RuntimeError('Timer widget integration failed: ' + log[-10000:])
+        print('CLOCK_FULL_SHELL_INTEGRATION_PASS')
     finally:
         subprocess.run(['niri', 'msg', 'action', 'quit', '--skip-confirmation'], capture_output=True, timeout=8)
 

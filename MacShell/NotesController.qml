@@ -88,6 +88,7 @@ Scope {
     JsonService {
         id: localService
         script: "notes_service.py"
+        launcher: "notes-service.sh"
         arguments: ["--store", root.storePath]
         enabled: !root.sharedService && root.enabled && root.storePath !== ""
     }

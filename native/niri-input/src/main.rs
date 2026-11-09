@@ -10,6 +10,62 @@ fn error(message: impl Into<String>) -> ! {
     std::process::exit(1)
 }
 
+fn profile() -> PathBuf {
+    PathBuf::from(
+        env::var_os("MACSHELL_NIRI_PROFILE")
+            .unwrap_or_else(|| error("MACSHELL_NIRI_PROFILE is not set")),
+    )
+}
+
+fn journal_argument(args: &mut impl Iterator<Item = String>) -> std::ffi::OsString {
+    args.next()
+        .map(std::ffi::OsString::from)
+        .unwrap_or_else(|| {
+            error("usage: macshell-niri-input <diagnose|resolve-cleanup> <journal-name>")
+        })
+}
+
+fn journals(profile: &Path) -> Result<Vec<std::ffi::OsString>, String> {
+    let mut result = Vec::new();
+    for entry in fs::read_dir(profile).map_err(|e| format!("cannot inspect profile: {e}"))? {
+        let name = entry
+            .map_err(|e| format!("cannot inspect profile: {e}"))?
+            .file_name();
+        if macshell_niri_input::journal_store::journal_name(&name).is_ok() {
+            result.push(name);
+        }
+    }
+    Ok(result)
+}
+
+fn diagnostic_json(diagnostic: &macshell_niri_input::recovery::Diagnostic) -> Value {
+    use macshell_niri_input::recovery::{Observation, ProfileObservation, ProgressAgreement};
+    let observation = |value: &Observation| match value {
+        Observation::Original => "original",
+        Observation::Exchanged => "exchanged",
+        Observation::Conflict => "conflict",
+    };
+    let profile = match diagnostic.files.profile {
+        ProfileObservation::AllOriginal => "all_original",
+        ProfileObservation::AllExchanged => "all_exchanged",
+        ProfileObservation::PartiallyExchanged => "partially_exchanged",
+        ProfileObservation::Conflict => "conflict",
+    };
+    let agreement = match diagnostic.agreement {
+        ProgressAgreement::Consistent => "consistent",
+        ProgressAgreement::PendingExchange => "pending_exchange",
+        ProgressAgreement::Conflict => "conflict",
+    };
+    serde_json::json!({
+        "status": if agreement == "consistent" && profile == "all_exchanged" { "cleanup_safe" } else if agreement == "pending_exchange" { "pending" } else { "conflict" },
+        "profile": profile,
+        "agreement": agreement,
+        "files": diagnostic.files.files.iter().map(observation).collect::<Vec<_>>(),
+        "progressEvents": diagnostic.ledger.as_ref().map(|ledger| ledger.events().len()),
+        "cleanupAllowed": agreement == "consistent" && profile == "all_exchanged",
+    })
+}
+
 fn main() {
     let mut args = env::args().skip(1);
     let first = args.next();
@@ -18,15 +74,42 @@ fn main() {
         return;
     }
     if first.as_deref() == Some("resolve-cleanup") {
-        let profile = PathBuf::from(
-            env::var_os("MACSHELL_NIRI_PROFILE")
-                .unwrap_or_else(|| error("MACSHELL_NIRI_PROFILE is not set")),
-        );
-        let journal = args
-            .next()
-            .unwrap_or_else(|| error("usage: macshell-niri-input resolve-cleanup <journal-name>"));
-        macshell_niri_input::recovery::cleanup_completed(&profile, std::ffi::OsStr::new(&journal))
+        let profile = profile();
+        let journal = journal_argument(&mut args);
+        macshell_niri_input::recovery::cleanup_completed(&profile, &journal)
             .unwrap_or_else(|e| error(format!("cleanup refused: {e}")));
+        println!(
+            "{}",
+            serde_json::json!({"status":"cleaned", "journal": journal.to_string_lossy()})
+        );
+        return;
+    }
+    if first.as_deref() == Some("diagnose") {
+        let profile = profile();
+        let journal = match args.next() {
+            Some(value) => std::ffi::OsString::from(value),
+            None => {
+                let available = journals(&profile).unwrap_or_else(|e| error(e));
+                if available.is_empty() {
+                    println!(
+                        "{}",
+                        serde_json::json!({"status":"clear", "cleanupAllowed":false, "files":[]})
+                    );
+                    return;
+                }
+                if available.len() > 1 {
+                    println!(
+                        "{}",
+                        serde_json::json!({"status":"conflict", "cleanupAllowed":false, "error":"Multiple input transaction journals require manual inspection."})
+                    );
+                    return;
+                }
+                available.into_iter().next().expect("checked non-empty")
+            }
+        };
+        let diagnostic = macshell_niri_input::recovery::diagnose(&profile, &journal)
+            .unwrap_or_else(|e| error(format!("diagnosis failed: {e}")));
+        println!("{}", diagnostic_json(&diagnostic));
         return;
     }
     if first.as_deref() != Some("input") {
@@ -36,10 +119,7 @@ fn main() {
         .next()
         .and_then(|v| serde_json::from_str(&v).ok())
         .unwrap_or_else(|| error("invalid input JSON"));
-    let profile = PathBuf::from(
-        env::var_os("MACSHELL_NIRI_PROFILE")
-            .unwrap_or_else(|| error("MACSHELL_NIRI_PROFILE is not set")),
-    );
+    let profile = profile();
     let fragment = PathBuf::from(
         env::var_os("MACSHELL_INPUT_FRAGMENT")
             .unwrap_or_else(|| error("MACSHELL_INPUT_FRAGMENT is not set")),

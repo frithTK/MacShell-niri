@@ -1,7 +1,9 @@
 # Requirements for input-profile transactions
 
-This is a design constraint for future work, not an implemented transaction or
-permission to write the active profile. `renameat2(RENAME_EXCHANGE)` is atomic
+This is a design constraint for the single-file transaction. The Rust service
+exposes explicit read-only `diagnose <journal>` and conflict-aware
+`resolve-cleanup <journal>` commands; neither command performs automatic
+rollback or reverse exchange. `renameat2(RENAME_EXCHANGE)` is atomic
 for one pair of names; a profile spanning several files is not atomic. Niri may
 observe or reload an intermediate profile. An unrelated editor may race any
 check or rename, and the advisory lock does not stop it.
@@ -33,20 +35,21 @@ does not prevent or safely undo an uncooperative concurrent editor's writes.
 
 ## Restart evidence and allowed actions
 
-This table defines the initial fail-closed policy, not implemented recovery.
+This table defines the fail-closed policy for the diagnostic and cleanup
+workflow; it is not permission for automatic rollback.
 No automatic reverse exchange or cleanup is authorized after an unknown
 interruption merely because these observations match.
 
 | Evidence after reopening | Interpretation | Permitted action |
 | --- | --- | --- |
 | No transaction artifacts | No remaining evidence; not proof that no prior event happened | Begin only after normal profile and orphan checks. |
-| Candidate without manifest | Creation may have stopped before manifest persistence | Preserve and report it; do not infer ownership or delete automatically. |
+| Candidate without manifest | Creation may have stopped before manifest persistence | Preserve and report it; do not infer ownership or delete automatically. The next input write remains blocked by the artifact scan. |
 | Manifest without progress, damaged record, gap or unexpected name | Incomplete or untrusted evidence | Block new writes; preserve artifacts and report diagnostics. |
 | Empty progress and matching original/candidate | No recorded intent; observation may be stale | Preserve both; stop for inspection. |
 | Intent with original/candidate or exchanged arrangement | Exchange may or may not have happened before interruption | Preserve both; do not repeat or reverse automatically. |
-| Completion with matching exchanged arrangement | Records and observed arrangement agree; authenticity and prior fsync are unproven | Preserve evidence; require explicit conflict-aware resolution. |
+| Completion with matching exchanged arrangement | Records and observed arrangement agree; authenticity and prior fsync are unproven | `diagnose` reports cleanup-safe; explicit `resolve-cleanup` may remove only the candidate, progress snapshots and journal after rechecking. |
 | Missing or changed file, unsupported metadata, or disagreement | Conflict or insufficient evidence | Stop and preserve all available versions. |
-| Completion or cleanup interrupted | Some artifacts may already be absent | Report the observed state; do not infer permission to remove remaining files. |
+| Completion or cleanup interrupted | Some artifacts may already be absent | Report the observed state; do not infer permission to remove remaining files. A partial cleanup requires manual inspection rather than an automatic retry. |
 
 The eventual diagnostic must identify the profile and available versions and
 provide a documented way to compare and validate a user-selected configuration

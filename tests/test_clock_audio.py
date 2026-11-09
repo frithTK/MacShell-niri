@@ -239,16 +239,12 @@ class ClockAudioTests(unittest.TestCase):
             audio.tick(event, 1600)
             self.assertEqual(launch.call_count, 3)
 
-    def test_packaged_sounds_are_valid_and_used_when_custom_files_are_missing(self):
-        import clock_audio
-        directory = Path(clock_audio.__file__).parent / 'sounds'
-        for name in ('timer.wav', 'alarm.wav'):
-            with wave.open(str(directory / name), 'rb') as sound:
-                self.assertEqual((sound.getnchannels(), sound.getsampwidth(), sound.getframerate()), (1, 2, 24000))
-                self.assertGreater(sound.getnframes(), 12000)
-        with tempfile.TemporaryDirectory() as empty, mock.patch('clock_audio.subprocess.Popen', return_value=Child()) as launch:
-            ClockAudio(empty).start({'eventId': 'a', 'kind': 'timer'}, 1000)
-            self.assertEqual(launch.call_args.args[0][-1], str(directory / 'timer.wav'))
+    def test_user_default_sound_is_used_when_present(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch('clock_audio.subprocess.Popen', return_value=Child()) as launch:
+            sound = Path(directory) / 'timer.wav'
+            sound.write_bytes(b'test')
+            ClockAudio(directory).start({'eventId': 'a', 'kind': 'timer'}, 1000)
+            self.assertEqual(launch.call_args.args[0][-1], str(sound))
 
 
 if __name__ == '__main__':

@@ -77,7 +77,8 @@ def child():
                         time.sleep(.5)
                         options = {'volume': volume, 'startMs': 300, 'durationMs': 600, 'fadeMs': 600}
                         start = time.monotonic()
-                        result = subprocess.run([sys.executable, str(ROOT / 'MacShell/clock_audio_player.py'),
+                        player = [os.environ['MACSHELL_CLOCK_AUDIO_WORKER']] if os.environ.get('MACSHELL_CLOCK_AUDIO_WORKER') else [sys.executable, str(ROOT / 'MacShell/clock_audio_player.py')]
+                        result = subprocess.run(player + [
                                                  str(source), json.dumps(options)], env=env, stdout=log, stderr=log, timeout=8)
                         elapsed = time.monotonic() - start
                         time.sleep(.5)
@@ -112,7 +113,7 @@ def child():
                                                      '--target=clock-test', '-P', '{ stream.capture.sink = true }', '-'],
                                                     env=env, stdout=output, stderr=log)
                         time.sleep(.3)
-                        result = subprocess.run([sys.executable, str(ROOT / 'MacShell/clock_audio_player.py'),
+                        result = subprocess.run(player + [
                                                  str(compressed), '{}'], env=env, stdout=log, stderr=log, timeout=8)
                         time.sleep(.3)
                         stop(recorder)

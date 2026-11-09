@@ -37,7 +37,7 @@ Scope {
         return send("delete", {id: event.id, revision: event.revision, deleted: deleted});
     }
     JsonService {
-        id: service; script: "calendar_service.py"; arguments: ["--store", root.storePath]
+        id: service; script: "calendar_service.py"; launcher: "calendar-service.sh"; arguments: ["--store", root.storePath]
         enabled: root.enabled && root.storePath !== ""
         onConnected: { if (root.pending) root.pending.request = service.send(root.pending.action, root.pending.data); else root.load(); }
         onReadyChanged: if (!ready && root.pending) root.pending.request = -1

@@ -20,4 +20,5 @@ case "$backend" in
     python) ;;
     *) echo 'Invalid niri bridge selection' >&2; exit 1 ;;
 esac
+[ ! -e "$directory/.macshell-rust-only" ] && [ ! -L "$directory/.macshell-rust-only" ] || { echo 'Rust niri bridge is missing, incompatible or Python was selected' >&2; exit 1; }
 exec python3 -u "$directory/niri_ipc.py"

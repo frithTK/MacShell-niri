@@ -1,12 +1,12 @@
 # Experimental Rust niri bridge
 
-This is the Rust implementation of the persistent bridge used by `MacShell/Niri.qml`. The installer builds it by default during the transition to Rust; the existing Python bridge remains an explicit rollback option. The `timed_modes.py` and `recording_control.py` services still import the Python request helper. Replacing this process does not yet remove the project's Python dependency.
+This is the Rust implementation of the persistent bridge used by `MacShell/Niri.qml`. The installer builds it by default; a rollback can restore an older Python-based installation.
 
 The bridge connects to the `NIRI_SOCKET` Unix socket, requests outputs, subscribes to the niri event stream and emits JSON-lines snapshots and title deltas on stdout. It accepts action requests over stdin and uses separate request connections; diagnostics go to stderr. It keeps the existing 33 ms coalescing and 30 s output refresh, with an earlier output refresh following workspace/config changes. It resets the retry delay after reconnecting. It has no Qt dependency and does not require elevated privileges.
 
 Each connection gets a random `bridgeSession`; QML includes it in commands and rejects updates from an old session. Commands from a different session are discarded. Action connections also verify Linux `SO_PEERCRED` and process start time against the event-stream peer before sending, so a replaced compositor cannot receive a command meant for the old one. Commands are never automatically retried; if niri executes a command but its response is lost, its result remains unknown. The `--replay` argument is a test-only JSON-lines interface for synthetic state cases.
 
-`MacShell/niri-bridge.sh` chooses exactly one implementation at startup and verifies the Rust protocol version. If the Rust binary is absent or incompatible, automatic mode uses Python; an explicitly requested Rust mode fails instead. Once a bridge has started, it is restarted rather than silently switching implementations. To explicitly install the legacy version during migration, use `bash install.sh --python-bridge`; the usual `bash install.sh` builds Rust. Build failure occurs before the installer replaces user files, and rollback restores the previous shell directory and its bridge.
+The installed `MacShell/niri-bridge.sh` verifies the Rust protocol and fails if the binary is unavailable or incompatible. The source launcher retains fallback for historical unmarked profiles. Once a bridge has started, it is restarted rather than silently switching implementations. Build failure occurs before the installer replaces user files, and rollback restores the previous shell directory and its bridge.
 
 ## Build and check
 

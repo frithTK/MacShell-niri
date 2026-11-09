@@ -31,6 +31,10 @@ def child(directory, parent_display, parent_socket):
     root = Path(directory)
     shell = root / 'shell'
     shutil.copytree(ROOT / 'MacShell', shell)
+    if os.environ.get('MACSHELL_NOTES_TEST_RUST') == '1':
+        binary = ROOT / 'native/notes-service/target/debug/macshell-notes-service'
+        if not binary.is_file(): raise RuntimeError('Build the Rust Notes service before running this check')
+        shutil.copy2(binary, shell / 'notes-service-rust')
     path = shell / 'shell.qml'
     source = path.read_text().replace('import QtQuick\n', 'import QtQuick\nimport QtQuick.Window\nimport QtTest\n', 1)
     path.write_text(source.replace('ShellRoot {', 'ShellRoot {\n' + (ROOT / 'tests/notes-native.qml').read_text(), 1))

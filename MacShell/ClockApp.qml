@@ -604,7 +604,8 @@ Scope {
                 Text {
                     id: statusText; anchors.centerIn: parent; width: parent.width - 24
                     text: !clockBackend.ready ? Language.I18n.text("clock.service_unavailable") : (root.clockMessage ||
-                        Language.I18n.text(clockBackend.error === "Clock sound failed; using the built-in sound" ? "clock.sound_fallback" : "clock.service_error"))
+                        Language.I18n.text(clockBackend.error === "Clock sound failed; using the built-in sound" ? "clock.sound_fallback" :
+                                           clockBackend.error === "Clock sound playback failed" ? "clock.sound_playback_failed" : "clock.service_error"))
                     color: pal.text2; font.family: root.fam; font.pixelSize: 12; elide: Text.ElideRight
                 }
             }

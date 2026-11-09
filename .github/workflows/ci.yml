@@ -18,14 +18,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      RUSTUP_TOOLCHAIN: '1.85.0'
+      RUSTUP_TOOLCHAIN: '1.86.0'
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Rust
-        run: rustup toolchain install 1.85.0 --profile minimal
+        run: rustup toolchain install 1.86.0 --profile minimal
       - name: Install Gio build and private D-Bus test dependencies
         run: |
           sudo apt-get update
@@ -179,9 +179,10 @@ jobs:
   portable:
     name: Python regressions and source checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       MACSHELL_TEST_PYTHON: /usr/bin/python3
+      RUSTUP_TOOLCHAIN: '1.86.0'
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -195,6 +196,10 @@ jobs:
             gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
             dbus-daemon ffmpeg desktop-file-utils
+      - name: Prepare Rust dependencies for offline tests
+        run: |
+          rustup toolchain install 1.86.0 --profile minimal
+          for manifest in native/*/Cargo.toml; do cargo fetch --locked --manifest-path "$manifest"; done
       - name: Run portable checks
         run: bash scripts/check-portable.sh
 

@@ -6,7 +6,7 @@
 
 Нужны `niri` 26.04+, Quickshell с Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower и BackgroundEffect; Qt 6.9+ Declarative, Wayland, SVG, ShaderTools. Для MacLock нужны также модули Pam и session-lock. Специальный модуль Quickshell.Niri не используется.
 
-Мост niri и выбор цвета, общий источник времени MacShell и MacLock, сборщик системной статистики, Night Shift, сроки режимов, системное размытие, профили питания, службы Wi-Fi, Bluetooth, захвата окна и записи экрана, предпроверка сеанса, настройки «Активности», меню-бара, виджетов и локали по умолчанию собираются на Rust: нужны Rust и Cargo 1.85+, библиотеки Gio/GLib и GStreamer для компоновки (в Debian/Ubuntu — пакеты разработки `libgstreamer1.0-dev` и `libgstreamer-plugins-base1.0-dev`), `timeout` из coreutils и локально доступные зависимости из `Cargo.lock`. Заранее, при наличии интернета, их можно загрузить отдельно:
+Мост niri и выбор цвета, общий источник времени MacShell и MacLock, сборщик системной статистики, Night Shift, сроки режимов, системное размытие, профили питания, службы Wi-Fi, Bluetooth, захвата окна и записи экрана, предпроверка сеанса, настройки «Активности», меню-бара, виджетов и локали по умолчанию собираются на Rust: нужны Rust и Cargo 1.86+, библиотеки Gio/GLib и GStreamer для компоновки (в Debian/Ubuntu — пакеты разработки `libgstreamer1.0-dev` и `libgstreamer-plugins-base1.0-dev`), `timeout` из coreutils и локально доступные зависимости из `Cargo.lock`. Заранее, при наличии интернета, их можно загрузить отдельно:
 
 ```bash
 cargo fetch --locked --manifest-path native/niri-bridge/Cargo.toml

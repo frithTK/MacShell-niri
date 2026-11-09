@@ -8,7 +8,7 @@
 | --- | --- |
 | Desktop | niri 26.04+; Quickshell with Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower and BackgroundEffect modules |
 | Qt | Compatible Qt 6.9+ Declarative, Wayland, SVG and ShaderTools packages |
-| Rust build | Rust and Cargo 1.85+, Gio/GLib and GStreamer development libraries, and the locked dependencies available locally |
+| Rust build | Rust and Cargo 1.86+, Gio/GLib and GStreamer development libraries, and the locked dependencies available locally |
 | Helpers | GStreamer and `timeout` from coreutils; Python 3.11+ and feature-specific Python modules are needed for legacy profiles, rollback tools and development tests |
 | Window previews | PipeWire, niri ScreenCast D-Bus, and GStreamer `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, `appsrc`, `pngenc` |
 | MacLock | Quickshell PAM and session-lock modules, with an existing PAM service |

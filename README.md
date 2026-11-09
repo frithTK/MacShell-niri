@@ -130,7 +130,7 @@ See the [utilities guide](docs/UTILITIES.md) for details.
 
 ## Get started
 
-Requires niri 26.04+, Qt 6.9+, a compatible Quickshell build and Rust/Cargo 1.85+. New shell and session installations use Rust services without a Python runtime dependency. Legacy session profiles and rollback snapshots can still require Python; development tests also use Python.
+Requires niri 26.04+, Qt 6.9+, a compatible Quickshell build and Rust/Cargo 1.86+. New shell and session installations use Rust services without a Python runtime dependency. Legacy session profiles and rollback snapshots can still require Python; development tests also use Python.
 
 Clock supports imported audio and optional built-in synthesized sounds. The distribution does not include default alarm or timer recordings: select a sound in Clock or provide your own defaults. Without one, alerts cannot play audio.
 

@@ -3355,7 +3355,6 @@ Scope {
                     }
                 }
                 property string pop: ""          // "", apple, app, file, edit, view, window, help, cc, cal
-                onPopChanged: if (pop !== "spot") spCloseActions()
                 property real menuX: 0
                 property string anchorType: ""
                 property bool anchorOverflow: false
@@ -3620,6 +3619,7 @@ Scope {
                 readonly property bool anyVisible: overflowPop.visible || servicePop.visible || menuPop.visible || cc.visible || cal.visible || wifiPop.visible || btPop.visible || trayPop.visible || notifPop.visible || toastArea.visible || volPop.visible || kbPop.visible
                 onAnyVisibleChanged: root.popCount += (anyVisible ? 1 : -1)
                 onPopChanged: {
+                    if (pop !== "spot") spCloseActions();
                     if (pop === "") { anchorType = ""; anchorOverflow = false; }
                     if (["stats", "wifijoin", "focus", "awake", "night", "btpair", "record", "battery", "airplay"].indexOf(pop) >= 0)
                         servicePop.contentName = pop;

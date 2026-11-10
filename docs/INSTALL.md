@@ -7,7 +7,7 @@
 | Component | Requirements |
 | --- | --- |
 | Desktop | niri 26.04+; Quickshell with Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower and BackgroundEffect modules |
-| Qt | Compatible Qt 6.9+ Declarative, Wayland, SVG and ShaderTools packages |
+| Qt | Compatible Qt 6.9+ Declarative, Wayland, SVG and ShaderTools packages. PDF Quick Look also needs the Qt PDF QML module |
 | Rust build | Rust and Cargo 1.86+, Gio/GLib and GStreamer development libraries, and the locked dependencies available locally |
 | Helpers | GStreamer and `timeout` from coreutils; Python 3.11+ and feature-specific Python modules are needed for legacy profiles, rollback tools and development tests |
 | Window previews | PipeWire, niri ScreenCast D-Bus, and GStreamer `pipewiresrc`, `capssetter`, `videoscale`, `videoconvert`, `appsink`, `appsrc`, `pngenc` |
@@ -52,9 +52,11 @@ cargo fetch --locked --manifest-path native/screen-mirroring/Cargo.toml
 cargo fetch --locked --manifest-path native/airdrop-service/Cargo.toml
 cargo fetch --locked --manifest-path native/biometric-probe/Cargo.toml
 cargo fetch --locked --manifest-path native/update-service/Cargo.toml
+cargo fetch --locked --manifest-path native/desktop-source/Cargo.toml
+cargo fetch --locked --manifest-path native/preview/Cargo.toml
 ```
 
-The Rust build also includes input, session, currency, widget fetch, wallpaper discovery, Notes, Calendar, Reminders, Clock, Screen Mirroring, AirDrop, biometric helpers and the on-demand update service. Screen Mirroring uses Doubletake and UxPlay; AirDrop uses the MacShell Owly backend. Source launchers retain Python fallback for legacy profiles; new Rust-only installations report missing or incompatible helpers as errors. Notes, Calendar and Reminders use bundled SQLite. The Rust Clock service retains its prototype binary name and has been tested with temporary data, nested niri and an isolated PipeWire sink; installed-session acceptance remains outstanding.
+The Rust build also includes input, session, currency, widget fetch, wallpaper discovery, Notes, Calendar, Reminders, Clock, Screen Mirroring, AirDrop, biometric helpers, the on-demand update service, desktop-source (app origin) and preview (Quick Look). PDF Quick Look needs the Qt PDF QML module; without it the window still opens and reports that PDF preview is unavailable. Screen Mirroring uses Doubletake and UxPlay; AirDrop uses the MacShell Owly backend. Source launchers retain Python fallback for legacy profiles; new Rust-only installations report missing or incompatible helpers as errors. Notes, Calendar and Reminders use bundled SQLite. The Rust Clock service retains its prototype binary name and has been tested with temporary data, nested niri and an isolated PipeWire sink; installed-session acceptance remains outstanding.
 
 The Rust installer builds offline before changing installed files. `--check` verifies Cargo and the Quickshell runtime, not that every component dependency is cached. New installations use Rust-only runtime services; missing or incompatible binaries produce errors rather than invoking Python. A plain install preserves any existing session helpers, which may still require Python; use `--session` from outside MacShell to migrate those helpers. The former `--python-bridge` installer option is retired. Quickshell must be built for the installed Qt version. `MACSHELL_QS_BIN` can select a compatible runtime; installing this port does not replace the system `qs` binary.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.4
+
+- Spotlight finds Settings panes by localized names and offers per-result actions. Files get Show in Folder, Copy Path and Quick Look; apps share the Dock menu (pin, reveal, info).
+- A Rust helper resolves each app's desktop file and origin (pacman, Flatpak user/system, local, builtin). Package remove/reinstall/update needs a second confirmation, re-checks the source, and runs through pkexec. Pacman update is a full system `-Syu`. Tests use fixtures and do not change host packages.
+- Quick Look previews local images, PDF and plain text from Spotlight (action menu, Ctrl+Y, or `spotlight preview`). Oversized, missing and unsupported files show an explicit message. A selected local file can be dragged out with `text/uri-list`. Space in Nautilus still uses that file manager's own preview.
+
 ## 1.2.3
 
 - Refined Liquid Glass rim and inner shading on the menu bar, Dock and widgets. Dock can load a dedicated glass shader and falls back to the shared one if that shader fails.

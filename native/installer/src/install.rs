@@ -313,6 +313,8 @@ const ARTIFACTS: &[(&str, &str)] = &[
     ("macshell-biometric-probe", "biometric-probe-rust"),
     ("fingerprint-operation", "fingerprint-operation-rust"),
     ("macshell-update-service", "update-service-rust"),
+    ("macshell-desktop-source", "desktop-source-rust"),
+    ("macshell-preview", "preview-rust"),
 ];
 
 fn artifact<'a>(artifacts: &'a Value, name: &str) -> io::Result<&'a Path> {

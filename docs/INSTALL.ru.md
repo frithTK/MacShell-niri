@@ -4,7 +4,7 @@
 
 ## Зависимости
 
-Нужны `niri` 26.04+, Quickshell с Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower и BackgroundEffect; Qt 6.9+ Declarative, Wayland, SVG, ShaderTools. Для MacLock нужны также модули Pam и session-lock. Специальный модуль Quickshell.Niri не используется.
+Нужны `niri` 26.04+, Quickshell с Wayland, PipeWire, Mpris, SystemTray, Notifications, UPower и BackgroundEffect; Qt 6.9+ Declarative, Wayland, SVG, ShaderTools. Для предпросмотра PDF в Quick Look нужен модуль Qt PDF (в Arch — `qt6-pdf`); без него окно открывается и сообщает, что PDF недоступен. Для MacLock нужны также модули Pam и session-lock. Специальный модуль Quickshell.Niri не используется.
 
 Мост niri и выбор цвета, общий источник времени MacShell и MacLock, сборщик системной статистики, Night Shift, сроки режимов, системное размытие, профили питания, службы Wi-Fi, Bluetooth, захвата окна и записи экрана, предпроверка сеанса, настройки «Активности», меню-бара, виджетов и локали по умолчанию собираются на Rust: нужны Rust и Cargo 1.86+, библиотеки Gio/GLib и GStreamer для компоновки (в Debian/Ubuntu — пакеты разработки `libgstreamer1.0-dev` и `libgstreamer-plugins-base1.0-dev`), `timeout` из coreutils и локально доступные зависимости из `Cargo.lock`. Заранее, при наличии интернета, их можно загрузить отдельно:
 
@@ -39,9 +39,11 @@ cargo fetch --locked --manifest-path native/screen-mirroring/Cargo.toml
 cargo fetch --locked --manifest-path native/airdrop-service/Cargo.toml
 cargo fetch --locked --manifest-path native/biometric-probe/Cargo.toml
 cargo fetch --locked --manifest-path native/update-service/Cargo.toml
+cargo fetch --locked --manifest-path native/desktop-source/Cargo.toml
+cargo fetch --locked --manifest-path native/preview/Cargo.toml
 ```
 
-Rust-сборка также включает службы ввода, сеанса, валют, загрузки виджетов, поиска обоев, «Заметок», «Календаря», «Напоминаний», Clock, Screen Mirroring, AirDrop, биометрии и обновлений. Screen Mirroring использует Doubletake и UxPlay, а AirDrop — MacShell Owly. Исходные launcher сохраняют Python fallback для старых профилей; новые установки Rust-only сообщают об отсутствии или несовместимости бинарника как об ошибке. «Заметки», «Календарь» и «Напоминания» используют встроенную SQLite. Rust-служба Clock пока сохраняет название prototype; она проверена с временными данными, вложенным niri и изолированным PipeWire, но приёмка в установленном сеансе ещё не проводилась. Параметры Doubletake описаны в [DOUBLETAKE_RUNTIME.md](DOUBLETAKE_RUNTIME.md).
+Rust-сборка также включает службы ввода, сеанса, валют, загрузки виджетов, поиска обоев, «Заметок», «Календаря», «Напоминаний», Clock, Screen Mirroring, AirDrop, биометрии, обновлений, определения источника приложений и Quick Look. Screen Mirroring использует Doubletake и UxPlay, а AirDrop — MacShell Owly. Исходные launcher сохраняют Python fallback для старых профилей; новые установки Rust-only сообщают об отсутствии или несовместимости бинарника как об ошибке. «Заметки», «Календарь» и «Напоминания» используют встроенную SQLite. Rust-служба Clock пока сохраняет название prototype; она проверена с временными данными, вложенным niri и изолированным PipeWire, но приёмка в установленном сеансе ещё не проводилась. Параметры Doubletake описаны в [DOUBLETAKE_RUNTIME.md](DOUBLETAKE_RUNTIME.md).
 
 Отдельный скрипт входа, его предпроверка и обработчик локали обновляются командой `bash install.sh --session`; обычная установка обновляет оболочку и сохраняет существующий скрипт входа.
 

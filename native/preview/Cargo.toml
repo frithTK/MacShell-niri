@@ -1,0 +1,11 @@
+[package]
+name = "macshell-preview"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[dependencies]
+libc = "=0.2.186"
+serde_json = { version = "=1.0.150", features = ["preserve_order"] }

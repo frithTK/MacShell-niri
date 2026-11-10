@@ -4,6 +4,8 @@ import "Locale" as Language
 import "Utilities.js" as Utilities
 import "GlassTheme.js" as GlassTheme
 import "GlassLook.js" as GlassLook
+import "SettingsSearch.js" as SettingsSearch
+import "AppMenu.js" as AppMenu
 import "PreferenceFields.js" as PreferenceFields
 import QtQuick.Effects
 import QtQuick.Controls
@@ -18,6 +20,10 @@ Scope {
 
     // shared helpers from shell.qml (window geometry poller, wallpaper lookup)
     property var hub: null
+    Connections {
+        target: hub && hub.desktopSource ? hub.desktopSource : null
+        function onApplied(ok, error, op, appId) { root.rebuild(); }
+    }
     property bool dockEnabled: true      // false = no Dock at all (settings window stays available)
     property bool settingsEnabled: true  // false = keep the System Settings window closed
     readonly property var bar: hub ? hub.bar : null
@@ -698,10 +704,10 @@ Scope {
 
         // grouped like macOS System Settings (sec = sidebar section; a gap is drawn between sections)
         readonly property var panes: [
-            { id: "wifi",       sec: 1, name: "Wi-Fi",           wg: "wifi",       c1: "#3D9BFF", c2: "#0A6CFF", keys: "wireless network internet ssid join" },
-            { id: "bluetooth",  sec: 1, name: Language.I18n.text("ui.t_8bb29098b369"), searchName: Language.I18n.english("ui.t_8bb29098b369"),       wg: "bluetooth",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "devices pair headphones mouse keyboard" },
+            { id: "wifi",       sec: 1, name: "Wi-Fi",           wg: "wifi",       c1: "#3D9BFF", c2: "#0A6CFF", keys: "wireless network internet ssid join вайфай вай-фай беспроводная сеть интернет" },
+            { id: "bluetooth",  sec: 1, name: Language.I18n.text("ui.t_8bb29098b369"), searchName: Language.I18n.english("ui.t_8bb29098b369"),       wg: "bluetooth",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "devices pair headphones mouse keyboard блютуз устройства наушники мышь клавиатура" },
             { id: "network",    sec: 1, name: Language.I18n.text("ui.t_1744b96470b5"), searchName: Language.I18n.english("ui.t_1744b96470b5"),         wg: "ethernet",   c1: "#3D9BFF", c2: "#0A6CFF", keys: "ethernet ip address vpn tailscale connection" },
-            { id: "battery",    sec: 1, name: Language.I18n.text("ui.t_dfcb7c1619d5"), searchName: Language.I18n.english("ui.t_dfcb7c1619d5"),         wg: "bolt",       c1: "#4CD964", c2: "#28A745", keys: "power energy charge profile performance game mode" },
+            { id: "battery",    sec: 1, name: Language.I18n.text("ui.t_dfcb7c1619d5"), searchName: Language.I18n.english("ui.t_dfcb7c1619d5"),         wg: "bolt",       c1: "#4CD964", c2: "#28A745", keys: "power energy charge profile performance game mode батарея заряд питание энергия" },
             { id: "general",    sec: 2, name: Language.I18n.text("ui.t_c910d474dcd7"), searchName: Language.I18n.english("ui.t_c910d474dcd7"),         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
             { id: "updates",    sec: 2, name: Language.I18n.text("updates.title"), searchName: Language.I18n.english("updates.title"), glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "update upgrade version packages pacman обновление обновления версия пакеты система" },
             { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
@@ -3586,9 +3592,10 @@ Scope {
     function openPrefs(pane) {
         if (!settingsEnabled) return;
         if (pane !== undefined && pane !== "") {
-            for (var i = 0; i < prefsWindow.panes.length; i++)
-                if (prefsWindow.panes[i].id === pane) { prefsWindow.go(i); break; }
+            var target = SettingsSearch.openTarget(prefsWindow.panes, prefsWindow.cur, pane, true);
+            if (target.ok) prefsWindow.go(target.index);
         }
+        if (prefsWindow.visibility === Window.Minimized) prefsWindow.showNormal();
         prefsWindow.visible = true;
         prefsWindow.requestActivate();
     }
@@ -3823,16 +3830,74 @@ Scope {
 
     function togglePin(item) {
         var out = [], found = false;
+        var key = item && item.key ? String(item.key).toLowerCase() : String(item && (item.appId || "") || "").replace(/\.desktop$/i, "").toLowerCase();
         for (var i = 0; i < pinned.length; i++) {
-            var id = String(pinned[i]).replace(/\.desktop$/, "");
-            if (id.toLowerCase() === item.key) { found = true; continue; }
+            var id = String(pinned[i]).replace(/\.desktop$/i, "");
+            if (id.toLowerCase() === key) { found = true; continue; }
             out.push(pinned[i]);
         }
-        if (!found && item.entry) out.push(item.entry.id);
+        if (!found) {
+            var add = (item && item.entry && item.entry.id) ? item.entry.id : (item && (item.appId || item.key));
+            if (add) out.push(add);
+        }
         pinned = out;
         store.setText(JSON.stringify(out, null, 2));
         rebuild();
     }
+
+    function isPinned(appId) {
+        var key = String(appId || "").replace(/\.desktop$/i, "").toLowerCase();
+        if (!key) return false;
+        for (var i = 0; i < pinned.length; i++) {
+            if (String(pinned[i]).replace(/\.desktop$/i, "").toLowerCase() === key) return true;
+        }
+        return false;
+    }
+
+    function togglePinById(appId) {
+        var entry = lookup(appId);
+        togglePin({ key: keyOf(appId), entry: entry, appId: appId || (entry && entry.id) });
+    }
+
+    function prefetchSources(list) {
+        if (!hub || !hub.desktopSource || !list) return;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].kind === "app" && !list[i].special && (list[i].appId || list[i].key))
+                hub.desktopSource.request(list[i].appId || list[i].key);
+        }
+    }
+
+    function appMenuLabel(row, source, windowCount) {
+        if (row.id === "open") return windowCount > 0 ? Language.I18n.text("ui.t_7469c2f6ff3a") : Language.I18n.text("ui.t_ed077f3d8125");
+        if (row.id === "pin") return row.pinned ? Language.I18n.text("ui.t_0cbc564f2355") : Language.I18n.text("ui.t_eb625dddc8f0");
+        if (row.id === "reveal") return Language.I18n.text("spotlight.show_in_folder");
+        if (row.id === "info") return Language.I18n.text("appmenu.get_info");
+        if (row.id === "remove") return Language.I18n.text("appmenu.uninstall");
+        if (row.id === "reinstall") return Language.I18n.text("appmenu.reinstall");
+        if (row.id === "update") return (source && source.origin === "pacman") ? Language.I18n.text("appmenu.update_system") : Language.I18n.text("appmenu.update");
+        return Language.I18n.text("ui.t_ed077f3d8125");
+    }
+
+    function appMenuConfirm(row, source, name) {
+        var label = (row && row.summary) ? row.summary : (name || "");
+        if (!label) label = name || "";
+        var kind = row && row.confirmKind ? row.confirmKind : (row && row.id);
+        if (kind === "update_system") return Language.I18n.text("appmenu.confirm_update_system", {name: name || label});
+        if (kind === "reinstall") return Language.I18n.text("appmenu.confirm_reinstall", {name: label});
+        if (kind === "update") return Language.I18n.text("appmenu.confirm_update", {name: label});
+        if (kind === "remove") return Language.I18n.text("appmenu.confirm_remove", {name: label});
+        return Language.I18n.text("ui.t_1f8c95036230");
+    }
+
+    function runAppMenu(id, item, source) {
+        if (id === "open") { activate(item, true); return; }
+        if (id === "pin") { togglePin(item); return; }
+        if (id === "reveal" && hub && hub.desktopSource) hub.desktopSource.reveal(source);
+        if (id === "info" && hub && hub.desktopSource) hub.desktopSource.showInfo(item.name, source);
+        if ((id === "remove" || id === "reinstall" || id === "update") && hub && hub.desktopSource)
+            hub.desktopSource.apply(item.appId || item.key, id, source);
+    }
+
 
     function reorderPinned(from, to) {
         var vis = [];
@@ -3883,11 +3948,21 @@ Scope {
             }
             m.push({ kind: "sep" });
         }
-        if (item.entry) {
-            m.push({ kind: "item", label: item.pinned ? Language.I18n.text("ui.t_0cbc564f2355") : Language.I18n.text("ui.t_eb625dddc8f0"),
-                     run: function () { togglePin(item); } });
-            m.push({ kind: "item", label: wins.length > 0 ? Language.I18n.text("ui.t_7469c2f6ff3a") : Language.I18n.text("ui.t_ed077f3d8125"),
-                     run: function () { activate(item, true); } });
+        var source = (root.hub && root.hub.desktopSource) ? root.hub.desktopSource.sourceOf(item.appId || item.key) : null;
+        var applying = !!(root.hub && root.hub.desktopSource && root.hub.desktopSource.applying);
+        var rows = AppMenu.actions({ pinned: item.pinned === true, hasEntry: !!item.entry, source: source, applying: applying });
+        for (var r = 0; r < rows.length; r++) {
+            (function (row) {
+                if (row.id === "sep") { m.push({ kind: "sep" }); return; }
+                m.push({
+                    kind: "item",
+                    label: root.appMenuLabel(row, source, wins.length),
+                    disabled: row.enabled === false,
+                    confirm: row.confirm === true,
+                    confirmLabel: row.confirm === true ? root.appMenuConfirm(row, source, item.name) : "",
+                    run: function () { root.runAppMenu(row.id, item, source); }
+                });
+            })(rows[r]);
         }
         if (wins.length > 0) {
             m.push({ kind: "sep" });
@@ -4031,6 +4106,7 @@ Scope {
             items = list;
             syncModel(list);
         }
+        root.prefetchSources(list);
     }
 
     // ═════════════ LIQUID GLASS BACKEND ═════════════
@@ -4287,6 +4363,14 @@ Scope {
                 property bool revealed: false
                 property var menuItem: null
                 property var menuModel: []
+                Connections {
+                    target: root.hub && root.hub.desktopSource ? root.hub.desktopSource : null
+                    function onResolved(appId, source) {
+                        if (!ui.menuOpen || !ui.menuItem) return;
+                        var id = String(ui.menuItem.appId || ui.menuItem.key || "").replace(/\.desktop$/i, "");
+                        if (id === appId) ui.menuModel = root.menuFor(ui.menuItem);
+                    }
+                }
                 property string armed: ""            // label of a confirm-type entry that was clicked once (e.g. Empty Trash)
                 property real menuTailX: -1
                 function updateMenuTail() {
@@ -4335,7 +4419,7 @@ Scope {
                         menuTm.text = e.label || "";
                         w = Math.max(w, menuTm.advanceWidth);
                         if (e.confirm === true) {
-                            menuTm.text = Language.I18n.text("ui.t_1f8c95036230");
+                            menuTm.text = e.confirmLabel || Language.I18n.text("ui.t_1f8c95036230");
                             w = Math.max(w, menuTm.advanceWidth);
                         }
                     }
@@ -5126,6 +5210,8 @@ Scope {
                                             ui.menuCell = cell;
                                             ui.menuItem = cell.modelData;
                                             ui.syncMenu();
+                                            if (cell.modelData && cell.modelData.kind === "app" && !cell.modelData.special && root.hub && root.hub.desktopSource)
+                                                root.hub.desktopSource.request(cell.modelData.appId || cell.modelData.key);
                                         } else {
                                             root.activate(cell.modelData, mouse.button === Qt.MiddleButton);
                                         }
@@ -5214,7 +5300,7 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parent.width - 2 * Math.round(11 * menu.k)
                                     elide: Text.ElideRight
-                                    text: mi.isSep ? "" : (mi.armedNow ? Language.I18n.text("ui.t_1f8c95036230") : mi.modelData.label)
+                                    text: mi.isSep ? "" : (mi.armedNow ? (mi.modelData.confirmLabel || Language.I18n.text("ui.t_1f8c95036230")) : mi.modelData.label)
                                     color: (!mi.isSep && !mi.off && mia.containsMouse) ? "white"
                                          : (mi.off ? (menu.dark ? Qt.rgba(1, 1, 1, 0.30) : Qt.rgba(0, 0, 0, 0.28))
                                                    : (menu.dark ? Qt.rgba(1, 1, 1, 0.92) : Qt.rgba(0, 0, 0, 0.86)))

@@ -4,6 +4,9 @@ import "Locale" as Language
 import "GlassTheme.js" as GlassTheme
 import "SettingsMigrations.js" as SettingsMigrations
 import "BarLayout.js" as BarLayout
+import "SettingsSearch.js" as SettingsSearch
+import "AppMenu.js" as AppMenu
+import "QuickLook.js" as QuickLook
 import QtQuick.Controls as Controls
 import QtQuick.Effects
 import Quickshell
@@ -22,6 +25,12 @@ Scope {
 
     // shared helpers from shell.qml (window geometry poller, wallpaper lookup)
     property var hub: null
+    property int desktopSourceTick: 0
+    Connections {
+        target: hub && hub.desktopSource ? hub.desktopSource : null
+        function onResolved(appId, source) { root.desktopSourceTick++; }
+        function onApplied(ok, error, op, appId) { root.desktopSourceTick++; }
+    }
     // Pause window captures while this shell records the screen.
     readonly property bool captureQuiet: hub ? hub.captureQuiet : recording || mirroring.quiet
     // windows opening / closing: the glass's live captures pause (it keeps its last frame; the source stays attached) - see shell.qml: hub.glassHold
@@ -1616,6 +1625,7 @@ Scope {
         function clipboard(): void { root.spotOpen("clip"); }
         function emoji(): void { root.spotOpen("emoji"); }
         function apps(): void { root.spotOpen("apps"); }
+        function preview(path: string): void { root.openQuickLook(path); }
     }
 
     // ═════════════ CLIPBOARD HISTORY + EMOJI (Spotlight panels) ═════════════
@@ -1980,7 +1990,7 @@ Scope {
         var r = searchApps(q), out = [];
         for (var i = 0; i < r.length && i < limit; i++)
             out.push({ title: r[i].name, sub: r[i].genericName || Language.I18n.text("ui.t_e7ad522ea327"), icon: iconSrc(r[i].icon),
-                       glyph: "", confirm: false, run: appRunner(r[i]) });
+                       glyph: "", kind: "app", appId: r[i].id, confirm: false, run: appRunner(r[i]) });
         return out;
     }
     function actionItems(q) {
@@ -1996,22 +2006,18 @@ Scope {
         for (var i = 0; i < all.length; i++) {
             if (s !== "" && (all[i].title + " " + (all[i].keywords || "")).toLowerCase().indexOf(s) < 0) continue;
             out.push({ title: all[i].title, sub: Language.I18n.text("ui.t_64cff1319d2f"), icon: "", glyph: all[i].glyph,
-                       confirm: all[i].confirm === true, run: all[i].run });
+                       kind: "action", confirm: all[i].confirm === true, run: all[i].run });
         }
         return out;
     }
     function settingsItems(q) {
-        var s = (q || "").trim().toLowerCase(), out = [];
-        if (s.length < 2 || !hub || !hub.dock || !hub.dock.settingsEnabled) return out;
-        var panes = hub.dock.settingsSearchPanes || [];
-        for (var i = 0; i < panes.length; i++) {
-            var pane = panes[i];
-            var hay = (pane.name + " " + (pane.searchName || "") + " " + (pane.keys || "")).toLowerCase();
-            if (hay.indexOf(s) < 0) continue;
+        if (!hub || !hub.dock || !hub.dock.settingsEnabled) return [];
+        var found = SettingsSearch.match(hub.dock.settingsSearchPanes || [], q), out = [];
+        for (var i = 0; i < found.length; i++) {
             (function (id, name) {
                 out.push({ title: name, sub: Language.I18n.text("ui.t_85c35c367d93"), glyph: "gear",
-                           run: function () { root.openSettings(id); } });
-            })(pane.id, pane.name);
+                           kind: "settings", pane: id, run: function () { root.openSettings(id); } });
+            })(found[i].id, found[i].name);
         }
         return out;
     }
@@ -2042,12 +2048,119 @@ Scope {
             var t=ts[i], o=t.lastIpcObject||{}, title=String(o.title||t.title||""), cls=String(o["class"]||t.appId||""), app=root.lookup(cls), label=title||app&&app.name||cls;
             if((label+" "+cls+" "+(app?app.name:" ")).toLowerCase().indexOf(s)<0)continue;
             var addr=String(t.id);
-            (function(win,addr,workspace,cl,name,icon){out.push({title:name,sub:Language.I18n.text("ui.t_d3aa9a25b08d"),icon:icon||"",glyph:"layers",run:function(){root.swPending={id:win.id};swFocusTimer.restart();}});})(t,addr,o.workspace&&o.workspace.id>0?o.workspace.id:0,cls,label,app?root.iconSrc(app.icon):"");
+            (function(win,addr,workspace,cl,name,icon){out.push({title:name,sub:Language.I18n.text("ui.t_d3aa9a25b08d"),icon:icon||"",glyph:"layers",kind:"window",run:function(){root.swPending={id:win.id};swFocusTimer.restart();}});})(t,addr,o.workspace&&o.workspace.id>0?o.workspace.id:0,cls,label,app?root.iconSrc(app.icon):"");
         }
         return out;
     }
     function fileItems(q) {
-        var out=[]; for(var i=0;i<fileHits.length&&out.length<5;i++){var path=fileHits[i];out.push({title:path.substring(path.lastIndexOf("/")+1)||path,sub:path,glyph:"folder",run:(function(p){return function(){Quickshell.execDetached(["xdg-open",p]);};})(path)});} return out;
+        var out=[]; for(var i=0;i<fileHits.length&&out.length<5;i++){var path=fileHits[i];out.push({title:path.substring(path.lastIndexOf("/")+1)||path,sub:path,glyph:"folder",kind:"file",path:path,run:(function(p){return function(){root.openLocalPath(p);};})(path)});} return out;
+    }
+    function copyText(value) {
+        Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", String(value)]);
+    }
+    function openLocalPath(path) {
+        if (!SettingsSearch.isLocalPath(path)) return;
+        Quickshell.execDetached(["xdg-open", path]);
+    }
+    function revealLocalPath(path) {
+        var dir = SettingsSearch.parentDir(path);
+        if (!dir) return;
+        Quickshell.execDetached(["xdg-open", dir]);
+    }
+    function openQuickLook(path) {
+        var local = QuickLook.localPath(path);
+        if (!local || !hub || !hub.quickLook) return;
+        hub.quickLook.open(local);
+    }
+    function spotlightActionTitle(id, row, item) {
+        if (id === "pin") return (row && row.pinned) ? Language.I18n.text("ui.t_0cbc564f2355") : Language.I18n.text("ui.t_eb625dddc8f0");
+        if (id === "reveal") return Language.I18n.text("spotlight.show_in_folder");
+        if (id === "copyPath") return Language.I18n.text("spotlight.copy_path");
+        if (id === "preview") return Language.I18n.text("spotlight.quick_look");
+        if (id === "info") return Language.I18n.text("appmenu.get_info");
+        if (id === "remove") return Language.I18n.text("appmenu.uninstall");
+        if (id === "reinstall") return Language.I18n.text("appmenu.reinstall");
+        if (id === "update") {
+            var origin = item && hub && hub.desktopSource ? ((hub.desktopSource.sourceOf(item.appId) || {}).origin || "") : "";
+            return origin === "pacman" ? Language.I18n.text("appmenu.update_system") : Language.I18n.text("appmenu.update");
+        }
+        return Language.I18n.text("ui.t_ed077f3d8125");
+    }
+    function spotlightActionReason(id, reason) {
+        if (!reason) return "";
+        if (reason === "pending") return Language.I18n.text("appmenu.reason_pending");
+        if (reason === "ambiguous") return Language.I18n.text("appmenu.reason_ambiguous");
+        if (reason === "builtin") return Language.I18n.text("appmenu.reason_builtin");
+        if (reason === "local") return Language.I18n.text("appmenu.reason_local");
+        if (reason === "unofficial") return Language.I18n.text("appmenu.reason_unofficial");
+        if (reason === "confirm") return Language.I18n.text("appmenu.reason_confirm");
+        if (reason === "busy") return Language.I18n.text("appmenu.apply_busy");
+        if (reason === "unowned") return Language.I18n.text("appmenu.reason_unowned");
+        if (reason === "missing") return Language.I18n.text("appmenu.reason_missing");
+        if (reason === "system-update") return Language.I18n.text("appmenu.reason_system_update");
+        if (id === "preview") return Language.I18n.text("spotlight.quick_look_unavailable");
+        if (id === "copyPath") return Language.I18n.text("spotlight.copy_unavailable");
+        return Language.I18n.text("spotlight.reveal_unavailable");
+    }
+    function spotlightActionGlyph(id, item) {
+        if (id === "reveal") return "folder";
+        if (id === "copyPath") return "link";
+        if (id === "preview" || id === "info") return "search";
+        if (id === "pin") return "appstore";
+        if (id === "remove") return "logout";
+        if (id === "reinstall") return "restart";
+        if (id === "update") return "restart";
+        return (item && item.glyph) ? item.glyph : "appstore";
+    }
+    function spotlightActions(item) {
+        void root.desktopSourceTick;
+        var rows, out = [];
+        if (item && item.kind === "app") {
+            var source = hub && hub.desktopSource ? hub.desktopSource.sourceOf(item.appId) : null;
+            var pinned = hub && hub.dock ? hub.dock.isPinned(item.appId) : false;
+            var applying = !!(hub && hub.desktopSource && hub.desktopSource.applying);
+            rows = AppMenu.actions({ pinned: pinned, hasEntry: true, source: source, applying: applying });
+        } else {
+            rows = SettingsSearch.describe(item && item.kind, item);
+        }
+        for (var i = 0; i < rows.length; i++) {
+            (function (row) {
+                if (row.id === "sep") return;
+                var reason = row.enabled ? (row.summary || "") : root.spotlightActionReason(row.id, row.reason);
+                var confirmLabel = "";
+                if (row.confirm === true) {
+                    var name = (item && item.title) || "";
+                    var label = row.summary || name;
+                    if (row.confirmKind === "update_system") confirmLabel = Language.I18n.text("appmenu.confirm_update_system", {name: name || label});
+                    else if (row.confirmKind === "reinstall") confirmLabel = Language.I18n.text("appmenu.confirm_reinstall", {name: label});
+                    else if (row.confirmKind === "update") confirmLabel = Language.I18n.text("appmenu.confirm_update", {name: label});
+                    else if (row.confirmKind === "remove") confirmLabel = Language.I18n.text("appmenu.confirm_remove", {name: label});
+                }
+                out.push({
+                    title: root.spotlightActionTitle(row.id, row, item),
+                    sub: reason,
+                    glyph: root.spotlightActionGlyph(row.id, item),
+                    kind: "action",
+                    enabled: row.enabled,
+                    close: row.close,
+                    confirm: row.confirm === true,
+                    confirmLabel: confirmLabel,
+                    run: function () {
+                        if (!row.enabled) return;
+                        if (row.id === "open" && item && item.run) item.run();
+                        else if (row.id === "reveal" && item && item.kind === "app" && hub && hub.desktopSource) hub.desktopSource.reveal(hub.desktopSource.sourceOf(item.appId));
+                        else if (row.id === "reveal") root.revealLocalPath(item.path);
+                        else if (row.id === "copyPath") root.copyText(item.path);
+                        else if (row.id === "preview") root.openQuickLook(item.path);
+                        else if (row.id === "pin" && item && hub && hub.dock) hub.dock.togglePinById(item.appId);
+                        else if (row.id === "info" && item && hub && hub.desktopSource) hub.desktopSource.showInfo(item.title, hub.desktopSource.sourceOf(item.appId));
+                        else if ((row.id === "remove" || row.id === "reinstall" || row.id === "update") && item && hub && hub.desktopSource)
+                            hub.desktopSource.apply(item.appId, row.id, source);
+                    }
+                });
+            })(rows[i]);
+        }
+        return out;
     }
     function homeItems(q) {
         var out = [], s = (q || "").trim().toLowerCase();
@@ -2057,13 +2170,19 @@ Scope {
             return out;
         }
         if(s.length>0) out=appItems(q,4);
-        var cv=conversion(s); if(cv) out.unshift(cv);
-        else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:"Calculator · Return to copy",glyph:"search",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
-        var acts=actionItems(q); for(var k=0;k<acts.length&&out.length<6;k++)out.push(acts[k]);
-        var settings=settingsItems(q); for(var p=0;p<settings.length&&out.length<6;p++)out.push(settings[p]);
-        var wins=windowItems(q); for(var j=0;j<wins.length&&out.length<6;j++)out.push(wins[j]);
-        if(s.length>0 && out.length<7) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:"Web Search · Return to open",glyph:"search",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
-        return out.slice(0,8);
+        var cv=conversion(s); if(cv) { cv.kind = "conversion"; out.unshift(cv); }
+        else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:"Calculator · Return to copy",glyph:"search",kind:"calc",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
+        SettingsSearch.appendGroup(out, settingsItems(q), 8, 4);
+        SettingsSearch.appendGroup(out, actionItems(q), 8, 4);
+        SettingsSearch.appendGroup(out, windowItems(q), 8, 4);
+        if(s.length>0 && out.length<8) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:"Web Search · Return to open",glyph:"search",kind:"web",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
+        out = out.slice(0,8);
+        if (hub && hub.desktopSource) {
+            for (var p = 0; p < out.length; p++) {
+                if (out[p].kind === "app" && out[p].appId) hub.desktopSource.request(out[p].appId);
+            }
+        }
+        return out;
     }
 
     function menuModelFor(name) {
@@ -3236,6 +3355,7 @@ Scope {
                     }
                 }
                 property string pop: ""          // "", apple, app, file, edit, view, window, help, cc, cal
+                onPopChanged: if (pop !== "spot") spCloseActions()
                 property real menuX: 0
                 property string anchorType: ""
                 property bool anchorOverflow: false
@@ -3349,6 +3469,12 @@ Scope {
                 property string spQuery: ""
                 property string spHoverLabel: ""
                 property int spSel: 0
+                property int spSavedSel: 0
+                property var spActionItem: null
+                readonly property var spActionList: {
+                    var tick = root.desktopSourceTick;
+                    return spActionItem ? root.spotlightActions(spActionItem) : [];
+                }
                 property var spExpanded: ({})
                 property bool clipMenu: false           // the round "..." menu of the Clipboard panel
                 property bool spCalm: false             // Spotlight was opened by the clipboard / emoji shortcut: plain fade, no springy pop
@@ -3363,6 +3489,7 @@ Scope {
                                         : (spQuery.trim() === "" ? [] : root.homeItems(spQuery))))
 
                 function spSetMode(m) {
+                    spCloseActions();
                     spMode = m; spQuery = ""; spHoverLabel = ""; spSel = 0; armed = ""; clipMenu = false;
                     spInput.text = ""; appsInput.text = ""; clipInput.text = ""; emojiInput.text = "";
                     if (m === "clip") root.clipRefresh();
@@ -3370,19 +3497,46 @@ Scope {
                     spFocusTimer.restart();
                 }
                 function spEscape() {
-                    if (clipMenu) clipMenu = false;
+                    if (spActionItem) spCloseActions();
+                    else if (clipMenu) clipMenu = false;
                     else if (spQuery !== "") { spInput.text = ""; appsInput.text = ""; clipInput.text = ""; emojiInput.text = ""; spQuery = ""; }
                     else if (spMode !== "home") spSetMode("home");
                     else pop = "";
                 }
+                function spList() { return spActionItem ? spActionList : spResults; }
                 function spMove(d) {
                     resPanel.pointerSelection = false;
-                    var n = spResults.length;
+                    var n = spList().length;
                     if (n > 0) spSel = (Math.min(spSel, n - 1) + d + n) % n;
                 }
+                function spOpenActions(item) {
+                    if (!item || !SettingsSearch.hasExtras(item.kind)) return;
+                    spSavedSel = spSel;
+                    spActionItem = item;
+                    spSel = 0;
+                    armed = "";
+                    resPanel.pointerSelection = false;
+                    if (item.kind === "app" && item.appId && root.hub && root.hub.desktopSource)
+                        root.hub.desktopSource.request(item.appId);
+                }
+                function spCloseActions() {
+                    if (!spActionItem) return;
+                    spActionItem = null;
+                    spSel = spSavedSel;
+                    armed = "";
+                }
                 function spActivate(i) {
-                    var it = spResults[i];
+                    var list = spList();
+                    var it = list[i];
                     if (!it) return;
+                    if (spActionItem) {
+                        if (it.enabled === false) return;
+                        if (it.confirm === true && armed !== it.title) { armed = it.title; return; }
+                        if (it.close !== false) pop = "";
+                        if (it.run) it.run();
+                        if (it.close === false) spCloseActions();
+                        return;
+                    }
                     if (it.confirm === true && armed !== it.title) { armed = it.title; return; }
                     pop = "";
                     if (it.run) it.run();
@@ -3394,7 +3548,7 @@ Scope {
                     } else if (spMode === "emoji") {
                         var em = spResults[Math.min(spSel, spResults.length - 1)];
                         if (em) { pop = ""; root.emojiPick(em); }
-                    } else spActivate(Math.min(spSel, spResults.length - 1));
+                    } else spActivate(Math.min(spSel, spList().length - 1));
                 }
                 function spKey(ev) {
                     var k = ev.key, n = spResults.length;
@@ -3410,9 +3564,21 @@ Scope {
                     }
                     else if (k === Qt.Key_Down) { spMove(1); ev.accepted = true; }
                     else if (k === Qt.Key_Up) { spMove(-1); ev.accepted = true; }
+                    else if (k === Qt.Key_Right && !spActionItem && n > 0) {
+                        spOpenActions(spResults[Math.min(spSel, n - 1)]);
+                        ev.accepted = true;
+                    }
+                    else if (k === Qt.Key_Left && spActionItem) {
+                        spCloseActions();
+                        ev.accepted = true;
+                    }
                     else if (spMode === "clip" && k === Qt.Key_Delete) {
                         if (n > 0) root.clipDelete(spResults[Math.min(spSel, n - 1)]);
                         ev.accepted = true;
+                    }
+                    else if (k === Qt.Key_Y && (ev.modifiers & Qt.ControlModifier)) {
+                        var ql = ui.spActionItem || (n > 0 ? spResults[Math.min(spSel, n - 1)] : null);
+                        if (ql && ql.kind === "file") { root.openQuickLook(ql.path); ev.accepted = true; }
                     }
                     else if (k === Qt.Key_Return || k === Qt.Key_Enter) {
                         if (spMode === "clip" && (ev.modifiers & Qt.ShiftModifier) && n > 0) {
@@ -7227,7 +7393,7 @@ Scope {
                                 selectedTextColor: "white"
                                 font.family: pal.fam; font.pixelSize: 17
                                 horizontalAlignment: /[\u0590-\u08ff]/.test(text) ? Text.AlignRight : Text.AlignLeft
-                                onTextChanged: { if (!ui.spFull) { resPanel.pointerSelection = false; ui.spQuery = text; ui.spSel = 0; ui.armed = ""; if (/^(file|find)\s+/i.test(text)) root.updateFileSearch(text.replace(/^(file|find)\s+/i, "").trim()); } }
+                                onTextChanged: { if (!ui.spFull) { resPanel.pointerSelection = false; ui.spCloseActions(); ui.spQuery = text; ui.spSel = 0; ui.armed = ""; if (/^(file|find)\s+/i.test(text)) root.updateFileSearch(text.replace(/^(file|find)\s+/i, "").trim()); } }
                                 Keys.onPressed: event => ui.spKey(event)
                             }
                         }
@@ -7275,7 +7441,7 @@ Scope {
                         id: resPanel
                         y: spRow.height + 10
                         width: spot.width
-                        readonly property var items: ui.spFull ? [] : ui.spResults      // clipboard / emoji / apps have their own panels
+                        readonly property var items: ui.spFull ? [] : ui.spList()      // clipboard / emoji / apps have their own panels; actions replace the list
                         property bool pointerSelection: false
                         property int keep: 1                         // last non-empty row count, so the panel shrinks while it fades out
                         onItemsChanged: {
@@ -7316,8 +7482,19 @@ Scope {
                                     readonly property string ico: (modelData && modelData.icon) ? String(modelData.icon) : ""
                                     readonly property bool sel: index === Math.min(ui.spSel, resPanel.items.length - 1)
                                     readonly property bool armedNow: modelData.confirm === true && ui.armed === modelData.title
+                                    readonly property bool hasActions: !ui.spActionItem && SettingsSearch.hasExtras(modelData.kind)
+                                    readonly property bool disabledAction: ui.spActionItem && modelData.enabled === false
                                     width: parent.width
                                     height: 46
+                                    Drag.dragType: Drag.Automatic
+                                    Drag.supportedActions: Qt.CopyAction
+                                    Drag.proposedAction: Qt.CopyAction
+                                    Drag.hotSpot.x: width / 2
+                                    Drag.hotSpot.y: height / 2
+                                    Accessible.role: Accessible.Button
+                                    Accessible.name: modelData.title || ""
+                                    Accessible.description: modelData.sub || ""
+                                    Accessible.onPressAction: ui.spActivate(rr.index)
                                     Item {
                                         x: 12
                                         anchors.verticalCenter: parent.verticalCenter
@@ -7342,28 +7519,74 @@ Scope {
                                     Text {
                                         x: 54
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - 54 - 140
+                                        width: parent.width - 54 - (rr.hasActions && rr.sel ? 168 : 140)
                                         elide: Text.ElideRight
-                                        text: rr.armedNow ? Language.I18n.text("ui.t_56af92f92b20") : (rr.modelData.title || "")
+                                        opacity: rr.disabledAction ? 0.45 : 1
+                                        text: rr.armedNow ? (rr.modelData.confirmLabel || Language.I18n.text("ui.t_56af92f92b20")) : (rr.modelData.title || "")
                                         color: rr.sel ? "white" : pal.fg
                                         font.family: pal.fam; font.pixelSize: 14
                                     }
                                     Text {
                                         anchors.right: parent.right
-                                        anchors.rightMargin: 16
+                                        anchors.rightMargin: rr.hasActions && rr.sel ? 44 : 16
                                         anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.min(implicitWidth, 120)
+                                        elide: Text.ElideRight
                                         text: rr.modelData.sub || ""
                                         color: rr.sel ? Qt.rgba(1, 1, 1, 0.8) : pal.fg2
                                         font.family: pal.fam; font.pixelSize: 12
                                     }
+                                    Text {
+                                        visible: rr.hasActions && rr.sel
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 14
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "›"
+                                        color: "white"
+                                        font.pixelSize: 22
+                                    }
                                     MouseArea {
                                         anchors.fill: parent
                                         hoverEnabled: true
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                                         property string pressedResult: ""
-                                        function resultKey(item) { return JSON.stringify([item.title, item.sub, item.icon, item.glyph]); }
+                                        property bool dragging: false
+                                        property real pressX: 0
+                                        property real pressY: 0
+                                        readonly property bool canDrag: rr.modelData && rr.modelData.kind === "file" && SettingsSearch.isLocalPath(rr.modelData.path)
+                                        function resultKey(item) { return JSON.stringify([item.title, item.sub, item.icon, item.glyph, item.kind, item.path || ""]); }
                                         onEntered: { resPanel.pointerSelection = true; ui.spSel = rr.index; }
-                                        onPressed: pressedResult = resultKey(rr.modelData)
-                                        onClicked: if (pressedResult === resultKey(rr.modelData)) ui.spActivate(rr.index)
+                                        onPressed: mouse => {
+                                            pressedResult = resultKey(rr.modelData);
+                                            dragging = false;
+                                            pressX = mouse.x;
+                                            pressY = mouse.y;
+                                        }
+                                        onPositionChanged: mouse => {
+                                            if (dragging || !pressed || !canDrag || mouse.buttons !== Qt.LeftButton) return;
+                                            if (Math.abs(mouse.x - pressX) < 10 && Math.abs(mouse.y - pressY) < 10) return;
+                                            dragging = true;
+                                            rr.Drag.mimeData = { "text/uri-list": QuickLook.uriList(rr.modelData.path) };
+                                            rr.Drag.active = true;
+                                        }
+                                        onCanceled: {
+                                            if (rr.Drag.active) rr.Drag.active = false;
+                                            dragging = false;
+                                        }
+                                        onClicked: mouse => {
+                                            if (dragging) { dragging = false; return; }
+                                            if (mouse.button === Qt.RightButton) { ui.spOpenActions(rr.modelData); return; }
+                                            if (pressedResult === resultKey(rr.modelData)) ui.spActivate(rr.index);
+                                        }
+                                    }
+                                    MouseArea {
+                                        visible: rr.hasActions
+                                        z: 1
+                                        anchors.right: parent.right
+                                        width: 40; height: parent.height
+                                        hoverEnabled: true
+                                        Accessible.name: Language.I18n.text("spotlight.more_actions")
+                                        onClicked: ui.spOpenActions(rr.modelData)
                                     }
                                 }
                             }

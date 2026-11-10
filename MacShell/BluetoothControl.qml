@@ -13,6 +13,7 @@ Scope {
     property var others: []
     property var prompt: null
     property bool discovering: false
+    property int batteryWatchers: 0
     property int connected: 0
     property bool loading: true
     property bool stateReady: false
@@ -34,6 +35,13 @@ Scope {
     }
     function togglePower() { run("power", {enabled: !enabled}); }
     function discover() { error = ""; service.send(discovering ? "stopDiscovery" : "discover"); }
+    function watchBatteries(on) {
+        var next = Math.max(0, batteryWatchers + (on ? 1 : -1));
+        if (next === batteryWatchers) return;
+        batteryWatchers = next;
+        if (on && batteryWatchers === 1) service.send("watchBatteries");
+        else if (!on && batteryWatchers === 0) service.send("unwatchBatteries");
+    }
     function pair(device) { if (device) run("pair", {path: device.path}); }
     function cancel() { service.send("cancel", {request: request}); }
     function respond(accept, value, promptId) { if (prompt && (promptId === undefined || prompt.id === promptId)) service.send("respond", {prompt: prompt.id, accept: accept, value: value || ""}); }
@@ -57,7 +65,7 @@ Scope {
     }
     JsonService {
         id: service; script: "bluetooth_service.py"; launcher: "bluetooth-service.sh"; enabled: root.active
-        onConnected: root.refresh()
+        onConnected: { root.refresh(); if (root.batteryWatchers > 0) service.send("watchBatteries"); }
         onReadyChanged: if (!ready) { root.stateReady = false; root.busy = false; root.request = -1; root.prompt = null; root.statusError = error; }
         onReceived: m => {
             if (m.type === "state") {
@@ -65,7 +73,8 @@ Scope {
                 root.loading = false; root.statusError = ""; root.available = !!m.available; root.enabled = !!m.enabled;
                 root.adapters = m.adapters || []; root.connected = m.connected || 0; root.discovering = !!m.discovering; root.pairingAvailable = !!m.pairingAvailable;
                 if (JSON.stringify(root.devices) !== JSON.stringify(m.devices)) root.devices = m.devices || [];
-                if (JSON.stringify(root.others) !== JSON.stringify(m.others)) root.others = m.others || [];
+                var nextOthers = root.discovering ? (m.others || []) : [];
+                if (JSON.stringify(root.others) !== JSON.stringify(nextOthers)) root.others = nextOthers;
             } else if (m.type === "result" && m.id === root.request) {
                 root.busy = false; root.busyPath = ""; root.busyAction = ""; root.request = -1; root.error = m.error || "";
             } else if (m.type === "prompt") { root.prompt = m.prompt; if (root.prompt) root.promptRequested(); }

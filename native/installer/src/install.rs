@@ -315,6 +315,11 @@ const ARTIFACTS: &[(&str, &str)] = &[
     ("macshell-update-service", "update-service-rust"),
     ("macshell-desktop-source", "desktop-source-rust"),
     ("macshell-preview", "preview-rust"),
+    ("macshell-trash", "trash-rust"),
+    ("macshell-app-menu", "app-menu-rust"),
+    ("macshell-storage", "storage-rust"),
+    ("macshell-drop-tools", "drop-tools-rust"),
+    ("macshell-file-search", "file-search-rust"),
 ];
 
 fn artifact<'a>(artifacts: &'a Value, name: &str) -> io::Result<&'a Path> {

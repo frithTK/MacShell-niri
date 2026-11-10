@@ -2,7 +2,7 @@
 //
 //   * one desktop layer per display; Arrange covers windows until Done/Escape
 //   * click-through while you are not editing; edit mode shows free grid slots and snaps widget moves / sizes without overlap
-//   * Weather data from Open-Meteo, a local-date Calendar, a live local-time Clock, a Music player (MPRIS), shared Activity, and Batteries
+//   * Weather data from Open-Meteo, a local-date Calendar, a live local-time Clock, a Music player (MPRIS), shared Activity, Batteries (including AirPods/Beats AACP while connected and ads while the card is visible), Timer, Notes, Reminders, and Image
 //   * settings + placed widgets are saved to ~/.config/macwidgets/settings.json
 //
 //   qs -c macbar ipc call widgets refresh        re-fetch the weather now

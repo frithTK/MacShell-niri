@@ -13,10 +13,11 @@ ControlMenu {
         ControlHeader { visible: root.showHeader; width: parent.width; title: Language.I18n.text("ui.t_dfcb7c1619d5"); foreground: root.foreground; family: root.font.family; backVisible: false }
         Row {
             width: parent.width; spacing: 10
-            Text { text: root.battery.present ? root.battery.percentage + "%" : "—"; color: root.foreground; font { family: root.font.family; pixelSize: 28; weight: Font.DemiBold } }
+            Text { text: root.battery.present && root.battery.percentage >= 0 ? root.battery.percentage + "%" : "—"; color: root.foreground; font { family: root.font.family; pixelSize: 28; weight: Font.DemiBold } }
             Text { anchors.verticalCenter: parent.verticalCenter; text: root.battery.charging ? Language.I18n.text("ui.t_22b693223fcb") : root.battery.full ? Language.I18n.text("ui.t_92f27ddd75fa") : root.battery.onBattery ? Language.I18n.text("ui.t_fe594ed90f81") : Language.I18n.text("ui.t_26a4d134061c"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
         }
         Text { objectName: "batteryRemaining"; width: parent.width; text: root.battery.remaining; color: root.foreground; font.family: root.font.family; font.pixelSize: 13; wrapMode: Text.Wrap }
+        Text { objectName: "batteryRate"; visible: !!(root.battery.rateLabel); width: parent.width; text: root.battery.rateLabel; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         Text { width: parent.width; text: root.battery.source; color: root.secondary; font.family: root.font.family; font.pixelSize: 11; wrapMode: Text.Wrap }
         Rectangle { width: parent.width; height: 1; color: root.separator }
         Text { text: Language.I18n.text("ui.t_53a109f8e157"); color: root.secondary; font { family: root.font.family; pixelSize: 10; weight: Font.DemiBold; letterSpacing: .8 } }

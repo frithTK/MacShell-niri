@@ -28,6 +28,7 @@ pub struct DiscoveryCore {
     epoch: u64,
     serial: u64,
     desired: bool,
+    hold: bool,
     deadline: Option<u64>,
     poisoned: bool,
     wanted: BTreeSet<String>,
@@ -58,6 +59,7 @@ impl DiscoveryCore {
         let close = self.poisoned || !self.adapters.is_empty();
         self.epoch = self.epoch.wrapping_add(1);
         self.desired = false;
+        self.hold = false;
         self.deadline = None;
         self.poisoned = close;
         self.wanted.clear();
@@ -72,6 +74,7 @@ impl DiscoveryCore {
     pub fn connection_replaced(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
         self.desired = false;
+        self.hold = false;
         self.deadline = None;
         self.poisoned = false;
         self.wanted.clear();
@@ -82,14 +85,38 @@ impl DiscoveryCore {
         now_ms: u64,
         adapters: &[(String, bool)],
     ) -> Result<Vec<Effect>, &'static str> {
+        self.begin(
+            Some(
+                now_ms
+                    .checked_add(30_000)
+                    .ok_or("Invalid discovery deadline.")?,
+            ),
+            adapters,
+        )
+    }
+    /// Keep StartDiscovery running without the pairing timeout so AirPods ads
+    /// can refresh. User scans still apply their own 30 s deadline.
+    pub fn hold(&mut self, adapters: &[(String, bool)]) -> Result<Vec<Effect>, &'static str> {
+        self.hold = true;
+        self.begin(self.deadline, adapters)
+    }
+    pub fn release_hold(&mut self) -> Vec<Effect> {
+        self.hold = false;
+        if self.deadline.is_some() {
+            vec![]
+        } else {
+            self.stop()
+        }
+    }
+    fn begin(
+        &mut self,
+        deadline: Option<u64>,
+        adapters: &[(String, bool)],
+    ) -> Result<Vec<Effect>, &'static str> {
         if self.poisoned {
             return Err("Discovery connection must be replaced.");
         }
-        self.deadline = Some(
-            now_ms
-                .checked_add(30_000)
-                .ok_or("Invalid discovery deadline.")?,
-        );
+        self.deadline = deadline;
         self.desired = true;
         self.wanted = adapters
             .iter()
@@ -127,6 +154,7 @@ impl DiscoveryCore {
     }
     pub fn stop(&mut self) -> Vec<Effect> {
         self.desired = false;
+        self.hold = false;
         self.deadline = None;
         self.wanted.clear();
         let paths: Vec<_> = self
@@ -149,7 +177,12 @@ impl DiscoveryCore {
     }
     pub fn tick(&mut self, now_ms: u64) -> Vec<Effect> {
         if self.deadline.is_some_and(|deadline| now_ms > deadline) {
-            self.stop()
+            self.deadline = None;
+            if self.hold {
+                vec![]
+            } else {
+                self.stop()
+            }
         } else {
             vec![]
         }
@@ -189,6 +222,7 @@ impl DiscoveryCore {
         }
         self.poisoned = true;
         self.desired = false;
+        self.hold = false;
         self.deadline = None;
         vec![Effect::CloseConnection]
     }
@@ -202,6 +236,7 @@ impl DiscoveryCore {
         if !success {
             self.poisoned = true;
             self.desired = false;
+            self.hold = false;
             self.deadline = None;
             return vec![Effect::CloseConnection];
         }

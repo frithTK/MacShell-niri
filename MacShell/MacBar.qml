@@ -5,7 +5,9 @@ import "GlassTheme.js" as GlassTheme
 import "SettingsMigrations.js" as SettingsMigrations
 import "BarLayout.js" as BarLayout
 import "SettingsSearch.js" as SettingsSearch
+import "FileSearch.js" as FileSearch
 import "AppMenu.js" as AppMenu
+import "AppMenuBar.js" as AppMenuBar
 import "QuickLook.js" as QuickLook
 import QtQuick.Controls as Controls
 import QtQuick.Effects
@@ -246,6 +248,8 @@ Scope {
     property string airplayReceiverName: "MacShell"
     property int airplayFps: 60
     property int airplayVolumePercent: 20
+    property string airplayLayout: "mirror"
+    onAirplayLayoutChanged: if (airplayLayout !== "mirror" && airplayLayout !== "extend") airplayLayout = "mirror"
     property string airdropReceiverName: "MacShell"
     property bool ccMigRec: false              // one-time: add the Screen Recording tile to an existing Control Center layout
     readonly property bool recording: recordingControl.recording
@@ -268,7 +272,7 @@ Scope {
         "filesCmd", "clipboardCmd", "appUsage", "clipHistory", "clipAutoPaste", "emojiRecent", "screenshotDir", "screenshotSave", "screenshotClipboard", "screenshotNotify", "nightTemp", "ccControls", "ccMigRec", "wallpaperDir", "wallpaperFavs", "wallpaperCmd", "wallpaperVideo", "uiSounds", "gamingMode", "gamingAuto", "ccMigGame", "lockArtBackground",
         "lockClockStyle", "switcherStyle", "lockClockFont", "lockClockWeight", "lockClockMaterial", "lockClockIntensity", "lockClockTint", "lockClockTall", "lockClockDate", "autoContrast", "wallpaperAppearance", "wpPairLight", "wpPairDark",
         "notifDnd", "dnd", "nightOn", "keepAwake",
-        "kbRepeatRate", "kbRepeatDelay", "mouseSens", "mouseNatural", "tpNatural", "tpTap", "tpDwt", "tpScroll", "statsMigrated", "statsMetrics", "statsInterval", "statsInterface", "statsDevice", "statsMemoryPercent", "modesMigrated", "modeState", "nightDesired", "recordOutput", "recordMicrophone", "recordSink", "recordAudio", "ccMirroringMigrated", "ccAirDropMigrated", "airplayReceiverName", "airplayFps", "airplayVolumePercent", "airdropReceiverName"]
+        "kbRepeatRate", "kbRepeatDelay", "mouseSens", "mouseNatural", "tpNatural", "tpTap", "tpDwt", "tpScroll", "statsMigrated", "statsMetrics", "statsInterval", "statsInterface", "statsDevice", "statsMemoryPercent", "modesMigrated", "modeState", "nightDesired", "recordOutput", "recordMicrophone", "recordSink", "recordAudio", "ccMirroringMigrated", "ccAirDropMigrated", "airplayReceiverName", "airplayFps", "airplayVolumePercent", "airplayLayout", "airdropReceiverName"]
     // Optional bar widgets; tray and Spotlight use their existing showTray/showSearch settings.
     property var barWidgets: ["monitoring", "appleMenu", "appMenus", "workspaces", "volume", "keyboard", "notifications", "wifi", "bluetooth", "privacy", "controlCenter", "clock"]
     property bool statsMigrated: false
@@ -1057,16 +1061,36 @@ Scope {
     }
     readonly property var activeWin: Niri.activeToplevel ? Niri.activeToplevel.data : null
     function refreshActive() { swTrack(); }
-    onActiveTlChanged: swTrack()
-    readonly property var menuTitles: [
-        { id: "apple", label: "" },
-        { id: "app", label: appName, bold: true },
-        { id: "file", label: Language.I18n.text("ui.t_50009ce1da4d") },
-        { id: "edit", label: Language.I18n.text("ui.t_464c4ffd019e") },
-        { id: "view", label: Language.I18n.text("ui.t_dcc839a4015c") },
-        { id: "window", label: Language.I18n.text("ui.t_19734a1b58ca") },
-        { id: "help", label: Language.I18n.text("ui.t_b79cac926e0b") }
-    ]
+    onActiveTlChanged: {
+        swTrack();
+        if (hub && hub.appMenu)
+            hub.appMenu.setFocus(activeTl);
+    }
+    readonly property var menuTitles: AppMenuBar.titles(appName, !!(hub && hub.appMenu && hub.appMenu.exported), (hub && hub.appMenu) ? hub.appMenu.menus : [], {
+        file: Language.I18n.text("ui.t_50009ce1da4d"),
+        edit: Language.I18n.text("ui.t_464c4ffd019e"),
+        view: Language.I18n.text("ui.t_dcc839a4015c"),
+        window: Language.I18n.text("ui.t_19734a1b58ca"),
+        help: Language.I18n.text("ui.t_b79cac926e0b")
+    })
+    function exportedMenuItems(items) {
+        var m = [], list = items || [];
+        for (var i = 0; i < list.length; i++) {
+            (function (item) {
+                if (item.sep) { m.push(msep()); return; }
+                var row = (item.checked !== undefined)
+                    ? mchk(item.label, item.shortcut || "", item.checked === true, function () { if (hub && hub.appMenu) hub.appMenu.activate(item.id); })
+                    : mi(item.label, item.shortcut || "", function () { if (hub && hub.appMenu) hub.appMenu.activate(item.id); });
+                if (item.enabled === false) row.disabled = true;
+                if (item.hasChildren || (item.children && item.children.length)) {
+                    row.hasChildren = true;
+                    row.children = item.children || [];
+                }
+                m.push(row);
+            })(list[i]);
+        }
+        return m;
+    }
 
     // audio
     readonly property real maxVolume: 1.5
@@ -1204,7 +1228,7 @@ Scope {
     BatteryControl { id: batteryControl }
     PowerControl { id: powerControl; gaming: root.gaming }
     readonly property bool hasBattery: batteryControl.present
-    readonly property real batPct: batteryControl.percentage
+    readonly property real batPct: batteryControl.percentage >= 0 ? batteryControl.percentage : 0
     readonly property bool charging: batteryControl.charging
 
     // media
@@ -1440,8 +1464,10 @@ Scope {
         receiverName: root.airplayReceiverName
         fps: root.airplayFps
         volumePercent: root.airplayVolumePercent
+        layout: root.airplayLayout
         blocked: airDropControl.active
         onReceiverNameChanged: root.airplayReceiverName = receiverName
+        onLayoutChanged: root.airplayLayout = layout
         onHideRequested: root.controlRequested("close-airplay")
         onShowRequested: root.controlRequested("airplay")
     }
@@ -1475,13 +1501,17 @@ Scope {
             return JSON.stringify({senderAvailable: root.mirroring.senderAvailable, receiverAvailable: root.mirroring.receiverAvailable,
                 sender: root.mirroring.senderState, receiver: root.mirroring.receiverState, devices: root.mirroring.devices,
                 streams: root.mirroring.streams, receiverName: root.mirroring.advertisedName, awaitingCode: root.mirroring.pending !== null,
-                receiverAwaitingCode: root.mirroring.receiverPin !== "", senderError: root.mirroring.senderError, receiverError: root.mirroring.receiverError});
+                receiverAwaitingCode: root.mirroring.receiverPin !== "", senderError: root.mirroring.senderError, receiverError: root.mirroring.receiverError,
+                layout: root.mirroring.layout, extendAvailable: root.mirroring.extendAvailable, extendOutput: root.mirroring.extendOutput,
+                virtualOutputsSupported: root.mirroring.virtualOutputsSupported, extendMethod: root.mirroring.extendMethod,
+                extendCapture: root.mirroring.extendCapture});
         }
     }
     function pickColor() { Quickshell.execDetached(["sh", decodeURIComponent(Qt.resolvedUrl("niri-color.sh").toString().replace(/^file:\/\//, ""))]); }
+    readonly property string fileSearchHelper: decodeURIComponent(Qt.resolvedUrl("file-search.sh").toString().replace(/^file:\/\//, ""))
     Process {
         id: fileSearchProc
-        command: ["sh", "-c", "find \"$HOME\" -type f -iname \"*$1*\" -not -path '*/.cache/*' -not -path '*/.local/share/Trash/*' 2>/dev/null | head -n 8", "sh", root.fileQuery]
+        command: ["sh", root.fileSearchHelper, "--limit", "8", "--", root.fileQuery]
         stdout: StdioCollector { onStreamFinished: {
             var a=text.trim().split("\n").filter(function(x){return x!=="";});
             if (root.fileSearchFor === root.fileQuery) { root.fileHits=a; root.fileSearchPending=false; }
@@ -1493,6 +1523,31 @@ Scope {
         if (root.fileQuery.length > 0 && !fileSearchProc.running) { root.fileSearchFor=root.fileQuery; root.fileSearchPending=true; fileSearchProc.running=true; }
     } }
     function updateFileSearch(q) { fileQuery=q; fileHits=[]; fileSearchPending=true; fileDebounce.restart(); }
+    function clearFileSearch() {
+        fileDebounce.stop();
+        if (fileSearchProc.running) fileSearchProc.running = false;
+        fileQuery = "";
+        fileSearchFor = "";
+        fileHits = [];
+        fileSearchPending = false;
+    }
+    function skipFileSearch(q) {
+        if (conversion(q)) return true;
+        var expr = String(q || "").replace(/^=\s*/, "");
+        return calcValue(expr) !== null && (String(q).charAt(0) === "=" || /[+*/%xX×÷()]/.test(q));
+    }
+    function syncFileSearch(text) {
+        var parsed = FileSearch.parse(text);
+        if (parsed.exclusive) {
+            if (FileSearch.ready(parsed.query)) updateFileSearch(parsed.query);
+            else clearFileSearch();
+            return;
+        }
+        if (FileSearch.ready(parsed.query) && !skipFileSearch(parsed.query))
+            updateFileSearch(parsed.query);
+        else
+            clearFileSearch();
+    }
 
     // Persist deadlines, never countdown ticks. Restore before enabling idle backends.
     property bool modesMigrated: false
@@ -1626,6 +1681,7 @@ Scope {
         function emoji(): void { root.spotOpen("emoji"); }
         function apps(): void { root.spotOpen("apps"); }
         function preview(path: string): void { root.openQuickLook(path); }
+        function convert(path: string): void { root.openDropTools(path); }
     }
 
     // ═════════════ CLIPBOARD HISTORY + EMOJI (Spotlight panels) ═════════════
@@ -2039,7 +2095,7 @@ Scope {
         var result;
         if(units[a][0]==="temp") result=(a==="f"||a==="°f")?(val-32)*5/9:val, result=(b==="f"||b==="°f")?result*9/5+32:result;
         else result=val*units[a][1]/units[b][1];
-        return {title:Number(result.toPrecision(7))+" "+b,sub:"Unit conversion",glyph:"link",run:function(){Quickshell.execDetached(["wl-copy",String(result)]);}};
+        return {title:Number(result.toPrecision(7))+" "+b,sub:Language.I18n.text("spotlight.unit_conversion"),glyph:"link",run:function(){Quickshell.execDetached(["wl-copy",String(result)]);}};
     }
     function windowItems(q) {
         var out=[], s=(q||"").trim().toLowerCase(); if(!s)return out;
@@ -2052,8 +2108,8 @@ Scope {
         }
         return out;
     }
-    function fileItems(q) {
-        var out=[]; for(var i=0;i<fileHits.length&&out.length<5;i++){var path=fileHits[i];out.push({title:path.substring(path.lastIndexOf("/")+1)||path,sub:path,glyph:"folder",kind:"file",path:path,run:(function(p){return function(){root.openLocalPath(p);};})(path)});} return out;
+    function fileItems() {
+        var out=[]; for(var i=0;i<fileHits.length&&out.length<8;i++){var path=fileHits[i];out.push({title:path.substring(path.lastIndexOf("/")+1)||path,sub:path,glyph:"folder",kind:"file",path:path,run:(function(p){return function(){root.openLocalPath(p);};})(path)});} return out;
     }
     function copyText(value) {
         Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", String(value)]);
@@ -2072,11 +2128,18 @@ Scope {
         if (!local || !hub || !hub.quickLook) return;
         hub.quickLook.open(local);
     }
+    function openDropTools(path) {
+        if (!hub || !hub.dropTools) return;
+        var local = QuickLook.localPath(path);
+        if (local) hub.dropTools.openFiles([local]);
+        else hub.dropTools.openDrop();
+    }
     function spotlightActionTitle(id, row, item) {
         if (id === "pin") return (row && row.pinned) ? Language.I18n.text("ui.t_0cbc564f2355") : Language.I18n.text("ui.t_eb625dddc8f0");
         if (id === "reveal") return Language.I18n.text("spotlight.show_in_folder");
         if (id === "copyPath") return Language.I18n.text("spotlight.copy_path");
         if (id === "preview") return Language.I18n.text("spotlight.quick_look");
+        if (id === "convert") return Language.I18n.text("spotlight.convert");
         if (id === "info") return Language.I18n.text("appmenu.get_info");
         if (id === "remove") return Language.I18n.text("appmenu.uninstall");
         if (id === "reinstall") return Language.I18n.text("appmenu.reinstall");
@@ -2099,6 +2162,7 @@ Scope {
         if (reason === "missing") return Language.I18n.text("appmenu.reason_missing");
         if (reason === "system-update") return Language.I18n.text("appmenu.reason_system_update");
         if (id === "preview") return Language.I18n.text("spotlight.quick_look_unavailable");
+        if (id === "convert") return Language.I18n.text("spotlight.convert_unavailable");
         if (id === "copyPath") return Language.I18n.text("spotlight.copy_unavailable");
         return Language.I18n.text("spotlight.reveal_unavailable");
     }
@@ -2106,6 +2170,7 @@ Scope {
         if (id === "reveal") return "folder";
         if (id === "copyPath") return "link";
         if (id === "preview" || id === "info") return "search";
+        if (id === "convert") return "restart";
         if (id === "pin") return "appstore";
         if (id === "remove") return "logout";
         if (id === "reinstall") return "restart";
@@ -2152,6 +2217,7 @@ Scope {
                         else if (row.id === "reveal") root.revealLocalPath(item.path);
                         else if (row.id === "copyPath") root.copyText(item.path);
                         else if (row.id === "preview") root.openQuickLook(item.path);
+                        else if (row.id === "convert") root.openDropTools(item.path);
                         else if (row.id === "pin" && item && hub && hub.dock) hub.dock.togglePinById(item.appId);
                         else if (row.id === "info" && item && hub && hub.desktopSource) hub.desktopSource.showInfo(item.title, hub.desktopSource.sourceOf(item.appId));
                         else if ((row.id === "remove" || row.id === "reinstall" || row.id === "update") && item && hub && hub.desktopSource)
@@ -2164,18 +2230,19 @@ Scope {
     }
     function homeItems(q) {
         var out = [], s = (q || "").trim().toLowerCase();
-        if (s.indexOf("file ") === 0 || s.indexOf("find ") === 0) {
-            var fq=s.replace(/^(file|find)\s+/,"").trim(); if(fq!=="" && fileQuery!==fq) updateFileSearch(fq);
-            out=fileItems(fq); if(out.length===0) out.push({title:fileSearchPending?Language.I18n.text("ui.t_0d9498215681"):Language.I18n.text("ui.t_7eaa329a4009"),sub:Language.I18n.text("ui.t_abc7e9892806"),glyph:"folder",run:function(){}});
+        var parsed = FileSearch.parse(q);
+        if (parsed.exclusive) {
+            out=fileItems(); if(out.length===0) out.push({title:fileSearchPending?Language.I18n.text("ui.t_0d9498215681"):Language.I18n.text("ui.t_7eaa329a4009"),sub:Language.I18n.text("spotlight.home_folder"),glyph:"folder",run:function(){}});
             return out;
         }
         if(s.length>0) out=appItems(q,4);
         var cv=conversion(s); if(cv) { cv.kind = "conversion"; out.unshift(cv); }
-        else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:"Calculator · Return to copy",glyph:"search",kind:"calc",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
+        else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:Language.I18n.text("spotlight.calculator_hint"),glyph:"search",kind:"calc",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
         SettingsSearch.appendGroup(out, settingsItems(q), 8, 4);
         SettingsSearch.appendGroup(out, actionItems(q), 8, 4);
         SettingsSearch.appendGroup(out, windowItems(q), 8, 4);
-        if(s.length>0 && out.length<8) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:"Web Search · Return to open",glyph:"search",kind:"web",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
+        SettingsSearch.appendGroup(out, fileItems(), 8, 3);
+        if(s.length>0 && out.length<8) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:Language.I18n.text("spotlight.web_search_hint"),glyph:"search",kind:"web",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
         out = out.slice(0,8);
         if (hub && hub.desktopSource) {
             for (var p = 0; p < out.length; p++) {
@@ -2192,7 +2259,7 @@ Scope {
             m.push(msep());
             m.push(mi(Language.I18n.text("ui.t_85c35c367d93"), "", function () { root.openSettings(); }));
             m.push(msep());
-            m.push(mi("Lock Screen", "", function () { Quickshell.execDetached(["sh", (Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, ""))]); }));
+            m.push(mi(Language.I18n.text("ui.t_91a007b58b9d"), "", function () { Quickshell.execDetached(["sh", (Quickshell.env("MACSHELL_LOCK_HELPER") || Qt.resolvedUrl("../MacLock/lock-via-ipc.sh").toString().replace(/^file:\/\//, ""))]); }));
             m.push(mi(Language.I18n.text("ui.t_d466bcf52eb6"), "", function () { sh("systemctl suspend"); }));
             m.push(msep());
             m.push(mc(Language.I18n.text("ui.t_2c58de95b0c9"), function () { sh("systemctl reboot"); }));
@@ -2200,6 +2267,11 @@ Scope {
             m.push(msep());
             m.push(mc(Language.I18n.text("ui.t_6011f9d3572d"), function () { root.logOut(); }));
         } else {
+            var exportedKey = AppMenuBar.menuKey(name);
+            if (exportedKey && hub && hub.appMenu && hub.appMenu.exported) {
+                var exported = AppMenuBar.findMenu(hub.appMenu.menus, exportedKey);
+                return root.exportedMenuItems(exported ? exported.items : []);
+            }
             var id = activeAppId.toLowerCase(), kind = appKind(id), has = activeAppId !== "";
             var aw = (has && activeWin && String(activeWin["class"]).toLowerCase() === id) ? activeWin : null;
             var term = kind === "terminal", browser = kind === "browser", files = kind === "files", editor = kind === "editor";
@@ -2226,6 +2298,10 @@ Scope {
                     m.push(mc(Language.I18n.text("ui.t_189a41f12257") + n, function () { root.forceQuitActive(aw); }));
                 }
             } else if (name === "file") {
+                if (has && !(hub && hub.appMenu && hub.appMenu.exported)) {
+                    m.push(dis(mi(Language.I18n.text("appmenu.no_export"), "", function () {}), true));
+                    m.push(msep());
+                }
                 if (!has) {
                     m.push(mi(Language.I18n.text("ui.t_981ace960b9e"), "", function () { sh(terminal); }));
                     m.push(mi(Language.I18n.text("ui.t_748921aaebe0"), "", function () { sh(filesCmd); }));
@@ -2279,7 +2355,7 @@ Scope {
                 if (has) {
                     m.push(mi(fsMode === 2 ? Language.I18n.text("ui.t_5ef4b4a67fa6") : Language.I18n.text("ui.t_534ab6506ea1"), "", disp(["fullscreen-window"])));
                     m.push(msep());
-                    m.push(mchk("Floating", "", floating, disp(["toggle-window-floating"])));
+                    m.push(mchk(Language.I18n.text("window.floating"), "", floating, disp(["toggle-window-floating"])));
                     m.push(dis(mi(Language.I18n.text("ui.t_6d60e99dd1db"), "", disp(["center-window"])), !floating));
                     m.push(dis(mi(Language.I18n.text("ui.t_c6880e1c18bc"), "", disp(["toggle-column-tabbed-display"])), floating));
                     if (!term) {
@@ -2302,7 +2378,7 @@ Scope {
             } else if (name === "window") {
                 if (has) {
                     m.push(mi(Language.I18n.text("ui.t_6be4984f1838"), "", function () { Niri.hideActive(); }));
-                    m.push(mchk("Zoom", "", fsMode === 1, disp(["maximize-column"])));
+                    m.push(mchk(Language.I18n.text("window.zoom"), "", fsMode === 1, disp(["maximize-column"])));
                     m.push(mi(floating ? Language.I18n.text("ui.t_f14f70a0a46e") : Language.I18n.text("ui.t_c391949bab97"), "", disp(["toggle-window-floating"])));
                     m.push(msep());
                     m.push(mi(Language.I18n.text("ui.t_d5a7119ca63f"), "", disp(["move-column-left"])));
@@ -2328,11 +2404,11 @@ Scope {
                 m.push(mi(Language.I18n.text("ui.t_7336265a0467"), "", function () { root.search(); }));
                 if (has) m.push(mi(n + Language.I18n.text("ui.t_cbb79502d895"), "", function () { root.helpFor(id, n); }));
                 m.push(msep());
-                m.push(mi("niri Keybinds", "", function () { Quickshell.execDetached(["xdg-open", "https://niri-wm.github.io/niri/Configuration:-Key-Bindings.html"]); }));
-                m.push(mi("Reload niri Config", "", function () { Quickshell.execDetached(["niri", "msg", "action", "load-config-file"]); }));
+                m.push(mi(Language.I18n.text("help.niri_keybinds"), "", function () { Quickshell.execDetached(["xdg-open", "https://niri-wm.github.io/niri/Configuration:-Key-Bindings.html"]); }));
+                m.push(mi(Language.I18n.text("help.reload_niri"), "", function () { Quickshell.execDetached(["niri", "msg", "action", "load-config-file"]); }));
                 m.push(msep());
-                m.push(mi("niri Documentation", "", function () { Quickshell.execDetached(["xdg-open", "https://niri-wm.github.io/niri/"]); }));
-                m.push(mi("Quickshell Documentation", "", function () { Quickshell.execDetached(["xdg-open", "https://quickshell.org/docs"]); }));
+                m.push(mi(Language.I18n.text("help.niri_docs"), "", function () { Quickshell.execDetached(["xdg-open", "https://niri-wm.github.io/niri/"]); }));
+                m.push(mi(Language.I18n.text("help.quickshell_docs"), "", function () { Quickshell.execDetached(["xdg-open", "https://quickshell.org/docs"]); }));
             }
         }
         return m;
@@ -2592,7 +2668,7 @@ Scope {
     }
     function resetSettings() {
         barEnabled = true;
-        darkMode = true; accent = "#0a84ff"; fontFamily = "Inter Variable"; glassOpacity = 0.42; glassBlur = 5; barBgOpacity = 0.10; glassRealtime = false;
+        darkMode = true; accent = "#0a84ff"; fontFamily = "Inter Variable"; glassOpacity = 0.42; glassBlur = 5; glassLiquid = 1.0; glassRim = 0.45; glassGrain = 0.03; barBgOpacity = 0.10; glassRealtime = false;
         barStyle = "liquid"; use24h = true; showDate = true; showSeconds = false; showBatteryPercent = true;
         showTray = true; showSearch = true;
         spotlightEnabled = true; ccEnabled = true; notificationsEnabled = true; clockAppEnabled = true; ccStyle = "tiles";
@@ -2612,12 +2688,16 @@ Scope {
         path: root.dockConfigDir + "/settings.json"
         printErrors: false
         onLoaded: {
-            try {
-                var o = JSON.parse(text());
-                root.applySettings(o, ["darkMode", "accent", "fontFamily", "glassOpacity", "glassRim", "glassGrain", "glassLiquid", "glassBlur", "wallpaperPath"]);
-                if (o.dockStyle !== undefined) root.barStyle = (o.dockStyle === "liquid") ? "liquid" : "blur";
-            } catch (err) { }
-            store.path = root.configDir + "/settings.json";
+            // Only the first load inherits. Later dock saves must not clobber a
+            // newer live look (or replay an older snapshot of the dock file).
+            if (!store.path) {
+                try {
+                    var o = JSON.parse(text());
+                    root.applySettings(o, ["darkMode", "accent", "fontFamily", "glassOpacity", "glassRim", "glassGrain", "glassLiquid", "glassBlur", "wallpaperPath"]);
+                    if (o.dockStyle !== undefined) root.barStyle = (o.dockStyle === "liquid") ? "liquid" : "blur";
+                } catch (err) { }
+                store.path = root.configDir + "/settings.json";
+            }
         }
         onLoadFailed: store.path = root.configDir + "/settings.json"
     }
@@ -2626,6 +2706,8 @@ Scope {
         path: ""
         printErrors: false
         onLoaded: {
+            if (root.settingsReady)
+                return;
             try { root.applySettings(SettingsMigrations.migrate(JSON.parse(text())), root.settingKeys); }
             catch (err) { root.modesMigrated = true; root.statsMigrated = true; }
             if (!root.ccMigGame) {
@@ -3359,7 +3441,9 @@ Scope {
                 property string anchorType: ""
                 property bool anchorOverflow: false
                 function typeForPopup(name) {
-                    return ({apple: "appleMenu", app: "appMenus", file: "appMenus", edit: "appMenus", view: "appMenus", window: "appMenus", help: "appMenus", stats: "monitoring", bt: "bluetooth", vol: "volume", kb: "keyboard", battery: "battery", notif: "notifications", wifi: "wifi", cc: "controlCenter", cal: "clock"})[name] || "";
+                    var mapped = ({apple: "appleMenu", app: "appMenus", file: "appMenus", edit: "appMenus", view: "appMenus", window: "appMenus", help: "appMenus", stats: "monitoring", bt: "bluetooth", vol: "volume", kb: "keyboard", battery: "battery", notif: "notifications", wifi: "wifi", cc: "controlCenter", cal: "clock"})[name];
+                    if (mapped) return mapped;
+                    return AppMenuBar.popupType(name);
                 }
                 function updateAnchor() {
                     if (!anchorType || pop === "") return;
@@ -3601,7 +3685,11 @@ Scope {
                 }
                 Connections {
                     target: root
-                    function onActiveWinChanged() { if (ui.isMenu) ui.menuModel = root.menuModelFor(ui.pop); }
+                    function onActiveWinChanged() { if (ui.isMenu) { ui.menuStack = []; ui.menuModel = root.menuModelFor(ui.pop); } }
+                }
+                Connections {
+                    target: hub && hub.appMenu ? hub.appMenu : null
+                    function onChanged() { if (ui.isMenu) { ui.menuStack = []; ui.menuModel = root.menuModelFor(ui.pop); } }
                 }
                 // bounding box of all glass that is on screen right now (popovers, notification popups) + a refraction margin
                 readonly property rect glassRect: {
@@ -3614,13 +3702,14 @@ Scope {
                     }
                     return any ? Qt.rect(x0 - 64, y0 - 64, x1 - x0 + 128, y1 - y0 + 128) : Qt.rect(0, 0, 0, 0);
                 }
-                readonly property bool isMenu: ["apple", "app", "file", "edit", "view", "window", "help"].indexOf(pop) >= 0
+                readonly property bool isMenu: AppMenuBar.isMenuId(pop)
+                property var menuStack: []
                 readonly property bool networkEmbedded: (pop === "wifi" && wifiPop.parent === cc) || (pop === "bt" && btPop.parent === cc)
                 readonly property bool anyVisible: overflowPop.visible || servicePop.visible || menuPop.visible || cc.visible || cal.visible || wifiPop.visible || btPop.visible || trayPop.visible || notifPop.visible || toastArea.visible || volPop.visible || kbPop.visible
                 onAnyVisibleChanged: root.popCount += (anyVisible ? 1 : -1)
                 onPopChanged: {
                     if (pop !== "spot") spCloseActions();
-                    if (pop === "") { anchorType = ""; anchorOverflow = false; }
+                    if (pop === "") { anchorType = ""; anchorOverflow = false; menuStack = []; }
                     if (["stats", "wifijoin", "focus", "awake", "night", "btpair", "record", "battery", "airplay"].indexOf(pop) >= 0)
                         servicePop.contentName = pop;
                     if (pop !== "" && pop !== "spot") {
@@ -3676,8 +3765,7 @@ Scope {
                     anchorOverflow = !!fromOverflow;
                     if (!anchorOverflow && (!barBg.plan.byType[anchorType] || barBg.plan.byType[anchorType].width <= 0)) anchorType = "";
                     menuX = x;
-                    if (["apple", "app", "file", "edit", "view", "window", "help"].indexOf(name) >= 0) root.refreshActive();
-                    if (["apple", "app", "file", "edit", "view", "window", "help"].indexOf(name) >= 0) menuModel = root.menuModelFor(name);
+                    if (AppMenuBar.isMenuId(name)) { root.refreshActive(); menuStack = []; menuModel = root.menuModelFor(name); }
                     if (name === "cal") { var d = new Date(); calYear = d.getFullYear(); calMonth = d.getMonth(); }
                     pop = name;
                     updateAnchor();
@@ -3686,6 +3774,7 @@ Scope {
                     if (!isMenu || name === pop) return;
                     anchorType = typeForPopup(name); anchorOverflow = false;
                     menuX = x;
+                    menuStack = [];
                     menuModel = root.menuModelFor(name);
                     pop = name; updateAnchor();
                 }
@@ -4264,7 +4353,7 @@ Scope {
                                     Text {
                                         visible: root.showBatteryPercent
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: root.batPct + "%"
+                                        text: root.battery.percentage >= 0 ? root.batPct + "%" : "—"
                                         color: screenPal.fg
                                         font.family: screenPal.fam; font.pixelSize: 12
                                     }
@@ -4299,7 +4388,7 @@ Scope {
                                     id: batteryTip
                                     visible: batteryMouse.containsMouse && ui.pop === ""
                                     delay: 650
-                                    text: root.batPct + "% · " + root.battery.remaining + "\n" + root.power.label(root.power.profile)
+                                    text: (root.battery.percentage >= 0 ? root.batPct + "% · " : "") + root.battery.remaining + "\n" + root.power.label(root.power.profile)
                                     background: Rectangle { radius: 8; color: screenPal.dark ? "#303035" : "#fafafb"; border.color: screenPal.dark ? "#55555b" : "#d5d5da" }
                                     contentItem: Text { text: batteryTip.text; color: screenPal.fg; font.family: screenPal.fam; font.pixelSize: 12 }
                                 }
@@ -5052,6 +5141,41 @@ Scope {
                         id: menuCol
                         x: 6; y: 7
                         width: parent.width - 12
+                        Item {
+                            id: menuBack
+                            visible: ui.menuStack.length > 0
+                            width: menuCol.width
+                            height: visible ? 26 : 0
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 6
+                                color: menuBackMa.containsMouse ? root.accent : "transparent"
+                            }
+                            Text {
+                                x: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 24
+                                elide: Text.ElideRight
+                                text: "\u2039  " + (ui.menuStack.length > 0 ? ui.menuStack[ui.menuStack.length - 1].label : "")
+                                color: menuBackMa.containsMouse ? "white" : pal.fg
+                                font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: menuBackMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    var prev = ui.menuStack[ui.menuStack.length - 1];
+                                    ui.menuStack = ui.menuStack.slice(0, ui.menuStack.length - 1);
+                                    ui.menuModel = prev ? prev.items : root.menuModelFor(ui.pop);
+                                }
+                            }
+                        }
+                        Item {
+                            visible: menuBack.visible
+                            width: menuCol.width; height: visible ? 11 : 0
+                            Rectangle { anchors.verticalCenter: parent.verticalCenter; x: 8; width: parent.width - 16; height: 1; color: pal.sep }
+                        }
                         Repeater {
                             model: ui.menuModel
                             delegate: Item {
@@ -5061,6 +5185,7 @@ Scope {
                                 readonly property bool armedNow: !isSep && modelData.confirm === true && ui.armed === modelData.label
                                 readonly property bool off: !isSep && modelData.disabled === true
                                 readonly property bool hot: !isSep && !off && ima.containsMouse
+                                readonly property bool branch: !isSep && modelData.hasChildren === true
                                 width: menuCol.width
                                 height: isSep ? 11 : 26
 
@@ -5089,7 +5214,7 @@ Scope {
                                     visible: !it.isSep
                                     x: ui.menuLead ? 28 : 12
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - x - 12 - (sc.visible ? sc.implicitWidth + 12 : 0)
+                                    width: parent.width - x - 12 - (it.branch ? 14 : (sc.visible ? sc.implicitWidth + 12 : 0))
                                     elide: Text.ElideRight
                                     text: it.isSep ? "" : (it.armedNow ? Language.I18n.text("ui.t_1f8c95036230") : it.modelData.label)
                                     color: it.hot ? "white" : (it.off ? pal.fg2 : pal.fg)
@@ -5098,7 +5223,7 @@ Scope {
                                 }
                                 Text {
                                     id: sc
-                                    visible: !it.isSep && it.modelData.shortcut !== undefined && it.modelData.shortcut !== ""
+                                    visible: !it.isSep && !it.branch && it.modelData.shortcut !== undefined && it.modelData.shortcut !== ""
                                     anchors.right: parent.right
                                     anchors.rightMargin: 12
                                     anchors.verticalCenter: parent.verticalCenter
@@ -5107,12 +5232,26 @@ Scope {
                                     font.family: pal.fam
                                     font.pixelSize: 12
                                 }
+                                Text {
+                                    visible: it.branch
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 10
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "\u203A"
+                                    color: it.hot ? "white" : pal.fg2
+                                    font.family: pal.fam; font.pixelSize: 15
+                                }
                                 MouseArea {
                                     id: ima
                                     anchors.fill: parent
                                     enabled: !it.isSep && !it.off
                                     hoverEnabled: true
                                     onClicked: {
+                                        if (it.branch) {
+                                            ui.menuStack = ui.menuStack.concat([{ label: it.modelData.label, items: ui.menuModel }]);
+                                            ui.menuModel = root.exportedMenuItems(it.modelData.children || []);
+                                            return;
+                                        }
                                         if (it.modelData.confirm === true && ui.armed !== it.modelData.label) {
                                             ui.armed = it.modelData.label;
                                             return;
@@ -7393,13 +7532,13 @@ Scope {
                                 selectedTextColor: "white"
                                 font.family: pal.fam; font.pixelSize: 17
                                 horizontalAlignment: /[\u0590-\u08ff]/.test(text) ? Text.AlignRight : Text.AlignLeft
-                                onTextChanged: { if (!ui.spFull) { resPanel.pointerSelection = false; ui.spCloseActions(); ui.spQuery = text; ui.spSel = 0; ui.armed = ""; if (/^(file|find)\s+/i.test(text)) root.updateFileSearch(text.replace(/^(file|find)\s+/i, "").trim()); } }
+                                onTextChanged: { if (!ui.spFull) { resPanel.pointerSelection = false; ui.spCloseActions(); ui.spQuery = text; ui.spSel = 0; ui.armed = ""; root.syncFileSearch(text); } }
                                 Keys.onPressed: event => ui.spKey(event)
                             }
                         }
                         Repeater {
                             model: [
-                                { k: "appstore", id: "apps", label: "Apps" }, { k: "folder", id: "files", label: Language.I18n.text("ui.t_abc7e9892806") },
+                                { k: "appstore", id: "apps", label: Language.I18n.text("spotlight.apps") }, { k: "folder", id: "files", label: Language.I18n.text("spotlight.home_folder") },
                                 { k: "layers", id: "actions", label: Language.I18n.text("ui.t_ff8059dc6752") }, { k: "clipboard", id: "clip", label: Language.I18n.text("ui.t_285d69f0c5d1") }, { k: "smile", id: "emoji", label: Language.I18n.text("ui.t_61ad8976e650") }
                             ]
                             delegate: CCBtn {
@@ -7428,7 +7567,7 @@ Scope {
                                 onClicked: {
                                     if (modelData.id === "apps") ui.spSetMode(ui.spMode === "apps" ? "home" : "apps");
                                     else if (modelData.id === "actions") ui.spSetMode(ui.spMode === "actions" ? "home" : "actions");
-                                    else if (modelData.id === "files") { ui.pop = ""; root.sh("dolphin \"$HOME\""); }
+                                    else if (modelData.id === "files") { ui.pop = ""; root.sh(root.filesCmd); }
                                     else if (modelData.id === "clip") ui.spSetMode(ui.spMode === "clip" ? "home" : "clip");
                                     else ui.spSetMode(ui.spMode === "emoji" ? "home" : "emoji");
                                 }

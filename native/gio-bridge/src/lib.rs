@@ -172,10 +172,12 @@ extern "C" {
     pub fn g_variant_new_string(value: *const c_char) -> Ptr;
     pub fn g_variant_new_object_path(value: *const c_char) -> Ptr;
     pub fn g_variant_new_boolean(value: c_int) -> Ptr;
+    pub fn g_variant_new_int32(value: i32) -> Ptr;
     pub fn g_variant_new_uint32(value: u32) -> Ptr;
     pub fn g_variant_new_uint64(value: u64) -> Ptr;
     pub fn g_variant_new_byte(value: u8) -> Ptr;
     pub fn g_variant_ref_sink(value: Ptr) -> Ptr;
+    pub fn g_variant_ref(value: Ptr) -> Ptr;
     pub fn g_variant_new_variant(value: Ptr) -> Ptr;
     pub fn g_variant_new_dict_entry(key: Ptr, value: Ptr) -> Ptr;
     pub fn g_variant_new_array(child_type: Ptr, children: *const Ptr, n: usize) -> Ptr;
@@ -194,6 +196,7 @@ extern "C" {
     pub fn g_variant_get_uint64(value: Ptr) -> u64;
     pub fn g_variant_get_uint16(value: Ptr) -> u16;
     pub fn g_variant_get_byte(value: Ptr) -> u8;
+    pub fn g_variant_get_variant(value: Ptr) -> Ptr;
 }
 #[link(name = "gobject-2.0")]
 extern "C" {
@@ -272,6 +275,30 @@ impl Variant {
             Some(g_variant_get_byte(self.0))
         }
     }
+    pub unsafe fn variant(&self) -> Option<Self> {
+        if self.kind() != "v" {
+            None
+        } else {
+            Self::from(g_variant_get_variant(self.0))
+        }
+    }
+    pub unsafe fn bytes(&self) -> Option<Vec<u8>> {
+        if self.kind() != "ay" {
+            return None;
+        }
+        let mut out = Vec::with_capacity(self.len());
+        for index in 0..self.len() {
+            out.push(self.child(index)?.byte()?);
+        }
+        Some(out)
+    }
+    pub unsafe fn i32(&self) -> Option<i32> {
+        if self.kind() != "i" {
+            None
+        } else {
+            Some(g_variant_get_int32(self.0))
+        }
+    }
     pub unsafe fn u32(&self) -> Option<u32> {
         if self.kind() != "u" {
             None
@@ -306,6 +333,21 @@ impl Drop for Variant {
 }
 pub unsafe fn string(value: &str) -> Ptr {
     g_variant_new_string(c(value).as_ptr())
+}
+pub unsafe fn int32(value: i32) -> Ptr {
+    g_variant_new_int32(value)
+}
+pub unsafe fn uint32(value: u32) -> Ptr {
+    g_variant_new_uint32(value)
+}
+pub unsafe fn boolean(value: bool) -> Ptr {
+    g_variant_new_boolean(c_int::from(u8::from(value)))
+}
+pub unsafe fn empty_array(child_type: &str) -> Ptr {
+    let kind = g_variant_type_new(c(child_type).as_ptr());
+    let value = g_variant_new_array(kind, ptr::null(), 0);
+    g_variant_type_free(kind);
+    value
 }
 pub unsafe fn tuple(children: &[Ptr]) -> Ptr {
     g_variant_new_tuple(children.as_ptr(), children.len())

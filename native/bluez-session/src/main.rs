@@ -1,12 +1,16 @@
 //! JSON-lines Bluetooth service used by MacShell.
 use macshell_bluez_agent::Event as AgentEvent;
 use macshell_bluez_session::{Event, Session};
+use macshell_bluez_snapshot::apple::AppleBattery;
+use macshell_bluez_snapshot::{apple_addresses, merge_aap};
 use macshell_gio_bridge::{self as gio, Ptr};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::ptr;
 use std::sync::mpsc::{self, Receiver};
 
+mod aap;
 mod rfkill;
 
 struct Service {
@@ -18,10 +22,14 @@ struct Service {
     generation: Option<Value>,
     snapshot: Option<Value>,
     discovering: bool,
+    user_discovery: bool,
+    battery_watch: u32,
     registered: bool,
     owner_available: bool,
     next_refresh: u64,
     closed: bool,
+    aap: aap::Hub,
+    aap_charges: BTreeMap<String, AppleBattery>,
 }
 fn now_ms() -> u64 {
     unsafe { gio::g_get_monotonic_time().max(0) as u64 / 1000 }
@@ -78,10 +86,25 @@ impl Service {
         let Some(mut state) = self.snapshot.clone() else {
             return;
         };
+        let targets = apple_addresses(&state);
+        self.aap.set_targets(targets.clone());
+        self.aap_charges
+            .retain(|address, _| targets.iter().any(|target| target == address));
+        merge_aap(&mut state, &self.aap_charges);
         state["type"] = json!("state");
         state["discovering"] = json!(self.discovering);
         state["pairingAvailable"] = json!(self.registered);
         self.emit(state);
+    }
+    fn aap_events(&mut self) -> bool {
+        let reports = self.aap.drain();
+        if reports.is_empty() {
+            return false;
+        }
+        for (address, charge) in reports {
+            self.aap_charges.insert(address, charge);
+        }
+        true
     }
     fn events(&mut self) {
         self.session.poll();
@@ -89,7 +112,10 @@ impl Service {
             match event {
                 Event::Owner { unique, .. } => {
                     self.snapshot = None;
+                    self.aap_charges.clear();
+                    self.aap.set_targets(Vec::new());
                     self.discovering = false;
+                    self.user_discovery = false;
                     self.registered = false;
                     if unique.is_some() {
                         self.owner_available = true;
@@ -116,7 +142,7 @@ impl Service {
                     self.emit_state();
                 }
                 Event::Discovery { owned } => {
-                    self.discovering = owned > 0;
+                    self.discovering = owned > 0 && self.user_discovery;
                     self.emit_state();
                 }
                 Event::Agent(AgentEvent::Prompt(p)) => self.emit(json!({"type":"prompt","prompt":{
@@ -193,9 +219,32 @@ impl Service {
         let path = data.get("path").and_then(Value::as_str).unwrap_or("");
         let result = match action {
             "refresh" => self.session.refresh(),
-            "discover" => self.session.discover(now_ms()),
+            "discover" => {
+                self.user_discovery = true;
+                self.session.discover(now_ms())
+            }
+            "watchBatteries" => {
+                self.battery_watch = self.battery_watch.saturating_add(1);
+                self.session.hold_discovery()
+            }
+            "unwatchBatteries" => {
+                self.battery_watch = self.battery_watch.saturating_sub(1);
+                if self.battery_watch == 0 {
+                    self.session.release_hold();
+                    if !self.user_discovery {
+                        self.session.stop_discovery();
+                    }
+                }
+                Ok(())
+            }
             "stopDiscovery" => {
-                self.session.stop_discovery();
+                self.user_discovery = false;
+                if self.battery_watch == 0 {
+                    self.session.stop_discovery();
+                } else {
+                    self.discovering = false;
+                    self.emit_state();
+                }
                 Ok(())
             }
             "power" => match data.get("enabled").and_then(Value::as_bool) {
@@ -297,11 +346,18 @@ extern "C" fn tick(data: Ptr) -> i32 {
         }
         let now = now_ms();
         service.session.tick(now);
+        if service.battery_watch > 0 {
+            let _ = service.session.hold_discovery();
+        }
         if now >= service.next_refresh {
             let _ = service.session.refresh();
             service.next_refresh = now.saturating_add(2000);
         }
+        let aap = service.aap_events();
         service.events();
+        if aap {
+            service.emit_state();
+        }
         if service.closed {
             0
         } else {
@@ -357,10 +413,14 @@ unsafe fn run() -> Result<(), String> {
         generation: None,
         snapshot: None,
         discovering: false,
+        user_discovery: false,
+        battery_watch: 0,
         registered: false,
         owner_available: false,
         next_refresh: now_ms().saturating_add(2000),
         closed: false,
+        aap: aap::Hub::start(),
+        aap_charges: BTreeMap::new(),
     });
     let data = (&mut *service as *mut Service).cast();
     let fd = gio::g_unix_fd_add(

@@ -354,6 +354,31 @@ impl Session {
         state.drain();
         Ok(())
     }
+    pub fn hold_discovery(&self) -> Result<(), &'static str> {
+        let mut state = self.state.borrow_mut();
+        state.available()?;
+        if state.power.is_some()
+            || state.pair.is_some()
+            || state.device.is_some()
+            || state.agent.has_pending()
+        {
+            return Ok(());
+        }
+        let Some(adapters) = state.adapters.clone() else {
+            return Ok(());
+        };
+        state.discovery.hold(&adapters)?;
+        state.drain();
+        Ok(())
+    }
+    pub fn release_hold(&self) {
+        let mut state = self.state.borrow_mut();
+        state.drain();
+        if !state.closing {
+            state.discovery.release_hold();
+            state.drain();
+        }
+    }
     pub fn stop_discovery(&self) {
         let mut state = self.state.borrow_mut();
         state.drain();

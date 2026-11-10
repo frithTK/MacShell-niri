@@ -79,8 +79,9 @@ Item {
         id: pointer
         anchors.fill: parent
         enabled: g.enabled && g.model.length > 0
+        preventStealing: true
         function indexAt(x) { return Math.max(0, Math.min(g.model.length - 1, Math.floor((x - 2) / g.segWidth))); }
-        onPressed: mouse => { g.forceActiveFocus(); g.dragIndex = indexAt(mouse.x); }
+        onPressed: mouse => { g.forceActiveFocus(); g.dragIndex = indexAt(mouse.x); mouse.accepted = true; }
         onPositionChanged: mouse => { if (pressed) g.dragIndex = indexAt(mouse.x); }
         onReleased: mouse => { let selected = indexAt(mouse.x); g.dragIndex = -1; g.picked(selected); }
         onCanceled: g.dragIndex = -1

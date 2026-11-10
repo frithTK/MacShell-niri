@@ -45,6 +45,63 @@ class BluetoothTests(unittest.TestCase):
         del objects[DEVICE_PATH][bluetooth.BATTERY]
         self.assertEqual(bluetooth.snapshot(objects)["devices"][0]["battery"], -1)
 
+    def apple_payload(self, charge=0x05):
+        return bytes([0x07, 0x19, 0x01, 0x0E, 0x20, 0x00, 0x87, charge])
+
+    def test_apple_manufacturer_data_fills_missing_battery1(self):
+        objects = self.objects()
+        del objects[DEVICE_PATH][bluetooth.BATTERY]
+        objects[DEVICE_PATH][bluetooth.DEVICE]["ManufacturerData"] = {0x004C: self.apple_payload()}
+        objects[DEVICE_PATH][bluetooth.DEVICE]["Modalias"] = "bluetooth:v004Cp2027d215C"
+        row = bluetooth.snapshot(objects)["devices"][0]
+        self.assertEqual((row["battery"], row["batteryLeft"], row["batteryRight"], row["batteryCase"]), (70, 80, 70, 50))
+        self.assertNotIn("charging", row)
+
+    def test_battery1_wins_over_apple_overall_but_keeps_parts(self):
+        objects = self.objects()
+        objects[DEVICE_PATH][bluetooth.BATTERY] = {"Percentage": 42}
+        objects[DEVICE_PATH][bluetooth.DEVICE]["ManufacturerData"] = {0x004C: self.apple_payload(0x25)}
+        row = bluetooth.snapshot(objects)["devices"][0]
+        self.assertEqual(row["battery"], 42)
+        self.assertEqual((row["batteryLeft"], row["batteryRight"], row["batteryCase"]), (80, 70, 50))
+        self.assertTrue(row["charging"])
+
+    def test_nearby_apple_ads_attach_to_the_only_connected_apple_headset(self):
+        objects = self.objects()
+        del objects[DEVICE_PATH][bluetooth.BATTERY]
+        objects[DEVICE_PATH][bluetooth.DEVICE]["Modalias"] = "bluetooth:v004Cp2027d215C"
+        objects[DEVICE_PATH][bluetooth.DEVICE]["Icon"] = "audio-headphones"
+        nearby = "/org/bluez/hci0/dev_11_22_33_44_55_66"
+        objects[nearby] = {
+            bluetooth.DEVICE: {"Adapter": ADAPTER_PATH, "Address": "11:22:33:44:55:66", "Name": "Nearby",
+                               "ManufacturerData": {76: list(self.apple_payload())}}}
+        unpaired = {ADAPTER_PATH: objects[ADAPTER_PATH], nearby: {bluetooth.DEVICE: dict(objects[nearby][bluetooth.DEVICE], Paired=True)}}
+        state = bluetooth.snapshot(objects)
+        state["others"] = bluetooth.snapshot(unpaired)["devices"]
+        bluetooth.attach_nearby_apple_battery(state, objects)
+        row = state["devices"][0]
+        self.assertEqual((row["battery"], row["batteryLeft"], row["batteryRight"], row["batteryCase"]), (70, 80, 70, 50))
+        self.assertEqual(state["others"][0]["batteryLeft"], 80)
+        self.assertTrue(row["appleAudio"])
+
+    def test_aap_battery_frame_fills_percent_parts(self):
+        frame = bytes([0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x03,
+                       0x04, 0x01, 0x62, 0x02, 0x01, 0x02, 0x01, 0x64, 0x01, 0x01,
+                       0x08, 0x01, 0x4F, 0x02, 0x01])
+        parsed = bluetooth.parse_aap_battery(frame)
+        self.assertEqual((parsed["left"], parsed["right"], parsed["case"], parsed["battery"]), (98, 100, 79, 98))
+        self.assertTrue(parsed["charging"])
+        objects = self.objects()
+        del objects[DEVICE_PATH][bluetooth.BATTERY]
+        objects[DEVICE_PATH][bluetooth.DEVICE]["Modalias"] = "bluetooth:v004Cp2027d215C"
+        row = bluetooth.snapshot(objects)["devices"][0]
+        bluetooth.apply_apple(row, parsed, keep_battery=row["battery"] >= 0)
+        self.assertEqual((row["battery"], row["batteryLeft"], row["batteryRight"], row["batteryCase"]), (98, 98, 100, 79))
+        self.assertTrue(row["charging"])
+        self.assertIsNone(bluetooth.parse_aap_battery(bytes([0x04, 0x00, 0x04, 0x00, 0x06, 0x00, 0x00, 0x02])))
+        nested = bytes([0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x02, 0x00]) + frame
+        self.assertEqual(bluetooth.parse_aap_battery(nested)["left"], 98)
+
     def test_connected_first_then_names_and_paths(self):
         objects = self.objects()
         for path, name in (("z", "Zulu"), ("a", "Alpha")):

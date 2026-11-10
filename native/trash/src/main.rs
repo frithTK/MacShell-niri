@@ -1,0 +1,105 @@
+use macshell_trash::{handle, TrashEnv, PROTOCOL};
+use serde_json::{json, Value};
+use std::io::{self, Write};
+
+fn emit(output: &mut impl Write, mut value: Value, generation: &Option<Value>) -> io::Result<()> {
+    if let Some(generation) = generation {
+        value["generation"] = generation.clone();
+    }
+    output.write_all(&serde_json::to_vec(&value)?)?;
+    output.write_all(b"\n")?;
+    output.flush()
+}
+
+fn command(
+    request: &Value,
+    env: &TrashEnv,
+    output: &mut impl Write,
+    generation: &Option<Value>,
+) -> io::Result<()> {
+    let action = request.get("action").and_then(Value::as_str).unwrap_or("");
+    let data = request.get("data").cloned().unwrap_or_else(|| json!({}));
+    let mut result = handle(action, &data, env);
+    result["type"] = json!("result");
+    result["id"] = request.get("id").cloned().unwrap_or(Value::Null);
+    emit(output, result, generation)
+}
+
+fn run() -> io::Result<()> {
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    if args == ["--protocol-version"] {
+        println!("{PROTOCOL}");
+        return Ok(());
+    }
+    if !args.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "unexpected argument",
+        ));
+    }
+    let env = TrashEnv::from_os();
+    let stdout = io::stdout();
+    let mut output = stdout.lock();
+    let mut generation = None;
+    let mut buffer = Vec::new();
+    emit(&mut output, json!({"type": "ready"}), &generation)?;
+    loop {
+        let mut poll = libc::pollfd {
+            fd: libc::STDIN_FILENO,
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        let ready = unsafe { libc::poll(&mut poll, 1, -1) };
+        if ready < 0 {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(error);
+        }
+        if poll.revents & libc::POLLNVAL != 0 {
+            break;
+        }
+        if poll.revents & (libc::POLLIN | libc::POLLHUP | libc::POLLERR) != 0 {
+            let mut bytes = [0u8; 65536];
+            let count =
+                unsafe { libc::read(libc::STDIN_FILENO, bytes.as_mut_ptr().cast(), bytes.len()) };
+            if count <= 0 {
+                break;
+            }
+            buffer.extend_from_slice(&bytes[..count as usize]);
+            if buffer.len() > 1_048_576 {
+                break;
+            }
+            while let Some(end) = buffer.iter().position(|byte| *byte == b'\n') {
+                let line: Vec<_> = buffer.drain(..=end).collect();
+                if let Ok(request) = serde_json::from_slice::<Value>(&line) {
+                    let data = request.get("data").cloned().unwrap_or_else(|| json!({}));
+                    if request.is_object()
+                        && data.is_object()
+                        && request.get("generation").is_some()
+                    {
+                        generation = request.get("generation").cloned();
+                        command(&request, &env, &mut output, &generation)?;
+                        continue;
+                    }
+                }
+                emit(
+                    &mut output,
+                    json!({"type":"error", "error":"Invalid service request"}),
+                    &generation,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn main() {
+    if let Err(error) = run() {
+        if error.kind() != io::ErrorKind::BrokenPipe {
+            eprintln!("macshell-trash: {error}");
+            std::process::exit(1);
+        }
+    }
+}

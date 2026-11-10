@@ -7,6 +7,7 @@ QtObject {
     readonly property double id: data.id || 0
     readonly property string address: String(id)
     readonly property string appId: data.app_id || ""
+    readonly property int pid: Number(data.pid || 0)
     property string currentTitle: ""
     readonly property string title: currentTitle
     onDataChanged: currentTitle = data.title || ""

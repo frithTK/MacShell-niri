@@ -106,6 +106,26 @@ class RustInstallationTests(unittest.TestCase):
                 self.assertTrue(os.access(preview_binary, os.X_OK))
                 self.assertEqual(subprocess.check_output([str(preview_binary), '--protocol-version'], text=True).strip(), 'macshell-preview 1')
                 self.assertEqual(subprocess.check_output(['sh', str(shell / 'preview.sh'), '--protocol-version'], text=True).strip(), 'macshell-preview 1')
+                trash_binary = shell / 'trash-rust'
+                self.assertTrue(os.access(trash_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(trash_binary), '--protocol-version'], text=True).strip(), 'macshell-trash 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'trash.sh'), '--protocol-version'], text=True).strip(), 'macshell-trash 1')
+                app_menu_binary = shell / 'app-menu-rust'
+                self.assertTrue(os.access(app_menu_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(app_menu_binary), '--protocol-version'], text=True).strip(), 'macshell-app-menu 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'app-menu.sh'), '--protocol-version'], text=True).strip(), 'macshell-app-menu 1')
+                storage_binary = shell / 'storage-rust'
+                self.assertTrue(os.access(storage_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(storage_binary), '--protocol-version'], text=True).strip(), 'macshell-storage 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'storage.sh'), '--protocol-version'], text=True).strip(), 'macshell-storage 1')
+                drop_tools_binary = shell / 'drop-tools-rust'
+                self.assertTrue(os.access(drop_tools_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(drop_tools_binary), '--protocol-version'], text=True).strip(), 'macshell-drop-tools 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'drop-tools.sh'), '--protocol-version'], text=True).strip(), 'macshell-drop-tools 1')
+                file_search_binary = shell / 'file-search-rust'
+                self.assertTrue(os.access(file_search_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(file_search_binary), '--protocol-version'], text=True).strip(), 'macshell-file-search 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'file-search.sh'), '--protocol-version'], text=True).strip(), 'macshell-file-search 1')
                 (shell / 'airdrop_service.py').write_text('raise SystemExit("unexpected Python fallback")\n')
                 airdrop = Client(['sh', str(shell / 'airdrop-service.sh')])
                 try:

@@ -39,6 +39,7 @@ htmlcov/
 /docs/performance/
 /docs/releases/v1.1.0-draft.md
 /docs/MACSHELL_PRODUCT_PLAN.md
+/docs/UPSTREAM_VISUAL_AUDIT.md
 
 # Local recordings excluded from the public distribution.
 /MacShell/sounds/apple/

@@ -78,6 +78,12 @@ jobs:
           for manifest in native/*/Cargo.toml; do cargo fetch --locked --manifest-path "$manifest"; done
           cargo test --locked --offline --manifest-path native/desktop-source/Cargo.toml --target-dir "$RUNNER_TEMP/desktop-source-build"
           cargo test --locked --offline --manifest-path native/preview/Cargo.toml --target-dir "$RUNNER_TEMP/preview-build"
+          cargo test --locked --offline --manifest-path native/trash/Cargo.toml --target-dir "$RUNNER_TEMP/trash-build"
+          cargo test --locked --offline --manifest-path native/app-menu/Cargo.toml --target-dir "$RUNNER_TEMP/app-menu-build"
+          cargo test --locked --offline --manifest-path native/storage/Cargo.toml --target-dir "$RUNNER_TEMP/storage-build"
+          cargo test --locked --offline --manifest-path native/drop-tools/Cargo.toml --target-dir "$RUNNER_TEMP/drop-tools-build"
+          cargo test --locked --offline --manifest-path native/file-search/Cargo.toml --target-dir "$RUNNER_TEMP/file-search-build"
+          cargo test --locked --offline --manifest-path native/screen-mirroring/Cargo.toml --target-dir "$RUNNER_TEMP/screen-mirroring-build"
           cargo build --release --locked --offline --manifest-path native/niri-input/Cargo.toml --bin macshell-niri-input --target-dir "$RUNNER_TEMP/input-build"
           cargo build --locked --offline --manifest-path native/niri-input/Cargo.toml --example compat --target-dir "$RUNNER_TEMP/input-build"
           cargo build --release --locked --offline --manifest-path native/session-service/Cargo.toml --target-dir "$RUNNER_TEMP/session-build"

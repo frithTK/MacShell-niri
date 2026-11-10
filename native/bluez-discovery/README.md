@@ -1,9 +1,13 @@
 # BlueZ discovery transport
 
-This experimental transport executes the discovery state machine through Gio.
-It is not connected to the shell. The owner must supply the current unique
-BlueZ name and every owner loss or replacement from the bus watcher, on the
-same GLib context, and drain events without reentry.
+This transport executes the discovery state machine through Gio. It is used by
+`macshell-bluetooth` (`native/bluez-session`). The owner must supply the current
+unique BlueZ name and every owner loss or replacement from the bus watcher, on
+the same GLib context, and drain events without reentry.
+
+`Discovery::hold()` / `release_hold()` start or keep LE scanning without the
+pairing 30-second deadline. `start()` still uses that deadline. Stop, owner
+change and failed/uncertain start clear the hold.
 
 Only references obtained on this connection are stopped. Start and stop calls
 have finite timeouts. Since a failed or timed-out call may have been processed,

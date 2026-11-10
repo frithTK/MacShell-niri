@@ -128,6 +128,11 @@ static COMPONENTS: &[Component] = &[
     component!("update-service", "update-service"),
     component!("desktop-source", "desktop-source"),
     component!("preview", "preview"),
+    component!("trash", "trash"),
+    component!("app-menu", "app-menu"),
+    component!("storage", "storage"),
+    component!("drop-tools", "drop-tools"),
+    component!("file-search", "file-search"),
 ];
 
 fn check(binary: &Path, argument: &str, expected: &str) -> io::Result<()> {

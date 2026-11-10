@@ -26,6 +26,14 @@ function byId(id) {
     return null;
 }
 
+function indexOf(id) {
+    for (var i = 0; i < PRESETS.length; i++) {
+        if (PRESETS[i].id === id)
+            return i;
+    }
+    return -1;
+}
+
 function ids() {
     var names = [];
     for (var i = 0; i < PRESETS.length; i++)

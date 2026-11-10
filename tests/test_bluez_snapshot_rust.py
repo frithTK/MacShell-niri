@@ -73,6 +73,23 @@ class BluezSnapshotTests(unittest.TestCase):
             bus.props[(path, BATTERY)] = {'Percentage': GLib.Variant('y', percent)}
         self.check_snapshot()
 
+    def test_apple_manufacturer_data_and_nearby_ads(self):
+        payload = GLib.Variant('ay', bytes([0x07, 0x19, 0x01, 0x0E, 0x20, 0x00, 0x87, 0x05]))
+        props = self.bus.props[(self.bus.device, bluetooth.DEVICE)]
+        props.update({
+            'Paired': GLib.Variant('b', True), 'Connected': GLib.Variant('b', True),
+            'Modalias': GLib.Variant('s', 'bluetooth:v004Cp2027d215C'),
+            'Icon': GLib.Variant('s', 'audio-headphones')})
+        nearby = '/org/bluez/hci0/dev_11_22_33_44_55_66'
+        self.bus.props[(nearby, bluetooth.DEVICE)] = {
+            'Adapter': GLib.Variant('o', '/org/bluez/hci0'),
+            'Address': GLib.Variant('s', '11:22:33:44:55:66'),
+            'Name': GLib.Variant('s', 'Nearby'),
+            'ManufacturerData': GLib.Variant('a{qv}', {0x004C: payload})}
+        self.check_snapshot()
+        props['ManufacturerData'] = GLib.Variant('a{qv}', {0x004C: payload})
+        self.check_snapshot()
+
     def test_empty_name_fallback_and_unpaired_connected_device(self):
         props = self.bus.props[(self.bus.device, bluetooth.DEVICE)]
         props['Alias'] = GLib.Variant('s', '')

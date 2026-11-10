@@ -39,11 +39,19 @@ has an uncertain outcome, the session requires its connection to close before
 further operations. A multi-adapter operation can partially succeed; cancellation
 or failure cannot roll back changes already applied by BlueZ.
 
-`macshell-bluetooth` supplies the existing JSON-lines protocol to
-`BluetoothControl.qml`; the launcher falls back to Python if the Rust binary
-is missing or incompatible. `begin_authorization` is a lower-level helper that
-prepares only Agent1. Automated tests use synthetic BlueZ devices; real Bluetooth
-hardware is not covered by these tests.
+`macshell-bluetooth` supplies the JSON-lines protocol to `BluetoothControl.qml`
+and is the default Bluetooth helper. The launcher falls back to Python only if
+the Rust binary is missing or incompatible. Connected Apple audio devices also open AACP on L2CAP PSM 0x1001 (handshake,
+SET_FEATURES, REQUEST_NOTIFICATIONS) and merge 1%-step battery frames into the
+snapshot. `watchBatteries` / `unwatchBatteries`
+call `hold_discovery()` / `release_hold()` so a visible Batteries card can listen
+for Apple LE advertisements without setting Control Center `discovering`. User
+pairing search (`startDiscovery`) still uses the 30-second deadline; `stopDiscovery`
+does not stop that listen while battery watchers remain. `hold_discovery()` is a
+no-op while power/pair/device work is in progress and is retried on `tick()`.
+`begin_authorization` is a lower-level helper that prepares only Agent1.
+Automated tests use synthetic BlueZ devices; real Bluetooth hardware is not
+covered by these tests.
 
 ```sh
 cargo build --locked --offline --manifest-path native/bluez-session/Cargo.toml --examples

@@ -17,6 +17,7 @@ TestCase {
         property bool onBattery: true
         property string remaining: "About 3 h remaining"
         property string source: "Power Source: Battery"
+        property string rateLabel: ""
     }
     QtObject {
         id: power
@@ -37,11 +38,34 @@ TestCase {
     function init() {
         power.profile = "balanced"; power.profiles = ["power-saver", "balanced", "performance"];
         power.available = true; power.busy = false; power.inhibited = ""; power.requested = "";
+        battery.rateLabel = "";
     }
     function test_duration_boundaries() {
         compare(State.duration(0), ""); compare(State.duration(-1), ""); compare(State.duration(NaN), "");
         compare(State.duration(1), "1 min"); compare(State.duration(3599), "1 h");
         compare(State.duration(3601), "1 h 1 min");
+        compare(State.duration(36 * 3600 + 1), "");
+    }
+    function test_trusted_time_rejects_upower_noise() {
+        compare(State.trustedTime(167 * 24 * 3600), 0);
+        compare(State.trustedTime(5400), 5400);
+        compare(State.watts(0.011), -1);
+        compare(State.watts(8.4), 8.4);
+        compare(State.formatWatts(0.011), "");
+        compare(State.formatWatts(8.41), "8.4 W");
+        compare(State.formatEnergy(45.09, 53.04), "45.1 / 53.0 Wh");
+        compare(State.formatEnergy(-1, -1), "");
+        verify(State.remaining(true, 2, 167 * 24 * 3600, 0, true).indexOf("Calculating") >= 0);
+    }
+    function test_extras_skip_laptop_and_line_power() {
+        var laptop = {isLaptopBattery: true, isPresent: true, ready: true, type: 2, percentage: 1, model: "BAT1"};
+        var ac = {isLaptopBattery: false, isPresent: true, ready: true, type: 1, percentage: 0, nativePath: "ACAD"};
+        var mouse = {isLaptopBattery: false, isPresent: true, ready: true, type: 6, percentage: 0.42, model: "Magic Mouse", nativePath: "/org/mouse"};
+        var absent = {isLaptopBattery: false, isPresent: false, ready: true, type: 2, percentage: 0.5, model: "gone"};
+        var extras = State.extras([laptop, ac, mouse, absent]);
+        compare(extras.length, 1);
+        compare(extras[0].name, "Magic Mouse");
+        compare(extras[0].percentage, 42);
     }
     function test_health_uses_one_present_internal_battery() {
         var internal = {isLaptopBattery: true, isPresent: true, ready: true, healthSupported: true, healthPercentage: 85.8961};
@@ -73,6 +97,11 @@ TestCase {
         compare(performance.selected, false);
         power.profile = "performance"; compare(performance.selected, true);
         power.busy = true; compare(performance.enabled, false);
+        compare(findChild(item, "batteryRate").visible, false);
+        battery.rateLabel = "8.4 W";
+        compare(findChild(item, "batteryRate").visible, true);
+        compare(findChild(item, "batteryRate").text, "8.4 W");
+        battery.rateLabel = "";
     }
     function test_missing_and_inhibited_profiles_in_both_themes() {
         for (var foreground of ["white", "#1d1d1f"]) {

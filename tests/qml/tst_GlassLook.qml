@@ -17,6 +17,9 @@ TestCase {
             compare(GlassLook.matchIndex(look.blur, look.opacity, look.liquid, look.rim, look.grain), i)
         }
         compare(GlassLook.byId("missing"), null)
+        compare(GlassLook.indexOf("clear"), 0)
+        compare(GlassLook.indexOf("frosted"), 3)
+        compare(GlassLook.indexOf("missing"), -1)
         compare(GlassLook.at(-1).id, "clear")
         compare(GlassLook.at(99).id, "frosted")
     }
@@ -37,5 +40,21 @@ TestCase {
         compare(GlassLook.nearestIndex(7, 0.24, 1.35), 2)
         compare(GlassLook.nearestIndex(7, 0.14, 0.65), 2)
         compare(GlassLook.nearestIndex(20, 0.7, 0.7), 3)
+    }
+
+    function test_partial_apply_does_not_match_and_nearest_stays_on_old_look() {
+        var from = GlassLook.byId("vibrant")
+        var to = GlassLook.byId("frosted")
+        compare(GlassLook.matchIndex(from.blur, from.opacity, from.liquid, to.rim, from.grain), -1)
+        compare(GlassLook.nearestIndex(from.blur, from.opacity, from.liquid), 2)
+        compare(GlassLook.indexOf(to.id), 3)
+    }
+
+    function test_named_look_id_is_stable_when_values_are_mid_apply() {
+        var from = GlassLook.byId("standard")
+        var to = GlassLook.byId("frosted")
+        compare(GlassLook.matchId(from.blur, from.opacity, from.liquid, to.rim, from.grain), "custom")
+        compare(GlassLook.indexOf("frosted"), 3)
+        compare(GlassLook.byId("frosted").blur < 8, true)
     }
 }

@@ -124,6 +124,22 @@ fn an_owned_adapter_no_longer_requested_is_released() {
     assert_eq!(core.owned(), 0);
 }
 #[test]
+fn battery_hold_survives_the_pairing_timeout_until_released() {
+    let mut core = DiscoveryCore::new();
+    let effects = core.hold(&[(A.into(), true)]).unwrap();
+    let [Effect::Start { epoch, token, .. }] = effects.as_slice() else {
+        panic!()
+    };
+    assert!(core.started(A, *epoch, *token, true).is_empty());
+    assert_eq!(core.owned(), 1);
+    assert!(core.tick(40_000).is_empty());
+    assert_eq!(core.owned(), 1);
+    let effects = core.release_hold();
+    let (epoch, token) = stopped(&effects);
+    assert!(core.stopped(A, epoch, token, true).is_empty());
+    assert_eq!(core.owned(), 0);
+}
+#[test]
 fn uncertain_start_closes_connection_and_rejects_stale_results() {
     let mut core = DiscoveryCore::new();
     let (epoch, token) = start(&mut core, A, 0);

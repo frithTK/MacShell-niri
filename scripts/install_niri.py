@@ -881,7 +881,7 @@ def install_unlocked(activate=False, session=False, rust_bridge=None):
                 previous_stopped = stop_shell("MacShell-niri")
             for source, destination in ((SOURCE / "MacShell", SHELL), (SOURCE / "MacLock", LOCK)):
                 remove(destination)
-                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust", "niri-input-rust", "biometric-probe-rust", "update-service-rust", "desktop-source-rust", "preview-rust"))
+                shutil.copytree(source, destination, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "niri-bridge-rust", "boot-clock-rust", "system-stats-rust", "night-shift-rust", "timed-modes-rust", "activity-preferences-rust", "bar-preferences-rust", "widget-preferences-rust", "locale-preferences-rust", "native-blur-rust", "session-preflight-rust", "power-profiles-rust", "niri-color-rust", "bluetooth-service-rust", "capture-service-rust", "recording-service-rust", "network-service-rust", "niri-input-rust", "biometric-probe-rust", "update-service-rust", "desktop-source-rust", "preview-rust", "storage-rust", "drop-tools-rust", "file-search-rust"))
             (SHELL / "niri-input-service.sh").chmod(0o755)
             shutil.copy2(SOURCE / "MacShell/session-service.sh", SHELL / "session-service.sh")
             (SHELL / "session-service.sh").chmod(0o755)

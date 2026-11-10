@@ -34,6 +34,8 @@ TestCase {
         compare(migrated.statsMetrics.join(","), "cpu");
         compare(migrated.nightTemp, 6000);
         compare(migrated.recordAudio, "none");
+        compare(Migration.migrate({airplayLayout: "extend"}).airplayLayout, "extend");
+        compare(Migration.migrate({airplayLayout: "sideways"}).airplayLayout, "mirror");
     }
     function test_mirroring_tile_is_added_once_and_user_removal_survives_reload() {
         var first = Migration.migrate({ccAirDropMigrated: true, ccControls: ["wifi", "record", "sound"]});

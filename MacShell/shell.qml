@@ -26,10 +26,17 @@ ShellRoot {
         property var reminders: remindersApp
         property var calendar: calendarApp
         property var desktopSource: desktopSourceService
+        property var storage: storageService
+        property var dropTools: dropToolsApp
         property var quickLook: quickLookApp
+        property var trash: trashApp.service
+        property var trashUi: trashApp
+        property var appMenu: appMenuService
         DesktopSource { id: desktopSourceService }
+        StorageControl { id: storageService }
+        AppMenuService { id: appMenuService }
         readonly property var translations: Language.I18n
-        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); else if (key === "calendar") calendarApp.open(); }
+        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); else if (key === "calendar") calendarApp.open(); else if (key === "droptools") dropToolsApp.openDrop(); }
         function openSettings(pane) { macDock.openPrefs(pane); }
         property bool barWantsGeo: false
         property bool dockWantsGeo: false
@@ -106,6 +113,8 @@ ShellRoot {
     RemindersApp { id: remindersApp; hub: sharedHub }
     CalendarApp { id: calendarApp; hub: sharedHub }
     QuickLookApp { id: quickLookApp; hub: sharedHub }
+    DropToolsApp { id: dropToolsApp; hub: sharedHub }
+    TrashApp { id: trashApp; hub: sharedHub }
     ThemeCoordinator { bar: macBar; dock: macDock }
 
     IpcHandler {
@@ -221,8 +230,38 @@ ShellRoot {
         function open(): void { calendarApp.open(); }
     }
     IpcHandler {
+        target: "trash"
+        function open(): void { trashApp.open(); }
+        function state(): string {
+            return JSON.stringify({
+                full: macDock.trashFull,
+                count: trashApp.service.count,
+                visible: trashApp.window.visible,
+                ready: trashApp.service.ready
+            });
+        }
+    }
+    IpcHandler {
+        target: "appmenu"
+        function state(): string {
+            var menu = sharedHub.appMenu;
+            return JSON.stringify({
+                ready: menu.ready,
+                exported: menu.exported,
+                source: menu.source,
+                appId: menu.appId,
+                pid: menu.pid
+            });
+        }
+    }
+    IpcHandler {
         target: "utilities"
         function open(name: string): void { sharedHub.openUtility(name); }
+    }
+    IpcHandler {
+        target: "droptools"
+        function open(): void { dropToolsApp.openDrop(); }
+        function files(path: string): void { dropToolsApp.openFilesFromText(path); }
     }
     IpcHandler {
         target: "notifications"

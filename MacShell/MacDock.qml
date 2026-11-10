@@ -108,6 +108,8 @@ Scope {
         root[k] = v;
         if (bar) bar[k] = v;
         if (k === "glassBlur") nativeBlurControl.apply();
+        if (!root.glassLookApplying && ["glassRim", "glassGrain", "glassOpacity", "glassLiquid", "glassBlur"].indexOf(k) >= 0)
+            root.glassLookName = GlassLook.matchId(root.glassBlur, root.glassOpacity, root.glassLiquid, root.glassRim, root.glassGrain);
     }
     readonly property alias nativeBlur: nativeBlurControl
     NativeBlurControl {
@@ -154,16 +156,28 @@ Scope {
     readonly property bool glassRT: bar ? bar.glassRealtime : true     // real-time glass (Menu Bar settings)
     property real glassBlur: 5            // shared blur level: shader radius and niri Kawase strength
     property bool glassAdvancedOpen: false
+    // Named look is the slider source of truth. Hold the tick while dragging and
+    // while the five fields apply, so nearestIndex cannot snap the knob back.
+    property int glassLookHeld: -1
+    property bool glassLookApplying: false
+    property string glassLookName: "standard"
     readonly property int glassLookMatch: GlassLook.matchIndex(glassBlur, glassOpacity, glassLiquid, glassRim, glassGrain)
-    readonly property int glassLookSlider: glassLookMatch >= 0 ? glassLookMatch : GlassLook.nearestIndex(glassBlur, glassOpacity, glassLiquid)
-    readonly property string glassLookId: glassLookMatch >= 0 ? GlassLook.at(glassLookMatch).id : "custom"
+    readonly property int glassLookSlider: glassLookHeld >= 0 ? glassLookHeld
+        : (glassLookName === "custom" ? GlassLook.nearestIndex(glassBlur, glassOpacity, glassLiquid)
+                                     : Math.max(0, GlassLook.indexOf(glassLookName)))
+    readonly property string glassLookId: glassLookHeld >= 0 ? GlassLook.at(glassLookHeld).id : glassLookName
     function applyGlassLook(look) {
         if (!look) return;
+        glassLookApplying = true;
+        glassLookHeld = GlassLook.indexOf(look.id);
+        glassLookName = look.id;
         setLook("glassRim", look.rim);
         setLook("glassGrain", look.grain);
         setLook("glassOpacity", look.opacity);
         setLook("glassLiquid", look.liquid);
         setLook("glassBlur", look.blur);
+        glassLookApplying = false;
+        Qt.callLater(() => { if (root.glassLookHeld === GlassLook.indexOf(look.id)) root.glassLookHeld = -1; });
     }
     function applyGlassPreset(name) { applyGlassLook(GlassLook.byId(name)); }
     function glassLookLabel(id) {
@@ -341,8 +355,12 @@ Scope {
         property int tickCount: 0
         property string leftLabel: ""
         property string rightLabel: ""
+        property bool dragging: false
+        property real live: 0
         signal moved(real v)
-        readonly property real pos: to > from ? Math.max(0, Math.min(1, (value - from) / (to - from))) : 0
+        signal released()
+        readonly property real shown: dragging ? live : value
+        readonly property real pos: to > from ? Math.max(0, Math.min(1, (shown - from) / (to - from))) : 0
         width: 230
         height: leftLabel !== "" || rightLabel !== "" ? 40 : 22
         opacity: enabled ? 1 : 0.4
@@ -411,10 +429,14 @@ Scope {
                 var v = s.from + p * (s.to - s.from);
                 if (s.stepSize > 0) v = Math.round(v / s.stepSize) * s.stepSize;
                 v = Math.round(v * 1000) / 1000;
+                s.dragging = true;
+                s.live = v;
                 s.moved(v);
             }
-            onPressed: mouse => setFrom(mouse.x)
+            onPressed: mouse => { setFrom(mouse.x); mouse.accepted = true; }
             onPositionChanged: mouse => { if (pressed) setFrom(mouse.x); }
+            onReleased: { s.dragging = false; s.released(); }
+            onCanceled: { s.dragging = false; s.released(); }
         }
     }
 
@@ -462,15 +484,24 @@ Scope {
             subtitle: root.glassLookId === "custom"
                       ? Language.I18n.text("appearance.glass_custom_hint")
                       : Language.I18n.text("appearance.glass_look_hint", {look: root.glassLookLabel(root.glassLookId)})
-            SSlider {
+        }
+        Item {
+            width: parent.width
+            height: 36
+            SSegmented {
                 objectName: gl.lookName
+                x: 14
+                anchors.verticalCenter: parent.verticalCenter
                 t: gl.t
-                from: 0; to: GlassLook.count() - 1; stepSize: 1
-                tickCount: GlassLook.count()
-                value: root.glassLookSlider
-                leftLabel: Language.I18n.text("appearance.glass_clear")
-                rightLabel: Language.I18n.text("appearance.glass_frosted")
-                onMoved: v => root.applyGlassLook(GlassLook.at(v))
+                segWidth: Math.max(56, (gl.width - 32) / Math.max(1, GlassLook.count()))
+                model: [
+                    Language.I18n.text("appearance.glass_clear"),
+                    Language.I18n.text("appearance.glass_standard"),
+                    Language.I18n.text("appearance.glass_vibrant"),
+                    Language.I18n.text("appearance.glass_frosted")
+                ]
+                current: root.glassLookName === "custom" ? -1 : Math.max(0, GlassLook.indexOf(root.glassLookName))
+                onPicked: i => root.applyGlassLook(GlassLook.at(i))
             }
         }
         SRow {
@@ -708,6 +739,7 @@ Scope {
             { id: "bluetooth",  sec: 1, name: Language.I18n.text("ui.t_8bb29098b369"), searchName: Language.I18n.english("ui.t_8bb29098b369"),       wg: "bluetooth",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "devices pair headphones mouse keyboard блютуз устройства наушники мышь клавиатура" },
             { id: "network",    sec: 1, name: Language.I18n.text("ui.t_1744b96470b5"), searchName: Language.I18n.english("ui.t_1744b96470b5"),         wg: "ethernet",   c1: "#3D9BFF", c2: "#0A6CFF", keys: "ethernet ip address vpn tailscale connection" },
             { id: "battery",    sec: 1, name: Language.I18n.text("ui.t_dfcb7c1619d5"), searchName: Language.I18n.english("ui.t_dfcb7c1619d5"),         wg: "bolt",       c1: "#4CD964", c2: "#28A745", keys: "power energy charge profile performance game mode батарея заряд питание энергия" },
+            { id: "storage",    sec: 1, name: Language.I18n.text("storage.title"), searchName: Language.I18n.english("storage.title"), wg: "folder", c1: "#5AC8FA", c2: "#007AFF", keys: "disk storage volume mount trash files folders capacity free used диск хранилище том корзина файлы папки ёмкость свободно" },
             { id: "general",    sec: 2, name: Language.I18n.text("ui.t_c910d474dcd7"), searchName: Language.I18n.english("ui.t_c910d474dcd7"),         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
             { id: "updates",    sec: 2, name: Language.I18n.text("updates.title"), searchName: Language.I18n.english("updates.title"), glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "update upgrade version packages pacman обновление обновления версия пакеты система" },
             { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
@@ -1173,7 +1205,7 @@ Scope {
                     y: 6
                     width: flick.width - 44
                     sourceComponent: ({
-                        wifi: paneWifi, bluetooth: paneBt, network: paneNetwork, battery: paneBattery,
+                        wifi: paneWifi, bluetooth: paneBt, network: paneNetwork, battery: paneBattery, storage: paneStorage,
                         general: paneGeneral, updates: paneUpdates, language: paneLanguage, appearance: paneAppearance, barlayout: paneBarLayout, activity: paneActivity, widgets: paneWidgets, controlcenter: paneCC, airplay: paneAirplay, dock: paneDesktopDock,
                         displays: paneDisplays, menubar: paneMenuBar, wallpaper: paneWallpaper,
                         notifications: paneNotif, sound: paneSound, focus: paneFocus,
@@ -2456,7 +2488,57 @@ Scope {
                             color: pal.text2; font.family: pal.fam; font.pixelSize: 13
                         }
                     }
+                    SRow {
+                        visible: !!(root.bar && root.bar.battery && root.bar.battery.modelName)
+                        t: pal
+                        title: Language.I18n.text("battery.model")
+                        Text {
+                            text: root.bar && root.bar.battery ? root.bar.battery.modelName : ""
+                            color: pal.text2; font.family: pal.fam; font.pixelSize: 13
+                        }
+                    }
+                    SRow {
+                        visible: !!(root.bar && root.bar.battery && root.bar.battery.energyLabel)
+                        t: pal
+                        title: Language.I18n.text("battery.capacity")
+                        subtitle: Language.I18n.text("battery.capacity_description")
+                        Text {
+                            text: root.bar && root.bar.battery ? root.bar.battery.energyLabel : ""
+                            color: pal.text2; font.family: pal.fam; font.pixelSize: 13
+                        }
+                    }
+                    SRow {
+                        visible: !!(root.bar && root.bar.battery && root.bar.battery.rateLabel)
+                        t: pal
+                        title: Language.I18n.text("battery.rate")
+                        subtitle: Language.I18n.text("battery.rate_description")
+                        Text {
+                            text: root.bar && root.bar.battery ? root.bar.battery.rateLabel : ""
+                            color: pal.text2; font.family: pal.fam; font.pixelSize: 13
+                        }
+                    }
                 }
+                SLabel {
+                    visible: !!(root.bar && root.bar.battery && root.bar.battery.extras && root.bar.battery.extras.length)
+                    t: pal; header: true; text: Language.I18n.text("battery.others")
+                }
+                SCard {
+                    visible: !!(root.bar && root.bar.battery && root.bar.battery.extras && root.bar.battery.extras.length)
+                    t: pal
+                    Repeater {
+                        model: root.bar && root.bar.battery ? root.bar.battery.extras : []
+                        delegate: SRow {
+                            required property var modelData
+                            t: pal
+                            title: modelData.name
+                            Text {
+                                text: modelData.percentage + "%"
+                                color: pal.text2; font.family: pal.fam; font.pixelSize: 13
+                            }
+                        }
+                    }
+                }
+                SLabel { t: pal; text: Language.I18n.text("battery.app_usage_unavailable") }
                 SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_1311d7944778") }
                 SCard {
                     t: pal
@@ -2470,6 +2552,155 @@ Scope {
                         SSwitch { t: pal; checked: root.bar ? root.bar.gamingAuto : true; onToggled: v => { if (root.bar) root.bar.gamingAuto = v; } }
                     }
                 }
+            }
+        }
+
+        Component {
+            id: paneStorage
+            Column {
+                id: storagePane
+                spacing: 10
+                readonly property var storage: root.hub && root.hub.storage ? root.hub.storage : null
+                Component.onCompleted: if (storage) storage.refresh()
+                SLabel { t: pal; header: true; text: Language.I18n.text("storage.volumes") }
+                SLabel {
+                    t: pal
+                    text: storage && storage.measuredAt
+                          ? Language.I18n.text("storage.measured", {when: Qt.formatDateTime(new Date(storage.measuredAt * 1000), "yyyy-MM-dd HH:mm")})
+                          : Language.I18n.text("storage.loading")
+                }
+                SCard {
+                    t: pal
+                    Repeater {
+                        model: storage ? storage.volumes : []
+                        delegate: Column {
+                            required property var modelData
+                            width: parent ? parent.width : 0
+                            SRow {
+                                t: pal
+                                title: modelData.name + (modelData.bind ? Language.I18n.text("storage.bind_suffix") : "")
+                                subtitle: storage ? storage.volumeLine(modelData) : ""
+                                Text {
+                                    text: modelData.fstype || ""
+                                    color: pal.text2; font.family: pal.fam; font.pixelSize: 12
+                                }
+                            }
+                            Item {
+                                width: parent.width; height: 16
+                                Rectangle {
+                                    x: 14; y: 4; height: 6; radius: 3
+                                    width: Math.max(0, parent.width - 28)
+                                    color: pal.sep
+                                    Rectangle {
+                                        width: parent.width * (storage ? storage.usedRatio(modelData) : 0)
+                                        height: parent.height; radius: 3
+                                        color: pal.accent
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    SLabel {
+                        visible: !(storage && storage.volumes && storage.volumes.length)
+                        t: pal; text: Language.I18n.text("storage.volumes_empty")
+                    }
+                }
+                SLabel { t: pal; header: true; text: Language.I18n.text("storage.overview") }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("storage.scan")
+                        subtitle: storage && storage.scanning
+                                  ? Language.I18n.text("storage.scanning", {count: storage.visited})
+                                  : Language.I18n.text("storage.scan_hint")
+                        SButton {
+                            t: pal
+                            text: storage && storage.scanning ? Language.I18n.text("storage.cancel") : Language.I18n.text("storage.scan")
+                            onClicked: {
+                                if (!storage) return;
+                                if (storage.scanning) storage.cancel(); else storage.scan();
+                            }
+                        }
+                    }
+                }
+                SLabel { t: pal; text: storage ? storage.note : "" }
+                SCard {
+                    visible: !!(storage && storage.folders && storage.folders.length)
+                    t: pal
+                    Repeater {
+                        model: storage ? storage.folders : []
+                        delegate: SRow {
+                            required property var modelData
+                            t: pal
+                            title: storage ? storage.folderTitle(modelData.id, modelData.name) : modelData.name
+                            subtitle: (storage ? storage.formatBytes(modelData.bytes) : "") + (modelData.incomplete ? Language.I18n.text("storage.partial_suffix") : "")
+                            SButton { t: pal; text: Language.I18n.text("spotlight.show_in_folder"); onClicked: if (storage) storage.reveal(modelData.path) }
+                        }
+                    }
+                }
+                SLabel {
+                    visible: !!(storage && storage.large && storage.large.length)
+                    t: pal; header: true; text: Language.I18n.text("storage.large")
+                }
+                SCard {
+                    visible: !!(storage && storage.large && storage.large.length)
+                    t: pal
+                    Repeater {
+                        model: storage ? storage.large : []
+                        delegate: SRow {
+                            required property var modelData
+                            t: pal
+                            title: modelData.name
+                            subtitle: storage ? storage.formatBytes(modelData.bytes) : ""
+                            SButton { t: pal; text: Language.I18n.text("spotlight.show_in_folder"); onClicked: if (storage) storage.revealParent(modelData.path) }
+                        }
+                    }
+                }
+                SLabel { t: pal; header: true; text: Language.I18n.text("storage.trash") }
+                SCard {
+                    t: pal
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("storage.trash")
+                        subtitle: storage && storage.trash && storage.trash.bytes !== undefined
+                                  ? storage.formatBytes(storage.trash.bytes) : Language.I18n.text("storage.scan_needed")
+                        SButton {
+                            t: pal; text: Language.I18n.text("storage.open_trash")
+                            onClicked: { if (root.hub && root.hub.trashUi) root.hub.trashUi.open(); }
+                        }
+                    }
+                }
+                SLabel {
+                    visible: !!(storage && storage.apps && storage.apps.length)
+                    t: pal; header: true; text: Language.I18n.text("storage.apps")
+                }
+                SCard {
+                    visible: !!(storage && storage.apps && storage.apps.length)
+                    t: pal
+                    Repeater {
+                        model: storage ? storage.apps : []
+                        delegate: SRow {
+                            required property var modelData
+                            t: pal
+                            title: modelData.name
+                            subtitle: storage ? storage.formatBytes(modelData.bytes) : ""
+                            Row {
+                                spacing: 6
+                                SButton { t: pal; text: Language.I18n.text("spotlight.show_in_folder"); onClicked: if (storage) storage.reveal(modelData.path) }
+                                SButton {
+                                    t: pal; text: Language.I18n.text("storage.app_info")
+                                    onClicked: {
+                                        if (!root.hub || !root.hub.desktopSource) return;
+                                        root.hub.desktopSource.request(modelData.id);
+                                        root.hub.desktopSource.showInfo(modelData.name, root.hub.desktopSource.sourceOf(modelData.id));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                SLabel { t: pal; text: Language.I18n.text("storage.no_auto_delete") }
             }
         }
 
@@ -2511,6 +2742,19 @@ Scope {
                 SLabel { t: pal; text: Language.I18n.text("ui.t_airplay_settings_intro") }
                 SCard {
                     t: pal
+                    SRow {
+                        t: pal; title: Language.I18n.text("ui.t_airplay_layout")
+                        subtitle: root.bar && root.bar.airplayLayout === "extend" && root.bar.mirroring.extendMethod === "dummy"
+                                  ? Language.I18n.text("ui.t_airplay_extend_hint_dummy", {name: root.bar.mirroring.extendOutput || "HDMI-A-1"})
+                                  : root.bar && root.bar.airplayLayout === "extend" && !root.bar.mirroring.extendAvailable
+                                  ? Language.I18n.text("ui.t_airplay_extend_hint_blocked")
+                                  : Language.I18n.text("ui.t_airplay_layout_subtitle")
+                        SSegmented {
+                            t: pal; model: [Language.I18n.text("ui.t_airplay_mirror"), Language.I18n.text("ui.t_airplay_extend")]; segWidth: 110
+                            current: root.bar && root.bar.airplayLayout === "extend" ? 1 : 0
+                            onPicked: i => { if (root.bar) root.bar.airplayLayout = i === 1 ? "extend" : "mirror"; }
+                        }
+                    }
                     SRow {
                         t: pal; title: Language.I18n.text("ui.t_airplay_fps")
                         subtitle: Language.I18n.text("ui.t_airplay_fps_subtitle")
@@ -3626,14 +3870,14 @@ Scope {
         Quickshell.execDetached(["sh", "-c", "rm -f \"${MACSHELL_SETTINGS_HOME:-$HOME/.config}/maclock/settings.json\""]);
         iconSize = 52; magnification = 1.7; magnificationEnabled = true;
         spacing = 6; margin = 6; cornerRadius = 18;
-        darkMode = true; glassOpacity = 0.42; glassBlur = 5; glassLiquid = 1.0; dockStyle = "blur"; accent = "#0a84ff"; fontFamily = "Inter Variable";
+        darkMode = true; glassOpacity = 0.42; glassBlur = 5; glassLiquid = 1.0; glassRim = 0.45; glassGrain = 0.03; glassLookName = "standard"; dockStyle = "blur"; accent = "#0a84ff"; fontFamily = "Inter Variable";
         hideMode = "smart"; hideDelay = 450; monitor = "";
         showTrash = true; showLabels = true; showIndicators = true; bounceOnLaunch = true; showThumbs = true; windowCapture = true;
     }
 
     // ── settings persistence (~/.config/macdock/settings.json) ──
     readonly property string settingsSig: [dockEnabled, settingsEnabled, iconSize, magnification, magnificationEnabled, spacing, margin,
-        cornerRadius, darkMode, glassOpacity, glassBlur, glassLiquid, dockStyle, wallpaperPath, String(accent), fontFamily, hideMode, hideDelay, monitor,
+        cornerRadius, darkMode, glassOpacity, glassRim, glassGrain, glassBlur, glassLiquid, glassLookName, dockStyle, wallpaperPath, String(accent), fontFamily, hideMode, hideDelay, monitor,
         showTrash, showLabels, showIndicators, bounceOnLaunch, showThumbs, windowCapture].join("|")
     property bool settingsReady: false
     onSettingsSigChanged: if (settingsReady) saveTimer.restart()
@@ -3646,7 +3890,7 @@ Scope {
             dockEnabled: dockEnabled, settingsEnabled: settingsEnabled, iconSize: iconSize, magnification: magnification, magnificationEnabled: magnificationEnabled,
             spacing: spacing, margin: margin, cornerRadius: cornerRadius,
             darkMode: darkMode, glassOpacity: glassOpacity, dockStyle: dockStyle, wallpaperPath: wallpaperPath, glassDebug: glassDebug,
-            glassRim: glassRim, glassGrain: glassGrain, glassLiquid: glassLiquid, glassBlur: glassBlur,
+            glassRim: glassRim, glassGrain: glassGrain, glassLiquid: glassLiquid, glassBlur: glassBlur, glassLookName: glassLookName,
             accent: String(accent), fontFamily: fontFamily,
             hideMode: hideMode, hideDelay: hideDelay, monitor: monitor,
             showTrash: showTrash, showLabels: showLabels, showIndicators: showIndicators,
@@ -3658,12 +3902,14 @@ Scope {
     function applySettings(o) {
         if (!o || typeof o !== "object") return;
         var keys = ["dockEnabled", "settingsEnabled", "iconSize", "magnification", "magnificationEnabled", "spacing", "margin", "cornerRadius",
-                    "darkMode", "glassOpacity", "dockStyle", "wallpaperPath", "glassDebug", "glassRim", "glassGrain", "glassLiquid", "glassBlur", "accent", "fontFamily", "hideMode", "hideDelay", "monitor",
+                    "darkMode", "glassOpacity", "dockStyle", "wallpaperPath", "glassDebug", "glassRim", "glassGrain", "glassLiquid", "glassBlur", "glassLookName", "accent", "fontFamily", "hideMode", "hideDelay", "monitor",
                     "showTrash", "showLabels", "showIndicators", "bounceOnLaunch", "showThumbs", "windowCapture"];
         for (var i = 0; i < keys.length; i++) {
             if (o[keys[i]] === undefined) continue;
             try { root[keys[i]] = o[keys[i]]; } catch (err) { }
         }
+        if (o.glassLookName === undefined || (GlassLook.byId(root.glassLookName) === null && root.glassLookName !== "custom"))
+            root.glassLookName = GlassLook.matchId(root.glassBlur, root.glassOpacity, root.glassLiquid, root.glassRim, root.glassGrain);
     }
 
     FileView {
@@ -3671,6 +3917,10 @@ Scope {
         path: root.configDir + "/settings.json"
         printErrors: false
         onLoaded: {
+            // After the first load, ignore FileView echoes. A late reread of an
+            // older snapshot was snapping the glass look back after the slider.
+            if (root.settingsReady)
+                return;
             try { root.applySettings(JSON.parse(text())); } catch (err) { }
             root.settingsReady = true;
             if (root.dockStyle === "liquid") root.startGlass();
@@ -3750,21 +4000,32 @@ Scope {
         command: ["inotifywait", "-m", "-q", "-e", "create", "-e", "delete", "-e", "moved_to", "-e", "moved_from", root.trashDir]
         stdout: SplitParser { onRead: data => trashDebounce.restart() }
     }
-    // Empty Trash: KDE's ktrash when it exists (it also cleans trashes on other drives and keeps Dolphin's trash icon in sync),
-    // otherwise the standard XDG trash folder is cleared directly. (gio is not used: without gvfs it "succeeds" without doing anything.)
+    // Empty Trash: the Rust service walks home and volume FreeDesktop trashes.
+    // Without it, only the isolated XDG home trash is cleared (never ktrash, never gio).
     function emptyTrash() {
-        Quickshell.execDetached(["sh", "-c",
-            "command -v ktrash6 >/dev/null 2>&1 && ktrash6 --empty && exit 0; "
-            + "command -v ktrash5 >/dev/null 2>&1 && ktrash5 --empty && exit 0; "
-            + "d=\"${XDG_DATA_HOME:-$HOME/.local/share}/Trash\"; "
-            + "chmod -R u+w \"$d/files\" 2>/dev/null; "
-            + "find \"$d/files\" \"$d/info\" -mindepth 1 -delete 2>/dev/null; "
-            + "rm -f \"$d/directorysizes\""]);
+        if (hub && hub.trash && hub.trash.ready)
+            hub.trash.empty();
+        else
+            Quickshell.execDetached(["sh", "-c",
+                "d=\"${XDG_DATA_HOME:-$HOME/.local/share}/Trash\"; "
+                + "chmod -R u+w \"$d/files\" 2>/dev/null; "
+                + "find \"$d/files\" \"$d/info\" -mindepth 1 -delete 2>/dev/null; "
+                + "rm -f \"$d/directorysizes\""]);
         trashAfterEmpty.restart();
         if (bar) bar.playSound("trash", 0.8);
     }
+    function openTrashFiles() {
+        Quickshell.execDetached(["sh", "-c",
+            "if command -v dolphin >/dev/null 2>&1; then exec dolphin trash:/; fi; "
+            + "for fm in nautilus thunar nemo pcmanfm-qt; do if command -v $fm >/dev/null 2>&1; then exec $fm trash:///; fi; done; "
+            + "exec xdg-open trash:///"]);
+    }
     Timer { id: trashAfterEmpty; interval: 900; onTriggered: root.trashCheck() }
-    Timer { id: trashDebounce; interval: 150; onTriggered: root.trashCheck() }
+    Timer { id: trashDebounce; interval: 150; onTriggered: {
+        root.trashCheck();
+        if (hub && hub.trash && hub.trashUi && hub.trashUi.window.visible)
+            hub.trash.refresh();
+    } }
     Timer { interval: 3000; repeat: true; running: root.showTrash && root.trashPoll; onTriggered: root.trashCheck() }
 
     // bumped (debounced) whenever windows open, close or change focus; thumbnails re-pick their window from it
@@ -3792,11 +4053,8 @@ Scope {
     function activate(item, forceNew) {
         if (item.kind === "win") { if (item.tl) item.tl.activate(); return; }
         if (item.special === "trash") {
-            // the file manager first (Dolphin understands trash:/ natively); xdg-open only as the last resort
-            Quickshell.execDetached(["sh", "-c",
-                "if command -v dolphin >/dev/null 2>&1; then exec dolphin trash:/; fi; "
-                + "for fm in nautilus thunar nemo pcmanfm-qt; do if command -v $fm >/dev/null 2>&1; then exec $fm trash:///; fi; done; "
-                + "exec xdg-open trash:///"]);
+            if (hub && hub.trashUi)
+                hub.trashUi.open();
             return;
         }
         var wins = windowsFor(item.key);
@@ -3932,6 +4190,7 @@ Scope {
         }
         if (item.special === "trash") {
             m.push({ kind: "item", label: Language.I18n.text("ui.t_ed077f3d8125"), run: function () { activate(item, false); } });
+            m.push({ kind: "item", label: Language.I18n.text("trash.open_files"), run: function () { root.openTrashFiles(); } });
             m.push({ kind: "item", label: Language.I18n.text("ui.t_b85cf0888f79"), confirm: true, disabled: !trashFull, run: function () { root.emptyTrash(); } });
             m.push({ kind: "sep" });
             m.push({ kind: "item", label: Language.I18n.text("ui.t_7a04083baf8d"), run: function() { root.openPrefs(); } });
@@ -4046,7 +4305,7 @@ Scope {
         }
         if (showTrash && winItems.length > 0) list.push({ kind: "sep", key: "sep:trash" });
         if (showTrash) {
-            list.push({ kind: "app", key: "__trash", name: "Trash", icon: "user-trash",
+            list.push({ kind: "app", key: "__trash", name: Language.I18n.text("trash.title"), icon: "user-trash",
                         entry: null, running: false, pinned: true, special: "trash" });
         }
 

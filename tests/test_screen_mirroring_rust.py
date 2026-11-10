@@ -26,7 +26,7 @@ class RustScreenMirroringTests(original.ScreenMirroringTests):
     def tearDownClass(cls):
         cls.build.cleanup()
 
-    def client(self, missing=False, **extra):
+    def client(self, missing=False, virtual_niri=False, dummy_hdmi=False, **extra):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         folder = Path(temporary.name)
@@ -36,6 +36,43 @@ class RustScreenMirroringTests(original.ScreenMirroringTests):
                 executable = folder / name
                 executable.write_text('#!' + sys.executable + '\n' + fixture)
                 executable.chmod(0o755)
+        sysfs = folder / 'drm-sysfs'
+        debugfs = folder / 'drm-debugfs'
+        sysfs.mkdir()
+        debugfs.mkdir()
+        extra.setdefault('MACSHELL_DRM_SYSFS', str(sysfs))
+        extra.setdefault('MACSHELL_DRM_DEBUGFS', str(debugfs))
+        pkexec = folder / 'pkexec'
+        if dummy_hdmi:
+            (sysfs / 'card1-HDMI-A-1').mkdir()
+            (sysfs / 'card1-HDMI-A-1' / 'status').write_text('disconnected\n')
+            (sysfs / 'card1-eDP-1').mkdir()
+            (sysfs / 'card1-eDP-1' / 'status').write_text('connected\n')
+        if virtual_niri or dummy_hdmi:
+            state = folder / 'niri-state.json'
+            state.write_text(json.dumps({'outputs': {
+                'eDP-1': {'logical': {'x': 0, 'y': 0, 'width': 1920, 'height': 1080}},
+            }, 'casts': []}))
+            niri = folder / 'niri'
+            script = (ROOT / 'tests/fixtures/niri_airplay.py').read_text().split('\n', 1)[-1]
+            niri.write_text('#!' + sys.executable + '\n' + script)
+            niri.chmod(0o755)
+            extra.setdefault('NIRI_FAKE_STATE', str(state))
+            extra.setdefault('NIRI_FAKE_LOG', str(folder / 'niri.log'))
+            if virtual_niri:
+                extra.setdefault('NIRI_FAKE_VIRTUAL', '1')
+        if dummy_hdmi:
+            pkexec.write_text('#!' + sys.executable + '\n' + """
+import os, pathlib, sys
+sysfs = pathlib.Path(os.environ['MACSHELL_DRM_SYSFS'])
+(sysfs / 'card1-HDMI-A-1' / 'status').write_text('connected\\n')
+sys.exit(0)
+""")
+            pkexec.chmod(0o755)
+        elif not pkexec.exists():
+            pkexec.write_text('#!/bin/sh\necho denied >&2; exit 1\n')
+            pkexec.chmod(0o755)
+        extra.setdefault('MACSHELL_PKEXEC', str(pkexec))
         environment = dict(os.environ, PATH=str(folder), XDG_CONFIG_HOME=str(folder / 'config'),
                            XDG_DATA_HOME=str(folder / 'data'), AIRPLAY_TEST_TRACE=str(folder / 'trace'), **extra)
         client = Client.__new__(Client)
@@ -48,6 +85,8 @@ class RustScreenMirroringTests(original.ScreenMirroringTests):
         client.thread = threading.Thread(target=read, daemon=True); client.thread.start()
         self.addCleanup(client.close)
         client.trace = folder / 'trace'
+        client.niri_state = folder / 'niri-state.json'
+        client.niri_log = folder / 'niri.log'
         client.wait(lambda m: m.get('type') == 'ready')
         return client
 
@@ -81,3 +120,43 @@ class RustScreenMirroringTests(original.ScreenMirroringTests):
         state = client.wait(lambda m: m.get('senderState') == 'error')
         self.assertIn('-volume-percent', state['senderError'])
         self.assertFalse(client.trace.exists())
+
+    def test_extend_without_virtual_output_is_refused(self):
+        client = self.client()
+        state = self.discover(client)
+        self.assertFalse(state.get('extendAvailable'))
+        client.send('connect', key=state['devices'][0]['key'], layout='extend')
+        error = client.wait(lambda m: m.get('type') == 'error')
+        self.assertIn('virtual display', error['error'])
+        self.assertFalse(any(line.get('request', {}).get('cmd') == 'connect' for line in self.trace(client)))
+
+    def test_extend_creates_virtual_output_and_releases_it(self):
+        client = self.client(virtual_niri=True)
+        state = self.discover(client)
+        self.assertTrue(state.get('virtualOutputsSupported'))
+        self.assertTrue(state.get('extendAvailable'))
+        self.assertEqual(state.get('extendOutput'), 'MacShell-AirPlay')
+        client.send('connect', key=state['devices'][0]['key'], layout='extend')
+        client.wait(lambda m: m.get('senderState') == 'pin_required')
+        outputs = json.loads(client.niri_state.read_text())['outputs']
+        self.assertIn('MacShell-AirPlay', outputs)
+        self.assertGreater(outputs['MacShell-AirPlay']['logical']['x'], 0)
+        log = client.niri_log.read_text()
+        self.assertIn('create-virtual-output', log)
+        client.send('disconnect')
+        client.wait(lambda m: m.get('senderState') in ('ready', 'off'))
+        self.assertNotIn('MacShell-AirPlay', json.loads(client.niri_state.read_text())['outputs'])
+        self.assertIn('remove-virtual-output', client.niri_log.read_text())
+
+    def test_extend_forces_disconnected_hdmi_through_authorization(self):
+        client = self.client(dummy_hdmi=True)
+        state = self.discover(client)
+        self.assertFalse(state.get('virtualOutputsSupported'))
+        self.assertTrue(state.get('extendAvailable'))
+        self.assertEqual(state.get('extendMethod'), 'dummy')
+        self.assertEqual(state.get('extendOutput'), 'HDMI-A-1')
+        client.send('connect', key=state['devices'][0]['key'], layout='extend')
+        client.wait(lambda m: m.get('senderState') == 'pin_required')
+        self.assertIn('HDMI-A-1', json.loads(client.niri_state.read_text())['outputs'])
+        client.send('disconnect')
+        client.wait(lambda m: m.get('senderState') in ('ready', 'off'))

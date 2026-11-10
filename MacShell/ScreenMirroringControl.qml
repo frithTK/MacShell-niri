@@ -20,6 +20,12 @@ Scope {
     property string receiverClient: ""
     property int fps: 60
     property int volumePercent: 20
+    property string layout: "mirror"
+    property bool extendAvailable: false
+    property string extendOutput: ""
+    property bool virtualOutputsSupported: false
+    property string extendMethod: ""
+    property string extendCapture: ""
     property bool scanning: false
     property var devices: []
     property var streams: []
@@ -34,9 +40,9 @@ Scope {
                                    : receiving ? Language.I18n.text("ui.t_3c95a1ae6eda") : Language.I18n.text("ui.t_5d9bbb593f62")
     signal hideRequested()
     signal showRequested()
-    function observe() { service.send("watch", {enabled: watching, fps: fps, volumePercent: volumePercent}); }
-    function refresh() { error = ""; service.send("refresh", {fps: fps, volumePercent: volumePercent}); }
-    function connectDevice(key) { if (blocked) { error = "Stop AirDrop before starting AirPlay."; return; } error = ""; service.send("connect", {key: key}); }
+    function observe() { service.send("watch", {enabled: watching, fps: fps, volumePercent: volumePercent, layout: layout}); }
+    function refresh() { error = ""; service.send("refresh", {fps: fps, volumePercent: volumePercent, layout: layout}); }
+    function connectDevice(key) { if (blocked) { error = "Stop AirDrop before starting AirPlay."; return; } error = ""; service.send("connect", {key: key, layout: layout}); }
     function submitCredential(value) { error = ""; service.send("credential", {value: value}); }
     function disconnect() { error = ""; service.send("disconnect"); }
     function setAudio(enabled) { error = ""; service.send("audio", {enabled: enabled}); }
@@ -44,6 +50,7 @@ Scope {
     onWatchingChanged: observe()
     onFpsChanged: if (ready) observe()
     onVolumePercentChanged: if (ready) observe()
+    onLayoutChanged: if (ready) observe()
     JsonService {
         id: service; script: "screen_mirroring.py"; launcher: "screen-mirroring-service.sh"; enabled: root.active
         onConnected: root.observe()
@@ -65,6 +72,9 @@ Scope {
             root.devices = m.devices || []; root.streams = m.streams || [];
             root.receiverPin = m.receiverPin || ""; root.receiverClient = m.receiverClient || "";
             root.advertisedName = m.receiverName || "MacShell"; root.scanning = !!m.scanning;
+            root.extendAvailable = !!m.extendAvailable; root.extendOutput = m.extendOutput || "";
+            root.virtualOutputsSupported = !!m.virtualOutputsSupported; root.extendMethod = m.extendMethod || "";
+            root.extendCapture = m.extendCapture || "";
             if (root.pending && !wasPending || root.receiverPin !== "" && root.receiverPin !== previousPin
                     || root.senderError !== "" && root.senderError !== previousSenderError
                     || root.receiverError !== "" && root.receiverError !== previousReceiverError)

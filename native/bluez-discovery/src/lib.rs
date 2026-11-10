@@ -100,6 +100,29 @@ impl Discovery {
         }
         Ok(())
     }
+    pub fn hold(&self, adapters: &[(String, bool)]) -> Result<(), &'static str> {
+        let mut state = self.state.borrow_mut();
+        if state.closing {
+            return Err("Discovery connection must be closed.");
+        }
+        if state.owner.is_none() {
+            return Err("Bluetooth service is unavailable.");
+        }
+        let effects = state.core.hold(adapters)?;
+        unsafe {
+            apply(&self.state, &mut state, effects);
+        }
+        Ok(())
+    }
+    pub fn release_hold(&self) {
+        let mut state = self.state.borrow_mut();
+        if !state.closing {
+            let effects = state.core.release_hold();
+            unsafe {
+                apply(&self.state, &mut state, effects);
+            }
+        }
+    }
     pub fn stop(&self) {
         let mut state = self.state.borrow_mut();
         if !state.closing {

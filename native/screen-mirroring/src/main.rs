@@ -1,3 +1,5 @@
+use macshell_screen_mirroring::drm_dummy;
+use macshell_screen_mirroring::niri::{self, Caps, CastMatch};
 use macshell_screen_mirroring::{devices_from_response, valid_receiver_name, ReceiverState};
 use serde_json::{json, Value};
 use std::collections::VecDeque;
@@ -169,11 +171,21 @@ struct Service {
     credentials: VecDeque<String>,
     fps: u32,
     volume_percent: u32,
+    layout: String,
+    caps: Caps,
+    owned_virtual: Option<String>,
+    owned_dummy: Option<String>,
+    extend_target: String,
+    extend_capture: String,
+    extend_cast_tries: u8,
+    next_caps: Instant,
+    next_cast: Instant,
 }
 impl Drop for Service {
     fn drop(&mut self) {
         stop_child(&mut self.sender);
         stop_child(&mut self.receiver);
+        self.release_owned_virtual();
         let _ = fs::remove_dir_all(&self.folder);
     }
 }
@@ -210,6 +222,15 @@ impl Service {
             credentials: VecDeque::new(),
             fps: 60,
             volume_percent: 20,
+            layout: "mirror".into(),
+            caps: Caps::default(),
+            owned_virtual: None,
+            owned_dummy: None,
+            extend_target: String::new(),
+            extend_capture: String::new(),
+            extend_cast_tries: 0,
+            next_caps: now,
+            next_cast: now,
         })
     }
     fn emit(&self, mut message: Value) {
@@ -222,10 +243,58 @@ impl Service {
         }
     }
     fn publish(&mut self) {
-        let state = json!({"type":"state","senderAvailable":backend("doubletake").is_some(),"receiverAvailable":backend("uxplay").is_some(),"senderState":self.sender_state,"senderError":self.sender_error,"receiverState":self.receiver_state.state,"receiverError":self.receiver_state.error,"receiverName":self.receiver_name,"receiverPin":self.receiver_state.pin,"receiverClient":self.receiver_state.client,"devices":self.devices,"streams":self.streams,"scanning":Instant::now()<self.scan_until});
+        let state = json!({"type":"state","senderAvailable":backend("doubletake").is_some(),"receiverAvailable":backend("uxplay").is_some(),"senderState":self.sender_state,"senderError":self.sender_error,"receiverState":self.receiver_state.state,"receiverError":self.receiver_state.error,"receiverName":self.receiver_name,"receiverPin":self.receiver_state.pin,"receiverClient":self.receiver_state.client,"devices":self.devices,"streams":self.streams,"scanning":Instant::now()<self.scan_until,"layout":self.layout,"extendAvailable":self.caps.extend_available(),"extendOutput":self.caps.planned_output(),"virtualOutputsSupported":self.caps.virtual_create,"extendMethod":self.caps.extend_method(),"extendCapture":self.extend_capture});
         if self.last.as_ref() != Some(&state) {
             self.emit(state.clone());
             self.last = Some(state);
+        }
+    }
+    fn refresh_caps(&mut self) {
+        self.caps = niri::probe();
+        self.next_caps = Instant::now() + Duration::from_secs(2);
+    }
+    fn release_owned_virtual(&mut self) {
+        if let Some(name) = self.owned_virtual.take() {
+            niri::remove_virtual(&name);
+        }
+        if let Some(name) = self.owned_dummy.take() {
+            let _ = drm_dummy::disable(&name);
+        }
+        self.extend_target.clear();
+        self.extend_capture.clear();
+        self.extend_cast_tries = 0;
+    }
+    fn release_extend_if_idle(&mut self) {
+        if ["starting", "connecting", "pin_required", "streaming"]
+            .contains(&self.sender_state.as_str())
+            || !self.streams.is_empty()
+        {
+            return;
+        }
+        self.release_owned_virtual();
+    }
+    fn retarget_extend(&mut self) {
+        if self.layout != "extend"
+            || self.extend_target.is_empty()
+            || self.sender_state != "streaming"
+        {
+            return;
+        }
+        if self.extend_cast_tries >= 10 || Instant::now() < self.next_cast {
+            return;
+        }
+        self.next_cast = Instant::now() + Duration::from_millis(500);
+        self.extend_cast_tries = self.extend_cast_tries.saturating_add(1);
+        match niri::match_casts(&niri::current_casts(), &self.extend_target) {
+            CastMatch::Target => {
+                self.extend_capture = "ok".into();
+                self.extend_cast_tries = 10;
+            }
+            CastMatch::Dynamic | CastMatch::None => {
+                niri::set_dynamic_cast(&self.extend_target);
+                self.extend_capture = "pending".into();
+            }
+            CastMatch::Other => self.extend_capture = "wrong".into(),
         }
     }
     fn sender_stop(&mut self) {
@@ -235,6 +304,7 @@ impl Service {
         stop_child(&mut self.sender);
         self.streams.clear();
         self.scan_until = Instant::now();
+        self.release_owned_virtual();
     }
     fn sender_fail(&mut self, error: &str) {
         self.sender_stop();
@@ -434,6 +504,11 @@ impl Service {
                         .filter(|v| !v.is_empty())
                         .unwrap_or(&self.sender_error),
                 );
+                if self.sender_state == "streaming" {
+                    self.retarget_extend();
+                } else {
+                    self.release_extend_if_idle();
+                }
             }
             _ => {}
         }
@@ -452,6 +527,7 @@ impl Service {
             "watch" => {
                 self.watching = data["enabled"] == true;
                 self.apply_preferences(data)?;
+                self.refresh_caps();
                 if self.watching {
                     self.start_sender()?;
                     self.scan_until = Instant::now() + Duration::from_secs(6);
@@ -460,6 +536,7 @@ impl Service {
             "refresh" => {
                 self.sender_error.clear();
                 self.apply_preferences(data)?;
+                self.refresh_caps();
                 self.start_sender()?;
                 self.scan_until = Instant::now() + Duration::from_secs(6);
                 self.next_poll = Instant::now();
@@ -471,6 +548,7 @@ impl Service {
                 {
                     return Err("Stop the current mirror before choosing another display.".into());
                 }
+                self.apply_preferences(data)?;
                 let key = data["key"].as_str().ok_or(
                     "The AirPlay display is no longer in the discovered list. Search again.",
                 )?;
@@ -482,10 +560,27 @@ impl Service {
                         "The AirPlay display is no longer in the discovered list. Search again.",
                     )?
                     .clone();
+                if self.layout == "extend" {
+                    let target = niri::ensure_extend()?;
+                    self.extend_target = target.name.clone();
+                    self.extend_capture.clear();
+                    self.extend_cast_tries = 0;
+                    self.next_cast = Instant::now();
+                    if target.owned {
+                        self.owned_virtual = Some(target.name.clone());
+                    }
+                    if target.dummy {
+                        self.owned_dummy = Some(target.name);
+                    }
+                    self.refresh_caps();
+                }
                 self.sender_error.clear();
-                self.enqueue(
+                if let Err(error) = self.enqueue(
                     json!({"cmd":"connect","target":device["address"],"port":device["port"]}),
-                )?;
+                ) {
+                    self.release_owned_virtual();
+                    return Err(error);
+                }
                 self.sender_state = "connecting".into();
             }
             "credential" => {
@@ -553,6 +648,18 @@ impl Service {
             }
             self.volume_percent = value as u32;
         }
+        if let Some(value) = data["layout"].as_str() {
+            if value != "mirror" && value != "extend" {
+                return Err("AirPlay layout must be mirror or extend.".into());
+            }
+            if self.sender.is_some()
+                && ["connecting", "pin_required", "streaming"].contains(&self.sender_state.as_str())
+                && self.layout != value
+            {
+                return Err("Stop Screen Mirroring before changing display mode.".into());
+            }
+            self.layout = value.into();
+        }
         Ok(())
     }
     fn tick(&mut self) {
@@ -610,6 +717,10 @@ impl Service {
                 self.receiver_state.client.clear();
             }
         }
+        if self.watching && now >= self.next_caps {
+            self.refresh_caps();
+        }
+        self.retarget_extend();
         self.publish();
     }
 }
@@ -618,6 +729,10 @@ fn main() -> io::Result<()> {
     if env::args().nth(1).as_deref() == Some("--protocol-version") {
         println!("macshell-screen-mirroring 1");
         return Ok(());
+    }
+    if env::args().nth(1).as_deref() == Some("--drm-dummy") {
+        let args: Vec<String> = env::args().skip(2).collect();
+        std::process::exit(drm_dummy::cli(&args));
     }
     unsafe {
         libc::umask(0o077);

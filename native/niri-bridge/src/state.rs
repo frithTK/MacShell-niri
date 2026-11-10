@@ -340,6 +340,7 @@ impl State {
                     json!(id(window.get("id").unwrap_or(&Value::Null))),
                 ),
                 ("class", json!(string(window.get("app_id")))),
+                ("pid", window.get("pid").cloned().unwrap_or(json!(0))),
                 (
                     "workspace",
                     json!({"id":workspace.get("id").cloned().unwrap_or(json!(-1)),"name":workspace_name}),

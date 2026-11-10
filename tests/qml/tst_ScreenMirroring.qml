@@ -32,6 +32,12 @@ TestCase {
         property int disconnects: 0
         property bool receiverDesired: false
         property bool audioDesired: true
+        property string layout: "mirror"
+        property bool extendAvailable: false
+        property string extendOutput: ""
+        property bool virtualOutputsSupported: false
+        property string extendMethod: ""
+        property string extendCapture: ""
         function refresh() { scanning = true; }
         function connectDevice(key) { chosen = key; }
         function submitCredential(value) { credential = value; }
@@ -48,6 +54,8 @@ TestCase {
         fake.receiverName = "Test MacShell"; fake.receiverPin = ""; fake.receiverClient = "";
         fake.scanning = false; fake.streams = []; fake.chosen = ""; fake.credential = "";
         fake.disconnects = 0; fake.receiverDesired = false; fake.audioDesired = true;
+        fake.layout = "mirror"; fake.extendAvailable = false; fake.extendOutput = "";
+        fake.virtualOutputsSupported = false; fake.extendMethod = ""; fake.extendCapture = "";
         menu = createTemporaryObject(menuComponent, test, {controller: fake, width: 366});
         verify(menu !== null);
     }
@@ -107,5 +115,16 @@ TestCase {
         compare(fake.audioDesired, false);
         compare(findChild(menu, "mirroringDisconnect").text, "Stop Mirroring");
         verify(menu.implicitHeight < 700);
+    }
+    function test_extend_stays_visible_when_niri_cannot_create_a_display() {
+        mouseClick(findChild(menu, "mirroringExtend"));
+        compare(fake.layout, "extend");
+        compare(findChild(menu, "mirroringDevice").enabled, false);
+        fake.extendAvailable = true;
+        fake.extendOutput = "HDMI-A-1";
+        fake.extendMethod = "dummy";
+        compare(findChild(menu, "mirroringDevice").enabled, true);
+        mouseClick(findChild(menu, "mirroringMirror"));
+        compare(fake.layout, "mirror");
     }
 }

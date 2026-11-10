@@ -33,13 +33,14 @@ function missing(id, previous) {
     return {id: id, name: previous ? previous.name : id === "laptop" ? "Laptop" : "Unavailable device",
         label: previous ? previous.label : id === "laptop" ? "Laptop" : "Unavailable device · " + id.slice(-8),
         kind: previous ? previous.kind : id === "laptop" ? "laptop" : "bluetooth",
-        percentage: -1, connected: false, present: false, status: "unavailable", charging: false, full: false, detail: ""};
+        percentage: -1, left: -1, right: -1, caseCharge: -1, connected: false, present: false, status: "unavailable", charging: false, full: false, detail: ""};
 }
 function normalize(laptop, devices, bluetooth, previous) {
     var result = [], byId = {};
     if (laptop && laptop.present) {
         result.push({id: "laptop", name: "Laptop", label: "Laptop", kind: "laptop", present: true,
             connected: laptop.ready === true, percentage: laptop.ready ? percentage(laptop.percentage) : -1,
+            left: -1, right: -1, caseCharge: -1,
             status: laptop.ready ? "connected" : "unavailable", charging: !!laptop.ready && !!laptop.charging,
             full: !!laptop.ready && !!laptop.full, detail: laptop.ready ? laptop.remaining || "" : ""});
     }
@@ -50,12 +51,20 @@ function normalize(laptop, devices, bluetooth, previous) {
         var ready = !!bluetooth.ready && !!bluetooth.available;
         var powered = !!bluetooth.enabled && device.adapterEnabled === true;
         var connected = ready && powered && device.connected === true && !device.blocked;
+        var left = connected ? percentage(device.batteryLeft) : -1;
+        var right = connected ? percentage(device.batteryRight) : -1;
+        var caseCharge = connected ? percentage(device.batteryCase) : -1;
         var charge = connected ? percentage(device.battery) : -1;
+        if (charge < 0) {
+            var pods = [left, right].filter(value => value >= 0);
+            charge = pods.length ? Math.min.apply(null, pods) : caseCharge;
+        }
         var status = !ready ? "unavailable" : !powered ? "off" : device.blocked ? "blocked" : connected ? "connected" : "disconnected";
         var score = (connected ? 100 : 0) + (powered ? 10 : 0) + (charge >= 0 ? 1 : 0);
         var candidate = {score: score, path: String(device.path || ""), row: {
             id: id, name: String(device.name || "Bluetooth device").slice(0, 200), label: "", kind: kind(device.icon),
-            percentage: charge, connected: connected, present: true, status: status, charging: false, full: false, detail: ""}};
+            percentage: charge, left: left, right: right, caseCharge: caseCharge, connected: connected, present: true,
+            status: status, charging: connected && !!device.charging, full: connected && charge === 100, detail: ""}};
         var old = byId[id];
         if (!old || score > old.score || score === old.score && candidate.path < old.path) byId[id] = candidate;
     });
@@ -79,11 +88,20 @@ function choices(entries, devices) {
     (devices || []).forEach(id => { if (!result.some(item => item.id === id)) result.push(missing(id)); });
     return result;
 }
+function partsLabel(row) {
+    var bits = [];
+    if (row.left >= 0) bits.push("L " + row.left + "%");
+    if (row.right >= 0) bits.push("R " + row.right + "%");
+    if (row.caseCharge >= 0) bits.push("Case " + row.caseCharge + "%");
+    return bits.join(" · ");
+}
 function status(row) {
     if (row.status === "off") return "Bluetooth off";
     if (row.status === "disconnected") return "Disconnected";
     if (row.status === "blocked") return "Blocked";
     if (!row.connected) return "Unavailable";
+    var parts = partsLabel(row);
+    if (parts) return parts;
     if (row.charging) return "Charging";
     if (row.full) return "Fully charged";
     return row.percentage < 0 ? "Battery unknown" : "";

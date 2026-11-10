@@ -78,7 +78,7 @@ TestCase {
         verify(SettingsSearch.actionsFor("file").indexOf("run") < 0)
         compare(SettingsSearch.hasExtras("file"), true)
         compare(SettingsSearch.hasExtras("settings"), false)
-        compare(SettingsSearch.extras("file"), ["reveal", "copyPath", "preview"])
+        compare(SettingsSearch.extras("file"), ["reveal", "copyPath", "preview", "convert"])
         compare(SettingsSearch.extras("app"), ["pin", "reveal", "info"])
     }
 
@@ -98,18 +98,22 @@ TestCase {
 
     function test_file_actions_enable_preview_for_local_paths() {
         var rows = SettingsSearch.describe("file", { path: "/tmp/Notes 1.txt" })
-        compare(rows.map(function (row) { return row.id; }), ["open", "reveal", "copyPath", "preview"])
+        compare(rows.map(function (row) { return row.id; }), ["open", "reveal", "copyPath", "preview", "convert"])
         compare(rows[0].enabled, true)
         compare(rows[1].enabled, true)
         compare(rows[2].enabled, true)
         compare(rows[2].close, false)
         compare(rows[3].enabled, true)
         compare(rows[3].close, false)
+        compare(rows[4].enabled, true)
+        compare(rows[4].close, false)
         var missing = SettingsSearch.describe("file", { path: "relative" })
         compare(missing[1].enabled, false)
         compare(missing[2].enabled, false)
         compare(missing[3].enabled, false)
         compare(missing[3].reason, "missing")
+        compare(missing[4].enabled, false)
+        compare(missing[4].reason, "missing")
         var app = SettingsSearch.describe("app", { appId: "org.example.app" })
         compare(app.map(function (row) { return row.id; }), ["open", "pin", "reveal", "info"])
         compare(app[2].enabled, false)

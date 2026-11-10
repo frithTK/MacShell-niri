@@ -81,13 +81,8 @@ def patch_shell(shell, probe_app, pid_path):
     if marker not in text:
         raise RuntimeError('Dock probe insertion point changed')
     text = text.replace(marker, marker + '                Component.onCompleted: root.demoUi = ui\n' + probe, 1)
-    ktrash = ('            "command -v ktrash6 >/dev/null 2>&1 && ktrash6 --empty && exit 0; "\n'
-              '            + "command -v ktrash5 >/dev/null 2>&1 && ktrash5 --empty && exit 0; "\n'
-              '            + "d=\\"${XDG_DATA_HOME:-$HOME/.local/share}/Trash\\"; "')
-    safe = '            "d=\\"${XDG_DATA_HOME:-$HOME/.local/share}/Trash\\"; "'
-    if ktrash not in text:
-        raise RuntimeError('Dock emptyTrash ktrash path changed')
-    text = text.replace(ktrash, safe, 1)
+    if 'd=\\"${XDG_DATA_HOME:-$HOME/.local/share}/Trash\\"; "' not in text:
+        raise RuntimeError('Dock emptyTrash isolated fallback changed')
     launch = '            L[item.key] = Date.now();\n            launching = L;\n'
     hook = (launch +
             '            if (item.key === "org.macshell.dockprobe") {\n'

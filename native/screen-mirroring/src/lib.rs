@@ -1,3 +1,6 @@
+pub mod drm_dummy;
+pub mod niri;
+
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::net::IpAddr;

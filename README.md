@@ -18,12 +18,13 @@ A macOS-inspired desktop for **niri**, with a Dock, Spotlight, Liquid Glass and 
 
 ## Features
 
-- **Desktop:** Dock with hover labels and glass menus, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes. Wi-Fi and Bluetooth lists opened from Control Center stay inside that panel. Spotlight can preview a local image, PDF or text file and drag that file out with a proper URI.
+- **Desktop:** Dock with hover labels and glass menus, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes. Wi-Fi and Bluetooth lists opened from Control Center stay inside that panel. Dock Trash lists FreeDesktop trash (restore, Quick Look, empty with confirmation). The menu bar shows the focused app's D-Bus menus when that app exports them; otherwise the shell stubs stay. The Batteries widget shows the laptop pack and connected Bluetooth devices, including AirPods/Beats left/right/case charge while connected and from advertisements while the card is visible. Spotlight finds files by name from two characters (localsearch, then fd, then find — not a full-disk index), can preview a local image, PDF or text file and drag that file out with a proper URI. Optional AirPlay can mirror or extend the desktop.
 - **Clock:** world clocks, alarms, stopwatch and a shared timer, with a desktop Timer widget and a customizable sound library.
 - **Notes, Stickies and Reminders:** local notes with search and autosave, floating sticky notes and task lists with due dates, notifications and repeating tasks. Matching Notes and Reminders desktop widgets share those stores; an Image widget shows a local file only.
 - **Calendar:** a local month view with all-day and timed events, editing and recovery of deleted events. Recurrence, notifications and synchronization are not yet available.
 - **Calculator:** basic and scientific modes, unit and currency conversion.
-- **Settings and lock screen:** Russian and English interface, regional formats and a separate MacLock screen locker.
+- **Convert:** local images and PDF next to the original (PNG/JPEG/PDF/rotate; PDF first page via `pdftoppm`). Open it from Spotlight, Apps or a drop window — Wayland has no global Shift+drag.
+- **Settings and lock screen:** Russian and English interface, regional formats, Storage (volumes and a cancellable folder scan) and a separate MacLock screen locker.
 
 See the [utilities guide](docs/UTILITIES.md) for details.
 
@@ -146,7 +147,7 @@ Then follow the [installation guide](docs/INSTALL.md) to add a **Niri (MacShell)
 
 **Language & Region** in Settings switches the Russian/English desktop and MacLock immediately. Application language applies after signing out and back in; regional formats are independent. [Language guide](docs/LOCALIZATION.md).
 
-[Widgets](docs/WIDGETS.md) · [Utilities](docs/UTILITIES.md) · [Updates](docs/UPDATES.md) · [Menu bar](docs/BAR_LAYOUT.md) · [Activity](docs/ACTIVITY_SETTINGS.md) · [Control Center](docs/CONTROL_CENTER.md) · [MacLock](MacLock/README.md)
+[Widgets](docs/WIDGETS.md) · [Utilities](docs/UTILITIES.md) · [Convert](docs/DROPTOOLS.md) · [Updates](docs/UPDATES.md) · [Menu bar](docs/BAR_LAYOUT.md) · [Activity](docs/ACTIVITY_SETTINGS.md) · [Control Center](docs/CONTROL_CENTER.md) · [MacLock](MacLock/README.md)
 
 [AirPlay](docs/CONTROL_CENTER.md#повтор-экрана--airplay) and [AirDrop](docs/AIRDROP.md) need additional components; see the guides for setup and compatibility.
 

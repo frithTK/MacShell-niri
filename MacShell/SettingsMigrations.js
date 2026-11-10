@@ -33,6 +33,7 @@ function migrate(source) {
     value.nightTemp = Math.max(2500, Math.min(6000, Number(value.nightTemp) || 4000));
     value.airplayFps = Math.max(15, Math.min(60, Number(value.airplayFps) || 60));
     value.airplayVolumePercent = Math.max(1, Math.min(100, Number(value.airplayVolumePercent) || 20));
+    if (value.airplayLayout !== "extend") value.airplayLayout = "mirror";
     if (!value.modesMigrated) {
         value.modeState = {focus: {mode: (value.dnd !== undefined ? value.dnd : value.notifDnd) ? "manual" : "off"}, awake: {mode: "off"}};
         value.nightDesired = !!value.nightOn;

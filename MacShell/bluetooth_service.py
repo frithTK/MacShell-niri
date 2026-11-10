@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """One BlueZ connection for discovery, pairing and its non-default UI agent."""
 import re
+import socket
+import struct
+import threading
 import time
-from bluetooth_control import ADAPTER, DEVICE, BATTERY, snapshot, error_message
+from bluetooth_control import (
+    ADAPTER, AAP_FEATURES, AAP_HANDSHAKE, AAP_NOTIFY, AAP_BATTERY, AAP_PSM, DEVICE, BATTERY,
+    apply_apple, snapshot, error_message, attach_nearby_apple_battery, parse_aap_battery)
 from dbus_service import Service, Gio, GLib, PROPS, run
 
 AGENT = 'org.bluez.Agent1'
@@ -32,7 +37,93 @@ def discovered(objects):
     known['others'] = snapshot(unpaired)['devices']
     for device in known['devices']:
         device['paired'] = bool(objects[device['path']][DEVICE].get('Paired') or objects[device['path']][DEVICE].get('Bonded'))
+    attach_nearby_apple_battery(known, objects)
     return known
+
+
+class AapWatch:
+    def __init__(self, report):
+        self.report = report
+        self.lock = threading.Lock()
+        self.stops = {}
+
+    def set_targets(self, addresses):
+        wanted = {str(address).upper() for address in addresses if address}
+        with self.lock:
+            for address, stop in list(self.stops.items()):
+                if address not in wanted:
+                    stop.set()
+                    del self.stops[address]
+            for address in wanted:
+                if address in self.stops:
+                    continue
+                stop = threading.Event()
+                self.stops[address] = stop
+                threading.Thread(target=self._run, args=(address, stop), daemon=True, name=f"aap-{address}").start()
+
+    def close(self):
+        self.set_targets([])
+
+    def _run(self, address, stop):
+        while not stop.is_set():
+            try:
+                self._session(address, stop)
+            except (OSError, socket.error):
+                stop.wait(3)
+
+    def _session(self, address, stop):
+        sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_SEQPACKET, socket.BTPROTO_L2CAP)
+        try:
+            sock.settimeout(3)
+            sock.setsockopt(274, 4, struct.pack("BB", 2, 0))
+            sock.connect((address, AAP_PSM))
+            sock.send(AAP_HANDSHAKE)
+            self._drain(sock, address, stop)
+            sock.send(AAP_FEATURES)
+            self._drain(sock, address, stop)
+            sock.send(AAP_NOTIFY)
+            self._drain(sock, address, stop)
+            sock.send(AAP_BATTERY)
+            sock.settimeout(0.4)
+            idle = 0
+            while not stop.is_set():
+                try:
+                    data = sock.recv(2048)
+                    idle = 0
+                except socket.timeout:
+                    idle += 1
+                    if idle % 25 == 0:
+                        try:
+                            sock.send(AAP_BATTERY)
+                        except OSError:
+                            return
+                    continue
+                if not data:
+                    return
+                parsed = parse_aap_battery(data)
+                if parsed:
+                    self.report(address, parsed)
+        finally:
+            sock.close()
+
+    def _drain(self, sock, address, stop):
+        previous = sock.gettimeout()
+        sock.settimeout(0.08)
+        try:
+            for _ in range(8):
+                if stop.is_set():
+                    return
+                try:
+                    data = sock.recv(2048)
+                except socket.timeout:
+                    return
+                if not data:
+                    raise OSError("AACP closed")
+                parsed = parse_aap_battery(data)
+                if parsed:
+                    self.report(address, parsed)
+        finally:
+            sock.settimeout(previous)
 
 
 class BluetoothService(Service):
@@ -44,7 +135,11 @@ class BluetoothService(Service):
         self.prompt_sequence = 0
         self.discovery = set()
         self.discovery_until = 0
+        self.user_discovery = False
+        self.battery_watch = 0
         self.registered = False
+        self.aap_charges = {}
+        self.aap = AapWatch(self.aap_report)
         super().__init__()
         self.agent_id = self.bus.register_object(PATH, Gio.DBusNodeInfo.new_for_xml(XML).interfaces[0], self.agent, None, None)
         GLib.timeout_add_seconds(2, self.tick)
@@ -64,6 +159,8 @@ class BluetoothService(Service):
     def vanished(self, connection, name):
         self.registered = False
         self.discovery.clear()
+        self.aap_charges.clear()
+        self.aap.set_targets([])
         self.clear_prompt()
         self.finish('Bluetooth restarted or disappeared.')
         super().vanished(connection, name)
@@ -71,11 +168,30 @@ class BluetoothService(Service):
     def objects(self):
         return self.sync('/', 'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects')[0]
 
+    def aap_report(self, address, parsed):
+        GLib.idle_add(self.aap_apply, address, parsed)
+        return False
+
+    def aap_apply(self, address, parsed):
+        self.aap_charges[str(address).upper()] = parsed
+        self.snapshot()
+        return False
+
     def snapshot(self):
         if not self.owner:
             return
         try:
-            self.emit(type='state', discovering=bool(self.discovery), pairingAvailable=self.registered, **discovered(self.objects()))
+            known = discovered(self.objects())
+            targets = [device["address"].upper() for device in known["devices"]
+                       if device.get("connected") and device.get("appleAudio") and device.get("address")]
+            self.aap.set_targets(targets)
+            self.aap_charges = {address: parsed for address, parsed in self.aap_charges.items() if address in targets}
+            for device in known["devices"]:
+                parsed = self.aap_charges.get(str(device.get("address", "")).upper())
+                if parsed:
+                    apply_apple(device, parsed, keep_battery=False)
+            self.emit(type='state', discovering=bool(self.user_discovery and self.discovery),
+                      pairingAvailable=self.registered, **known)
         except GLib.Error as error:
             self.emit(type='error', error=error_message(error))
 
@@ -156,10 +272,37 @@ class BluetoothService(Service):
             self.async_call(path, ADAPTER, 'StopDiscovery', None, lambda v, e: None, 3000)
         self.discovery.clear()
         self.discovery_until = 0
+        self.user_discovery = False
+
+    def start_discovery(self, user=False):
+        if user:
+            self.user_discovery = True
+            self.discovery_until = time.monotonic() + 30
+        elif not self.user_discovery:
+            self.discovery_until = 0
+        if self.pending:
+            return
+        for adapter in discovered(self.objects())['adapters']:
+            path = adapter['path']
+            if adapter['enabled'] and path not in self.discovery:
+                def started(value, error, path=path):
+                    if not error:
+                        self.discovery.add(path)
+                        if not self.user_discovery and self.battery_watch <= 0:
+                            self.stop_discovery()
+                    else:
+                        self.emit(type='error', error=error_message(error))
+                    self.snapshot()
+                self.async_call(path, ADAPTER, 'StartDiscovery', None, started)
 
     def tick(self):
-        if self.discovery_until and time.monotonic() > self.discovery_until:
-            self.stop_discovery()
+        if self.user_discovery and self.discovery_until and time.monotonic() > self.discovery_until:
+            self.user_discovery = False
+            self.discovery_until = 0
+            if self.battery_watch <= 0:
+                self.stop_discovery()
+        if self.battery_watch > 0:
+            self.start_discovery(False)
         if self.pending and time.monotonic() > self.pending['deadline']:
             self.cancel()
             self.emit(type='error', error='Bluetooth request timed out. Check the device and try again.')
@@ -179,25 +322,26 @@ class BluetoothService(Service):
                 self.cancel()
             return
         if action == 'stopDiscovery':
-            self.stop_discovery()
+            self.user_discovery = False
+            if self.battery_watch <= 0:
+                self.stop_discovery()
+            self.snapshot()
+            return
+        if action == 'watchBatteries':
+            self.battery_watch += 1
+            self.start_discovery(False)
+            self.snapshot()
+            return
+        if action == 'unwatchBatteries':
+            self.battery_watch = max(0, self.battery_watch - 1)
+            if self.battery_watch <= 0 and not self.user_discovery:
+                self.stop_discovery()
             self.snapshot()
             return
         if self.pending:
             raise ValueError('Wait for the current Bluetooth operation or cancel it.')
         if action == 'discover':
-            self.discovery_until = time.monotonic() + 30
-            for adapter in discovered(self.objects())['adapters']:
-                path = adapter['path']
-                if adapter['enabled'] and path not in self.discovery:
-                    def started(value, error, path=path):
-                        if not error:
-                            self.discovery.add(path)
-                            if not self.discovery_until:
-                                self.stop_discovery()
-                        else:
-                            self.emit(type='error', error=error_message(error))
-                        self.snapshot()
-                    self.async_call(path, ADAPTER, 'StartDiscovery', None, started)
+            self.start_discovery(True)
             return
         if action == 'power':
             adapters = discovered(self.objects())['adapters']
@@ -269,6 +413,7 @@ class BluetoothService(Service):
         self.cancel()
         # BlueZ also releases this client's discovery and agent when its bus closes.
         self.stop_discovery()
+        self.aap.close()
         super().close()
 
 

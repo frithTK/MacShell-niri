@@ -19,7 +19,57 @@ function chargePercentage(present, ready, fraction) {
         ? Math.round(fraction * 100) : -1;
 }
 
+function trustedTime(seconds) {
+    if (!isFinite(seconds) || seconds <= 0 || seconds > 36 * 3600) return 0;
+    return seconds;
+}
+
+function watts(rate) {
+    return typeof rate === "number" && isFinite(rate) && rate >= 0.05 ? rate : -1;
+}
+
+function wattHours(value) {
+    return typeof value === "number" && isFinite(value) && value > 0 ? value : -1;
+}
+
+function formatWatts(rate, translate) {
+    var value = watts(rate);
+    if (value < 0) return "";
+    var shown = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
+    return translate ? translate("battery.rate_value", {watts: shown}) : shown + " W";
+}
+
+function formatEnergy(current, full, translate) {
+    var now = wattHours(current), cap = wattHours(full);
+    if (now < 0 && cap < 0) return "";
+    function one(value) { return (Math.round(value * 10) / 10).toFixed(1); }
+    if (now >= 0 && cap >= 0)
+        return translate ? translate("battery.capacity_value", {current: one(now), full: one(cap)})
+                         : one(now) + " / " + one(cap) + " Wh";
+    var only = now >= 0 ? now : cap;
+    return translate ? translate("battery.capacity_only", {energy: one(only)}) : one(only) + " Wh";
+}
+
+function extras(devices) {
+    var result = [];
+    if (!devices) return result;
+    for (var i = 0; i < devices.length; ++i) {
+        var device = devices[i];
+        if (!device || !device.isPresent || !device.ready || device.isLaptopBattery) continue;
+        if (device.type === 1) continue;
+        var percentage = chargePercentage(true, true, device.percentage);
+        if (percentage < 0) continue;
+        result.push({
+            id: String(device.nativePath || device.model || i).slice(0, 80),
+            name: String(device.model || device.nativePath || "Battery").slice(0, 80),
+            percentage: percentage
+        });
+    }
+    return result;
+}
+
 function duration(seconds, translate) {
+    seconds = trustedTime(seconds);
     if (!isFinite(seconds) || seconds <= 0) return "";
     var minutes = Math.max(1, Math.ceil(seconds / 60));
     var hours = Math.floor(minutes / 60);

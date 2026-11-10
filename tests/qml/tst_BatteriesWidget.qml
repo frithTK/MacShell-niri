@@ -144,6 +144,17 @@ TestCase {
         compare(record.savedSettings.batteries.devices.join(), "laptop");
         backend.mutationFinished(false); verify(editor.dirty); verify(editor.error !== "");
     }
+    function test_apple_parts_are_shown_only_while_connected() {
+        var rows = normalized([device("AA:BB:CC:DD:EE:01", {name: "AirPods", icon: "audio-headphones",
+            battery: -1, batteryLeft: 80, batteryRight: 70, batteryCase: 50, charging: true})]);
+        compare(rows[0].percentage, 70); compare(rows[0].left, 80); compare(rows[0].right, 70); compare(rows[0].caseCharge, 50);
+        compare(Data.value(rows[0]), "70%"); compare(Data.status(rows[0]), "L 80% · R 70% · Case 50%");
+        var card = createTemporaryObject(cardComponent, test, {entries: rows}); waitForRendering(card);
+        compare(findChild(card, "batteryStatus_" + firstId).text, "L 80% · R 70% · Case 50%");
+        verify(findChild(card, "batteryDevice_" + firstId));
+        rows = normalized([device("AA:BB:CC:DD:EE:01", {battery: -1, batteryLeft: 80, connected: false})], undefined, rows);
+        compare(rows[0].percentage, -1); compare(rows[0].left, -1); compare(Data.status(rows[0]), "Disconnected");
+    }
     function test_invalid_ids_modes_and_duplicates_are_rejected() {
         for (var value of [null, [], {devices: "laptop"}, {mode: "other"}, {devices: ["laptop", "laptop"]}, {devices: [null]},
             {devices: ["bluetooth:aa:bb:cc:dd:ee:01"]}, {devices: ["other"]}, {devices: Array(17).fill("laptop")}]) compare(Data.validSettings(value), false);

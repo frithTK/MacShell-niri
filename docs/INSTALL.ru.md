@@ -41,9 +41,14 @@ cargo fetch --locked --manifest-path native/biometric-probe/Cargo.toml
 cargo fetch --locked --manifest-path native/update-service/Cargo.toml
 cargo fetch --locked --manifest-path native/desktop-source/Cargo.toml
 cargo fetch --locked --manifest-path native/preview/Cargo.toml
+cargo fetch --locked --manifest-path native/trash/Cargo.toml
+cargo fetch --locked --manifest-path native/app-menu/Cargo.toml
+cargo fetch --locked --manifest-path native/storage/Cargo.toml
+cargo fetch --locked --manifest-path native/drop-tools/Cargo.toml
+cargo fetch --locked --manifest-path native/file-search/Cargo.toml
 ```
 
-Rust-сборка также включает службы ввода, сеанса, валют, загрузки виджетов, поиска обоев, «Заметок», «Календаря», «Напоминаний», Clock, Screen Mirroring, AirDrop, биометрии, обновлений, определения источника приложений и Quick Look. Screen Mirroring использует Doubletake и UxPlay, а AirDrop — MacShell Owly. Исходные launcher сохраняют Python fallback для старых профилей; новые установки Rust-only сообщают об отсутствии или несовместимости бинарника как об ошибке. «Заметки», «Календарь» и «Напоминания» используют встроенную SQLite. Rust-служба Clock пока сохраняет название prototype; она проверена с временными данными, вложенным niri и изолированным PipeWire, но приёмка в установленном сеансе ещё не проводилась. Параметры Doubletake описаны в [DOUBLETAKE_RUNTIME.md](DOUBLETAKE_RUNTIME.md).
+Rust-сборка также включает службы ввода, сеанса, валют, загрузки виджетов, поиска обоев, «Заметок», «Календаря», «Напоминаний», Clock, Screen Mirroring, AirDrop, биометрии, обновлений, определения источника приложений, Quick Look, корзины Dock, меню активного приложения, хранилища (Settings → Storage), конвертера файлов (изображения и PDF рядом с оригиналом) и поиска файлов Spotlight (localsearch/`fd`/`find`). Экспорт страницы PDF требует `pdftoppm`. На Wayland нет глобального Shift+drag: вызов из Spotlight, Apps или окна, куда можно перетащить файл. Screen Mirroring использует Doubletake и UxPlay (режим Extend — виртуальный выход niri, второй монитор или HDMI-заглушка через pkexec), а AirDrop — MacShell Owly. Виджет «Батареи» читает заряд AirPods/Beats по AACP при подключении и BLE-объявления Apple, пока карточка на экране; поиск сопряжения в Центре управления от этого не зависит. Исходные launcher сохраняют Python fallback для старых профилей; новые установки Rust-only сообщают об отсутствии или несовместимости бинарника как об ошибке. «Заметки», «Календарь» и «Напоминания» используют встроенную SQLite. Rust-служба Clock пока сохраняет имя бинарника `clock-service-prototype`; она проверена с временными данными, вложенным niri и изолированным PipeWire, но приёмка в установленном сеансе ещё не проводилась. Захват окон и запись экрана по-прежнему ставятся как `macshell-capture-experimental` и `macshell-recording-experimental` — это исторические имена, не отдельный «экспериментальный» статус. Параметры Doubletake описаны в [DOUBLETAKE_RUNTIME.md](DOUBLETAKE_RUNTIME.md).
 
 Отдельный скрипт входа, его предпроверка и обработчик локали обновляются командой `bash install.sh --session`; обычная установка обновляет оболочку и сохраняет существующий скрипт входа.
 
@@ -183,7 +188,7 @@ bash install.sh
 
 ## Галерея виджетов
 
-В **Settings → Widgets → My widgets** перечислены размещённые и неразмещённые карточки, включая отключённые экраны. Выберите экземпляр, чтобы изменить размер/стиль, создать независимый дубликат, перенести на другой экран или удалить с **Undo removal**. **Add widgets** открывает каталог Weather, Calendar, Clock и Player с демонстрационными S/M/L preview. Общие параметры погоды находятся в **Shared weather settings**.
+В **Settings → Widgets → My widgets** перечислены размещённые и неразмещённые карточки, включая отключённые экраны. Выберите экземпляр, чтобы изменить размер/стиль, создать независимый дубликат, перенести на другой экран или удалить с **Undo removal**. **Add widgets** открывает каталог Weather, Calendar, Clock, Player, Activity, Batteries, Timer, Notes, Reminders и Image с демонстрационными S/M/L preview. Общие параметры погоды находятся в **Shared weather settings**. У Batteries заряд AirPods/Beats появляется при подключении и пока карточка видна; подробности — в [галерее виджетов](WIDGETS.md#batteries).
 
 Переключатель в заголовке Widgets скрывает карточки с сохранением раскладки и останавливает ненужные запросы и обновления. Таймеры и будильники Clock продолжают работать. В **Appearance… → Seconds** у Clock доступны плавный, посекундный и скрытый индикатор; карточки и отражения используют один источник времени.
 
@@ -194,6 +199,10 @@ bash install.sh
 Области ввода следуют видимым интерактивным карточкам без ограничения в четыре Player. Фон и пассивные карточки пропускают клики; в режиме редактирования перетаскивание получает приоритет перед воспроизведением.
 
 Раскладка хранится с версией, привязкой к экрану и желаемыми позициями. Старые записи мигрируют с резервной копией; отключение экрана и временная нехватка места не стирают раскладку. Запись атомарная, ошибки и восстановление доступны в галерее.
+
+## Хранилище
+
+**Settings → Storage** показывает смонтированные тома и по запросу обходит папки пользователя, корзину и данные приложений с известным desktop id. Сумма папок не выдаётся за полную карту диска; страница ничего не удаляет. Подробности — [хранилище](STORAGE.md).
 
 ## Оформление Activity
 

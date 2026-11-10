@@ -30,6 +30,33 @@ ControlMenu {
                       : root.controller.connecting ? Language.I18n.text("ui.t_6e72f063b35d")
                       : Language.I18n.text("ui.t_9135a66c4cde")
             }
+            Row {
+                width: parent.width; spacing: 6
+                visible: root.controller.senderAvailable
+                ControlChoice {
+                    objectName: "mirroringMirror"; width: (parent.width - 6) / 2
+                    text: Language.I18n.text("ui.t_airplay_mirror")
+                    selected: root.controller.layout !== "extend"
+                    enabled: !root.controller.sending && !root.controller.connecting
+                    onClicked: root.controller.layout = "mirror"
+                }
+                ControlChoice {
+                    objectName: "mirroringExtend"; width: (parent.width - 6) / 2
+                    text: Language.I18n.text("ui.t_airplay_extend")
+                    selected: root.controller.layout === "extend"
+                    enabled: !root.controller.sending && !root.controller.connecting
+                    onClicked: root.controller.layout = "extend"
+                }
+            }
+            Text {
+                width: parent.width; wrapMode: Text.Wrap; color: root.secondary; font.pixelSize: 11
+                visible: root.controller.senderAvailable && text !== ""
+                text: root.controller.layout !== "extend" ? ""
+                      : root.controller.extendCapture === "wrong" ? Language.I18n.text("ui.t_airplay_extend_hint_wrong", {name: root.controller.extendOutput || "MacShell-AirPlay"})
+                      : root.controller.extendMethod === "dummy" ? Language.I18n.text("ui.t_airplay_extend_hint_dummy", {name: root.controller.extendOutput || "HDMI-A-1"})
+                      : root.controller.extendAvailable ? Language.I18n.text("ui.t_airplay_extend_hint_ready", {name: root.controller.extendOutput || "MacShell-AirPlay"})
+                      : Language.I18n.text("ui.t_airplay_extend_hint_blocked")
+            }
             Column {
                 width: parent.width; spacing: 6
                 Repeater {
@@ -76,7 +103,7 @@ ControlMenu {
                     delegate: ControlButton {
                         required property var modelData
                         objectName: "mirroringDevice"; width: parent.width
-                        text: modelData.name; enabled: root.controller.senderAvailable
+                        text: modelData.name; enabled: root.controller.senderAvailable && (root.controller.layout !== "extend" || root.controller.extendAvailable)
                         onClicked: root.controller.connectDevice(modelData.key)
                     }
                 }

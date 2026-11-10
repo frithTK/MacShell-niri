@@ -9,7 +9,9 @@ Rust binaries fail with an error instead of silently invoking Python.
 
 - `MacShell/JsonService.qml` now requires a launcher and reports a configuration
   error instead of invoking Python directly. Its application callers and the
-  Stickies fixture use explicit launchers.
+  Stickies fixture use explicit launchers. Bluetooth uses `macshell-bluetooth`
+  when the binary reports protocol `macshell-bluetooth 1`; otherwise
+  `bluetooth_service.py` remains the fallback for unmarked profiles.
 - Legacy source launchers retain Python fallback for unmarked profiles, so old
   snapshots remain usable. Rust-installed shell and lock launchers remove that
   fallback and fail if their Rust binary is unavailable or incompatible.

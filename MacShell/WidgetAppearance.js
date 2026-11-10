@@ -9,7 +9,7 @@ var fields = ["theme", "fontFamily", "textScale", "density", "tint", "secondsMod
 function supports(type, style, key) {
     var definition = Catalog.find(type);
     if (!definition || definition.appearance.indexOf(key) < 0) return false;
-    return key !== "theme" || style === "liquid" || type === "calendar" || type === "activity" || type === "batteries" || type === "timer";
+    return key !== "theme" || style === "liquid" || type === "calendar" || type === "activity" || type === "batteries" || type === "timer" || type === "notes" || type === "reminders" || type === "image";
 }
 function valid(key, value) {
     if (key === "theme") return ["auto", "light", "dark"].indexOf(value) >= 0;

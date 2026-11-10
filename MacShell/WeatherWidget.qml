@@ -228,6 +228,7 @@ Item {
                 property real dark: w.darkGlass ? 1 : 0
                 property real debug: 0
                 property real shadowAmt: 1
+                property real flatInner: 0
                 property real rimTint: 1             // rim + border follow the glass's own colour
                 property real ringW: 1               // thin 1 px border
             }

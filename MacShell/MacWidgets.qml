@@ -24,6 +24,7 @@ import "WidgetVisibility.js" as Visibility
 import "ActivityWidgetData.js" as ActivityData
 import "BatteriesData.js" as BatteriesData
 import "TimerWidgetData.js" as TimerData
+import "ImageWidgetData.js" as ImageData
 
 Scope {
     id: root
@@ -136,6 +137,12 @@ Scope {
     property alias clockSource: widgetClock
     WidgetSubscriptions { id: widgetSubscriptions; instances: root.renderedRows; enabled: root.widgetsEnabled }
     WidgetClock { id: widgetClock; precision: widgetSubscriptions.clockPrecision }
+    readonly property bool notesWanted: ready && widgetSubscriptions.counts.notes > 0
+    Binding {
+        target: root.hub && root.hub.notes ? root.hub.notes : null
+        property: "backgroundEnabled"
+        value: root.notesWanted
+    }
     readonly property bool weatherWanted: ready && widgetSubscriptions.counts.weather > 0
     readonly property int activePlayers: widgetSubscriptions.counts.player
     readonly property bool lyricsWanted: widgetSubscriptions.counts.lyrics > 0
@@ -258,7 +265,7 @@ Scope {
     readonly property real glassGrain: dock ? dock.glassGrain : 0.03
     readonly property bool darkGlass: dock ? dock.darkMode : true
 
-    // placed widgets: roles wid, wtype (weather | calendar | clock | player | activity | batteries), wstyle, wsize, wmode (calendar: auto | light | dark), wx, wy
+    // placed widgets: roles wid, wtype, wstyle, wsize, wmode, appearance/settings JSON, wx, wy
     property alias model: wmodel
     WidgetModel { id: wmodel; rows: root.renderedRows }
     readonly property int widgetCount: wmodel.count
@@ -390,9 +397,10 @@ Scope {
         if (item.type === "activity" && !ActivityData.validSettings(draft.activity === undefined ? {} : draft.activity)) return false;
         if (item.type === "batteries" && !BatteriesData.validSettings(draft.batteries === undefined ? {} : draft.batteries)) return false;
         if (item.type === "timer" && !TimerData.validSettings(draft.timer === undefined ? {} : draft.timer)) return false;
+        if (item.type === "image" && !ImageData.validSettings(draft.image === undefined ? {} : draft.image)) return false;
         item.settings = item.settings || {};
         var fields = ["style", "mode", "appearance"];
-        if (item.type === "activity" || item.type === "batteries" || item.type === "timer") fields.push(item.type);
+        if (item.type === "activity" || item.type === "batteries" || item.type === "timer" || item.type === "image") fields.push(item.type);
         fields.forEach(key => {
             if (draft[key] === undefined) delete item.settings[key]; else item.settings[key] = Layout.clone(draft[key]);
         });
@@ -814,6 +822,7 @@ Scope {
                         required property string wactivity
                         required property string wbatteries
                         required property string wtimer
+                        required property string wimage
                         required property real wx
                         required property real wy
 
@@ -845,6 +854,7 @@ Scope {
                             wactivity: ww.wactivity
                             wbatteries: ww.wbatteries
                             wtimer: ww.wtimer
+                            wimage: ww.wimage
                             sx: ww.x; sy: ww.y
                             sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
                         }

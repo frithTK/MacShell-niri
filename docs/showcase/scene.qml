@@ -17,7 +17,7 @@ IpcHandler {
             region: macBar.demoUi && macBar.demoUi.pop === "spot" && macBar.demoSpot
                 ? {x: macBar.demoSpot.x - 32, y: macBar.demoSpot.y - 32, width: macBar.demoSpot.width + 64, height: macBar.demoSpot.height + 64}
                 : macBar.demoUi ? macBar.demoUi.glassRect : {},
-            dark: macDock.darkMode, resources: macWidgets.resourceState()});
+            dark: macDock.darkMode, resources: macWidgets.resourceState(), networkEmbedded: macBar.demoUi ? macBar.demoUi.networkEmbedded : false});
     }
     function theme(dark: bool): void {
         showcaseHide();
@@ -38,5 +38,6 @@ IpcHandler {
         else macBar.demoUi.openPop(name, name === "stats" ? 950 : 1350);
     }
     function query(value: string): void { macBar.demoUi.spQuery = value; }
+    function networkPage(name: string): void { macBar.demoUi.openPop(name, macBar.demoUi.width, false, "controlCenter"); }
     function shutDown(): void { Qt.quit(); }
 }

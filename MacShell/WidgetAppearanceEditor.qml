@@ -6,6 +6,7 @@ import "WidgetCatalog.js" as Catalog
 import "ActivityWidgetData.js" as ActivityData
 import "BatteriesData.js" as BatteriesData
 import "TimerWidgetData.js" as TimerData
+import "ImageWidgetData.js" as ImageData
 
 ControlMenu {
     id: root
@@ -24,6 +25,7 @@ ControlMenu {
     readonly property var batteries: draft.batteries || ({})
     readonly property var timerSettings: draft.timer || ({})
     readonly property var timerPresets: TimerData.presets(timerSettings)
+    readonly property var imageSettings: draft.image || ({})
     readonly property var batteryIds: batteries.devices || []
     readonly property var batteryChoices: editingType === "batteries"
         ? BatteriesData.choices(controller && controller.batteryDevices ? controller.batteryDevices.entries : [], batteryIds) : []
@@ -109,6 +111,14 @@ ControlMenu {
         if (!TimerData.validSettings(next.timer)) return;
         draft = next; error = "";
     }
+    function changeImage(key, value) {
+        if (!editable || editingType !== "image") return;
+        var next = clone(draft);
+        next.image = next.image || {};
+        next.image[key] = value;
+        if (!ImageData.validSettings(next.image)) return;
+        draft = next; error = "";
+    }
     contentItem: Column {
         spacing: 12
         Rectangle {
@@ -126,6 +136,7 @@ ControlMenu {
                     activity: root.activity
                     batteries: root.batteries
                     timer: root.timerSettings
+                    image: root.imageSettings
                 }
             }
         }
@@ -147,6 +158,17 @@ ControlMenu {
                 }
             }
             Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("timer").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+        }
+        Column {
+            width: parent.width; spacing: 8; visible: root.editingType === "image"
+            Text { width: parent.width; text: Language.I18n.text("image_widget.path"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            ControlTextField {
+                objectName: "widgetImagePath"; width: parent.width; enabled: root.editable
+                text: root.imageSettings.path || ""
+                Accessible.name: Language.I18n.text("image_widget.path")
+                onEditingFinished: root.changeImage("path", text)
+            }
+            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("image").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Column {
             width: parent.width; spacing: 8; visible: root.editingType === "batteries"

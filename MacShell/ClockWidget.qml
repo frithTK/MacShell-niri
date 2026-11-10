@@ -276,6 +276,7 @@ Item {
                 property real dark: w.dark ? 1 : 0
                 property real debug: 0
                 property real shadowAmt: 1
+                property real flatInner: 0
                 property real rimTint: 1
                 property real ringW: 1
             }

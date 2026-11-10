@@ -17,7 +17,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             color: backMouse.containsMouse ? menu.t.hover : "transparent"
             WGlyph { anchors.centerIn: parent; width: 13; height: 13; kind: "chevL"; color: menu.t.fg }
-            MouseArea { id: backMouse; anchors.fill: parent; hoverEnabled: true; onClicked: menu.backRequested() }
+            MouseArea { id: backMouse; objectName: "bluetoothBackButton"; anchors.fill: parent; hoverEnabled: true; onClicked: menu.backRequested() }
         }
         Text {
             x: 32; anchors.verticalCenter: parent.verticalCenter

@@ -248,13 +248,15 @@ ShellRoot {
             if (!isFinite(value)) return;
             if (setting === "blur") macDock.setLook("glassBlur", Math.round(Math.max(0, Math.min(80, value))));
             else if (setting === "refraction") macDock.setLook("glassLiquid", Math.max(0, Math.min(2.5, value)));
+            else if (setting === "frosting") macDock.setLook("glassOpacity", Math.max(0.1, Math.min(0.85, value)));
         }
+        function preset(name: string): void { macDock.applyGlassPreset(name); }
         function state(): string {
             return JSON.stringify(Quickshell.screens.map(s => ({output: s.name,
                 mode: macBar.gaming ? "disabled" : (macBar.liquidActive || macDock.liquidActive) && sharedHub.glassReady(s.name) ? "refraction" : "compositor",
                 barStyle: macBar.barStyle, dockStyle: macDock.dockStyle,
                 barShader: macBar.glassState, dockShader: macDock.glassState,
-                blur: macDock.glassBlur, refraction: macDock.glassLiquid,
+                look: macDock.glassLookId, blur: macDock.glassBlur, refraction: macDock.glassLiquid, frosting: macDock.glassOpacity,
                 nativeBlur: {available: macDock.nativeBlur.available, managed: macDock.nativeBlur.managed,
                     appliedLevel: macDock.nativeBlur.appliedLevel, error: macDock.nativeBlur.error}})));
         }

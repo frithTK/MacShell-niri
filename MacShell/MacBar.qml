@@ -564,6 +564,9 @@ Scope {
                     property real dark: g.dark ? 1 : 0
                     property real debug: g.debug ? 1 : 0
                     property real shadowAmt: 1
+                    property real rimTint: 0
+                    property real ringW: 0
+                    property real flatInner: 0
                 }
             }
         }
@@ -599,6 +602,7 @@ Scope {
         property real strengthMul: 1.0
         property real tintMul: 1.0
         property real shadowAmt: 0.5
+        property real flatInner: 0
         readonly property real pad: 10
 
         MappedRect { id: slabMapping; sourceItem: gg; targetItem: gg.gx.frame }
@@ -643,6 +647,9 @@ Scope {
                     property real dark: gg.gx.dark ? 1 : 0
                     property real debug: gg.gx.debug ? 1 : 0
                     property real shadowAmt: gg.shadowAmt
+                    property real rimTint: 0
+                    property real ringW: 0
+                    property real flatInner: gg.flatInner
                 }
             }
         }
@@ -654,7 +661,7 @@ Scope {
         required property var t
         required property var gx
         property real radius: 34
-        GGlass { anchors.fill: parent; gx: tile.gx; cornerR: tile.radius; thickness: 22; shadowAmt: 0.45 }
+        GGlass { anchors.fill: parent; gx: tile.gx; cornerR: tile.radius; thickness: 22; shadowAmt: 0; flatInner: 1 }
     }
 
     // small glass pill button ("Edit Controls", "Done", "Reset")
@@ -666,10 +673,10 @@ Scope {
         property bool strong: false
         signal clicked()
         width: plText.implicitWidth + 32; height: 28
-        GGlass { anchors.fill: parent; gx: pl.gx; cornerR: 14; thickness: 14; strengthMul: 0.6; shadowAmt: 0.4 }
+        GGlass { anchors.fill: parent; gx: pl.gx; cornerR: 14; thickness: 14; strengthMul: 0.6; shadowAmt: 0; flatInner: 1 }
         Rectangle {
             anchors.fill: parent; radius: 14
-            color: pla.containsMouse ? (pl.t.dark ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.34)) : Qt.rgba(1, 1, 1, 0)
+            color: pla.containsMouse ? (pl.t.dark ? Qt.rgba(1, 1, 1, 0.04) : Qt.rgba(1, 1, 1, 0.09)) : Qt.rgba(1, 1, 1, 0)
         }
         Text {
             id: plText
@@ -719,7 +726,7 @@ Scope {
         width: d; height: d
         scale: (bounce && bma.pressed) ? 0.88 : 1
         Behavior on scale { NumberAnimation { duration: 230; easing.type: Easing.OutBack; easing.overshoot: 3.2 } }
-        GGlass { anchors.fill: parent; gx: b.gx; cornerR: b.d / 2; thickness: 14; strengthMul: 0.6; shadowAmt: b.shadow }
+        GGlass { anchors.fill: parent; gx: b.gx; cornerR: b.d / 2; thickness: 14; strengthMul: 0.6; shadowAmt: b.shadow; flatInner: 1 }
         Rectangle {
             anchors.fill: parent
             radius: b.d / 2
@@ -3207,7 +3214,7 @@ Scope {
                 id: ui
                 anchors.fill: parent
 
-                Keys.onEscapePressed: event => { if (pop !== "") { if (pop === "btpair") root.bluetooth.cancel(); if (pop === "wifijoin") root.wifi.cancel(); if (pop === "record" && root.recorder.state === "countdown") root.recorder.cancel(); pop = ""; event.accepted = true; } }
+                Keys.onEscapePressed: event => { if (pop !== "") { if (anchorType === "controlCenter" && (pop === "wifi" || pop === "bt")) pop = "cc"; else { if (pop === "btpair") root.bluetooth.cancel(); if (pop === "wifijoin") root.wifi.cancel(); if (pop === "record" && root.recorder.state === "countdown") root.recorder.cancel(); pop = ""; } event.accepted = true; } }
                 Connections {
                     target: root
                     function onControlRequested(name) {
@@ -3443,6 +3450,7 @@ Scope {
                     return any ? Qt.rect(x0 - 64, y0 - 64, x1 - x0 + 128, y1 - y0 + 128) : Qt.rect(0, 0, 0, 0);
                 }
                 readonly property bool isMenu: ["apple", "app", "file", "edit", "view", "window", "help"].indexOf(pop) >= 0
+                readonly property bool networkEmbedded: (pop === "wifi" && wifiPop.parent === cc) || (pop === "bt" && btPop.parent === cc)
                 readonly property bool anyVisible: overflowPop.visible || servicePop.visible || menuPop.visible || cc.visible || cal.visible || wifiPop.visible || btPop.visible || trayPop.visible || notifPop.visible || toastArea.visible || volPop.visible || kbPop.visible
                 onAnyVisibleChanged: root.popCount += (anyVisible ? 1 : -1)
                 onPopChanged: {
@@ -3609,6 +3617,7 @@ Scope {
                                 required property string wactivity
                                 required property string wbatteries
                                 required property string wtimer
+                                required property string wimage
                                 required property real wx
                                 required property real wy
                                 z: -1
@@ -3629,6 +3638,7 @@ Scope {
                                     wactivity: mw.wactivity
                                     wbatteries: mw.wbatteries
                                     wtimer: mw.wtimer
+                                    wimage: mw.wimage
                                     sx: mw.x; sy: mw.y
                                     sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
                                 }
@@ -4019,6 +4029,7 @@ Scope {
                         BarSlot { id: btSlot; blockType: "bluetooth"; plan: barBg.plan
                             Item {
                                 id: btBtn
+                                objectName: "barBluetoothButton"
                                 width: 26; height: 28
                                 Rectangle {
                                     anchors.centerIn: parent
@@ -4154,6 +4165,7 @@ Scope {
                         BarSlot { id: wifiSlot; blockType: "wifi"; plan: barBg.plan
                             Item {
                                 id: wifiBtn
+                                objectName: "barWifiButton"
                                 width: 28; height: 28
                                 Rectangle {
                                     anchors.centerIn: parent
@@ -4167,6 +4179,7 @@ Scope {
                         BarSlot { id: ccSlot; blockType: "controlCenter"; plan: barBg.plan
                             Item {
                                 id: ccBtn
+                                objectName: "barControlCenterButton"
                                 width: 30; height: 28
                                 Rectangle {
                                     anchors.centerIn: parent
@@ -5185,14 +5198,16 @@ Scope {
                 // ═════════ Bluetooth devices ═════════
                 Item {
                     id: btPop
+                    objectName: "bluetoothPage"
                     z: 10
-                    width: 340
+                    width: parent === cc ? cc.width : 340
                     height: Math.min(btMenu.height + 24, (Math.min(win.modelData.height, ui.height) - root.barHeight - 24) / root.barPopupScale)
-                    x: ui.popupX(width, scale, transformOrigin)
-                    y: root.barHeight + 6
+                    x: parent === cc ? 0 : ui.popupX(width, scale, transformOrigin)
+                    y: parent === cc ? 0 : root.barHeight + 6
+                    parent: ui.anchorType === "controlCenter" && ui.pop === "bt" ? cc : ui
                     opacity: ui.pop === "bt" ? 1 : 0
                     visible: opacity > 0
-                    scale: root.barPopupScale * (ui.pop === "bt" ? 1 : 0.96)
+                    scale: parent === cc ? 1 : root.barPopupScale * (ui.pop === "bt" ? 1 : 0.96)
                     transformOrigin: Item.Top
                     Behavior on opacity { NumberAnimation { duration: 110 } }
                     Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
@@ -5215,6 +5230,7 @@ Scope {
                     }
                     MouseArea { anchors.fill: parent }
                     Flickable {
+                        objectName: "bluetoothPageScroll"
                         x: 12; y: 12; width: parent.width - 24; height: parent.height - 24
                         contentHeight: btMenu.height; clip: true
                         BluetoothMenu {
@@ -5222,7 +5238,7 @@ Scope {
                             width: parent.width
                             t: pal; controller: root.bluetooth
                             maxListHeight: Math.max(52, Math.min(280, (win.modelData.height - root.barHeight - 240) / root.barPopupScale))
-                            onBackRequested: ui.openPop("cc", ui.width)
+                            onBackRequested: ui.openPop("cc", ui.width, ui.anchorOverflow, "controlCenter")
                             onSettingsRequested: { ui.pop = ""; root.openSettings("bluetooth"); }
                         }
                     }
@@ -5231,14 +5247,16 @@ Scope {
                 // ═════════ Wi-Fi networks ═════════
                 Item {
                     id: wifiPop
+                    objectName: "wifiPage"
                     z: 10
-                    width: 320
-                    height: wifiCol.height + 24
-                    x: ui.popupX(width, scale, transformOrigin)
-                    y: root.barHeight + 6
+                    parent: ui.anchorType === "controlCenter" && ui.pop === "wifi" ? cc : ui
+                    width: parent === cc ? cc.width : 320
+                    height: Math.min(wifiCol.height + 24, (Math.min(win.modelData.height, ui.height) - root.barHeight - 24) / root.barPopupScale)
+                    x: parent === cc ? 0 : ui.popupX(width, scale, transformOrigin)
+                    y: parent === cc ? 0 : root.barHeight + 6
                     opacity: ui.pop === "wifi" ? 1 : 0
                     visible: opacity > 0
-                    scale: root.barPopupScale * (ui.pop === "wifi" ? 1 : 0.96)
+                    scale: parent === cc ? 1 : root.barPopupScale * (ui.pop === "wifi" ? 1 : 0.96)
                     transformOrigin: Item.Top
                     Behavior on opacity { NumberAnimation { duration: 110 } }
                     Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
@@ -5262,17 +5280,29 @@ Scope {
                     }
                     MouseArea { anchors.fill: parent }          // swallow clicks on empty glass so the popover doesn't close
 
+                    Flickable {
+                        objectName: "wifiPageScroll"
+                        x: 12; y: 12
+                        width: parent.width - 24; height: parent.height - 24
+                        contentWidth: width; contentHeight: wifiCol.height
+                        clip: true; boundsBehavior: Flickable.StopAtBounds
                     Column {
                         id: wifiCol
-                        x: 12; y: 12
-                        width: parent.width - 24
+                        width: parent.width
                         spacing: 6
 
                         // header: title + on/off switch
                         Item {
                             width: parent.width; height: 32
+                            Rectangle {
+                                visible: ui.anchorType === "controlCenter"
+                                width: 26; height: 28; radius: 8; anchors.verticalCenter: parent.verticalCenter
+                                color: wifiBack.containsMouse ? pal.hover : "transparent"
+                                Glyph { anchors.centerIn: parent; width: 13; height: 13; kind: "chevL"; color: pal.fg }
+                                MouseArea { id: wifiBack; objectName: "wifiBackButton"; anchors.fill: parent; hoverEnabled: true; onClicked: ui.openPop("cc", ui.width, ui.anchorOverflow, "controlCenter") }
+                            }
                             Text {
-                                x: 6; anchors.verticalCenter: parent.verticalCenter
+                                x: ui.anchorType === "controlCenter" ? 32 : 6; anchors.verticalCenter: parent.verticalCenter
                                 text: "Wi-Fi"
                                 color: pal.fg
                                 font.family: pal.fam; font.pixelSize: 15; font.weight: Font.DemiBold
@@ -5329,6 +5359,7 @@ Scope {
                         // the list
                         Flickable {
                             id: wifiFlick
+                            objectName: "wifiListScroll"
                             visible: root.wifiOn && root.wifiNets.length > 0
                             width: parent.width
                             height: Math.min(wifiList.height, 300)
@@ -5504,6 +5535,7 @@ Scope {
                             }
                         }
                     }
+                    }
                 }
 
                 // ═════════ calendar ═════════
@@ -5623,14 +5655,15 @@ Scope {
                 // No panel behind it: every tile and every button is its own piece of Liquid Glass.
                 Item {
                     id: cc
+                    objectName: "controlCenterPanel"
                     z: 10
                     width: 340
-                    height: ccCol.height
+                    height: Math.max(ccCol.height, wifiPop.parent === cc ? wifiPop.height : 0, btPop.parent === cc ? btPop.height : 0)
                     x: ui.popupX(width, scale, transformOrigin)
                     y: root.barHeight + 6
                     // opening (ColorOS 17): the panel springs out from the Control Center button, overshoots a little and
                     // settles, while the controls stretch up into place one row after another. Closing is quick and flat.
-                    readonly property bool opening: ui.pop === "cc"
+                    readonly property bool opening: ui.pop === "cc" || (ui.anchorType === "controlCenter" && (ui.pop === "wifi" || ui.pop === "bt"))
                     property int openSeq: 0
                     property real openT: opening ? 1 : 0
                     Behavior on openT {
@@ -5743,6 +5776,7 @@ Scope {
                                 onClicked: root.toggleWifi()
                             }
                             MouseArea {
+                                objectName: "controlCenterWifiPage"
                                 x: 56; width: parent.width - 56; height: parent.height
                                 onClicked: ui.openPop("wifi", ui.width, ui.anchorOverflow, ui.anchorType || "controlCenter")
                             }
@@ -5778,6 +5812,7 @@ Scope {
                                 onClicked: root.toggleBt()
                             }
                             MouseArea {
+                                objectName: "controlCenterBluetoothPage"
                                 x: 56; width: parent.width - 56; height: parent.height
                                 onClicked: ui.openPop("bt", ui.width, ui.anchorOverflow, ui.anchorType || "controlCenter")
                             }
@@ -6121,6 +6156,7 @@ Scope {
 
                     Column {
                         id: ccCol
+                        visible: ui.pop === "cc"
                         x: 0; y: 0
                         width: parent.width
                         spacing: 10
@@ -7308,7 +7344,7 @@ Scope {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: parent.width - 54 - 140
                                         elide: Text.ElideRight
-                                        text: rr.armedNow ? Language.I18n.text("ui.t_56af92f92b20") : (rr.modelData ? rr.modelData.title : "")
+                                        text: rr.armedNow ? Language.I18n.text("ui.t_56af92f92b20") : (rr.modelData.title || "")
                                         color: rr.sel ? "white" : pal.fg
                                         font.family: pal.fam; font.pixelSize: 14
                                     }
@@ -7316,7 +7352,7 @@ Scope {
                                         anchors.right: parent.right
                                         anchors.rightMargin: 16
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: rr.modelData ? rr.modelData.sub : ""
+                                        text: rr.modelData.sub || ""
                                         color: rr.sel ? Qt.rgba(1, 1, 1, 0.8) : pal.fg2
                                         font.family: pal.fam; font.pixelSize: 12
                                     }

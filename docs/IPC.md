@@ -85,7 +85,8 @@ binds {
 | `gaming toggle` / `gaming on` / `gaming off` | Управлять Game Mode |
 | `glass captures true` / `glass captures false` | Включить или выключить превью окон Dock |
 | `glass style COMPONENT MODE` | Переключить материал без перезапуска: компонент `dock` или `bar`, режим `blur` или `liquid` |
-| `glass tune SETTING VALUE` | Общая настройка: `blur` (0–80, включая глобальную силу размытия niri) или `refraction` (0–2.5, только для доступной линзы) |
+| `glass tune SETTING VALUE` | Точная настройка: `blur` (0–80, включая глобальную силу размытия niri), `refraction` (0–2.5, только для доступной линзы) или `frosting` (0.1–0.85) |
+| `glass preset NAME` | Готовый вид: `clear`, `standard`, `vibrant` или `frosted` |
 | `media playPause` / `media next` / `media previous` | Управлять активным MPRIS-плеером |
 
 Профиль питания отображается после подтверждения системным сервисом. Game Mode использует временный запрос Performance; ручной выбор профиля отменяет этот запрос. Возможность Performance зависит от оборудования и сервиса питания.

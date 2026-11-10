@@ -1,4 +1,4 @@
-// One desktop widget's content (Weather / Calendar / Clock / Player / Activity / Batteries). Used by MacWidgets.qml for the desktop layer and by
+// One desktop widget's content (Weather / Calendar / Clock / Player / Activity / Batteries / Timer / Notes / Reminders / Image). Used by MacWidgets.qml for the desktop layer and by
 // MacBar.qml to mirror the widgets into the Liquid Glass backdrop, so a menu refracts them together with the live windows.
 import QtQuick
 import Quickshell.Services.Mpris
@@ -16,6 +16,7 @@ Item {
     property string wactivity: "{}"
     property string wbatteries: "{}"
     property string wtimer: "{}"
+    property string wimage: "{}"
     readonly property var localAppearance: JSON.parse(wappearance)
     readonly property var look: Appearance.resolve(wtype, wstyle, localAppearance, wmode, host.fontFamily, host.darkGlass, host.playerScale)
     readonly property var visual: visualLoader.item
@@ -64,6 +65,20 @@ Item {
     property var batteryData: []
     readonly property var liveBatteryData: renderActive && wtype === "batteries" ? host.batteryDevices.entries : null
     onLiveBatteryDataChanged: if (liveBatteryData !== null) batteryData = liveBatteryData
+    property var notesData: ({ready: false, notes: [], body: ""})
+    readonly property var liveNotesData: {
+        if (!renderActive || wtype !== "notes" || !host.hub || !host.hub.notes) return null;
+        var controller = host.hub.notes.controller;
+        return {ready: !!(controller && controller.ready), notes: controller ? controller.notes : [], body: controller ? controller.body : ""};
+    }
+    onLiveNotesDataChanged: if (liveNotesData !== null) notesData = liveNotesData
+    property var remindersData: ({ready: false, tasks: []})
+    readonly property var liveRemindersData: {
+        if (!renderActive || wtype !== "reminders" || !host.hub || !host.hub.reminders) return null;
+        var controller = host.hub.reminders.controller;
+        return {ready: !!(controller && controller.ready), tasks: controller ? controller.tasks : []};
+    }
+    onLiveRemindersDataChanged: if (liveRemindersData !== null) remindersData = liveRemindersData
     property real sx: 0                  // position on the screen (the glass uses it to find the wallpaper behind the widget)
     property real sy: 0
     property string sname: ""            // screen name
@@ -244,9 +259,68 @@ Item {
                 onGlassFailed: host.glassState = "failed"
             }
         }
+        Component {
+            id: notesVisual
+            NotesWidget {
+                style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
+                notes: v.notesData.notes; body: v.notesData.body; ready: v.notesData.ready
+                screenX: v.sx; screenY: v.sy
+                glassReady: host.glassState === "ready" && v.renderActive
+                shaderUrl: "file://" + host.glassShaderOut; wallUrl: host.fileUrl(host.wallpaperFor(v.sname))
+                screenW: v.sw; screenH: v.sh
+                glassOpacity: host.glassOpacity; glassBlur: host.glassBlur; glassLiquid: host.glassLiquid
+                glassRim: host.glassRim; glassGrain: host.glassGrain; darkGlass: v.look.dark
+                editing: host.editing; interactive: v.interactive && !host.editing
+                onOpenRequested: if (host.hub) host.hub.openUtility("notes")
+                onGlassFailed: host.glassState = "failed"
+            }
+        }
+        Component {
+            id: remindersVisual
+            RemindersWidget {
+                style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
+                tasks: v.remindersData.tasks; ready: v.remindersData.ready
+                screenX: v.sx; screenY: v.sy
+                glassReady: host.glassState === "ready" && v.renderActive
+                shaderUrl: "file://" + host.glassShaderOut; wallUrl: host.fileUrl(host.wallpaperFor(v.sname))
+                screenW: v.sw; screenH: v.sh
+                glassOpacity: host.glassOpacity; glassBlur: host.glassBlur; glassLiquid: host.glassLiquid
+                glassRim: host.glassRim; glassGrain: host.glassGrain; darkGlass: v.look.dark
+                editing: host.editing; interactive: v.interactive && !host.editing
+                onOpenRequested: if (host.hub) host.hub.openUtility("reminders")
+                onToggleRequested: task => {
+                    var controller = host.hub && host.hub.reminders ? host.hub.reminders.controller : null;
+                    if (controller) controller.update(task, "done", !task.done);
+                }
+                onAddRequested: title => {
+                    var controller = host.hub && host.hub.reminders ? host.hub.reminders.controller : null;
+                    if (controller) controller.createTask(title);
+                }
+                onDeleteRequested: task => {
+                    var controller = host.hub && host.hub.reminders ? host.hub.reminders.controller : null;
+                    if (controller) controller.update(task, "deleted", true);
+                }
+                onGlassFailed: host.glassState = "failed"
+            }
+        }
+        Component {
+            id: imageVisual
+            ImageWidget {
+                style: v.wstyle; size: v.wsize; fam: v.look.family; textScale: v.look.textScale
+                settings: JSON.parse(v.wimage)
+                screenX: v.sx; screenY: v.sy
+                glassReady: host.glassState === "ready" && v.renderActive
+                shaderUrl: "file://" + host.glassShaderOut; wallUrl: host.fileUrl(host.wallpaperFor(v.sname))
+                screenW: v.sw; screenH: v.sh
+                glassOpacity: host.glassOpacity; glassBlur: host.glassBlur; glassLiquid: host.glassLiquid
+                glassRim: host.glassRim; glassGrain: host.glassGrain; darkGlass: v.look.dark
+                editing: host.editing
+                onGlassFailed: host.glassState = "failed"
+            }
+        }
         Loader {
             id: visualLoader
             anchors.fill: parent
-            sourceComponent: v.definition ? ({WeatherWidget: weatherVisual, CalendarWidget: calendarVisual, ClockWidget: clockVisual, PlayerWidget: playerVisual, ActivityWidget: activityVisual, BatteriesWidget: batteriesVisual, TimerWidget: timerVisual})[v.definition.component] || null : null
+            sourceComponent: v.definition ? ({WeatherWidget: weatherVisual, CalendarWidget: calendarVisual, ClockWidget: clockVisual, PlayerWidget: playerVisual, ActivityWidget: activityVisual, BatteriesWidget: batteriesVisual, TimerWidget: timerVisual, NotesWidget: notesVisual, RemindersWidget: remindersVisual, ImageWidget: imageVisual})[v.definition.component] || null : null
         }
 }

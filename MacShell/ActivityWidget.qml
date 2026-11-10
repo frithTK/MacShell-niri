@@ -186,6 +186,7 @@ Item {
                 property real dark: w.dark ? 1 : 0   // this widget's own light / dark mode, not the shell's
                 property real debug: 0
                 property real shadowAmt: 1
+                property real flatInner: 0
                 property real rimTint: 1             // rim + border follow the glass's own colour
                 property real ringW: 1               // thin 1 px border
             }

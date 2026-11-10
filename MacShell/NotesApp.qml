@@ -15,6 +15,7 @@ Scope {
     readonly property color foreground: dark ? "#f5f5f7" : "#1d1d1f"
     readonly property color secondary: dark ? "#aaaab3" : "#686870"
     property bool closePending: false
+    property bool backgroundEnabled: false
     property alias controller: controller
     property alias window: win
     function open() { closePending = false; win.show(); win.raise(); win.requestActivate(); }
@@ -38,8 +39,8 @@ Scope {
     }
     NotesController {
         id: controller
-        enabled: win.visible || root.closePending || busy || dirty
-        autoRefresh: win.visible
+        enabled: win.visible || root.closePending || busy || dirty || root.backgroundEnabled
+        autoRefresh: win.visible || root.backgroundEnabled
         sharedService: root.hub ? root.hub.notesService : null
         storePath: (Quickshell.env("MACSHELL_NOTES_DATA_HOME") || Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/macshell/notes/notes.sqlite3"
         onClean: if (root.closePending) { root.closePending = false; win.hide(); }

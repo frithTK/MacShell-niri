@@ -16,6 +16,7 @@ Item {
     property var activity: ({})
     property var batteries: ({})
     property var timer: ({})
+    property var image: ({})
     readonly property var look: Appearance.resolve(widgetType, widgetStyle, appearance, mode, family, dark, .8)
     readonly property var definition: Catalog.find(widgetType)
     readonly property var footprint: Catalog.dimensions(widgetSize)
@@ -78,8 +79,32 @@ Item {
             preview: true; darkGlass: root.look.dark; settings: root.batteries; entries: BatteriesData.demoFor(root.batteries)
         }
     }
+    Component {
+        id: notesPreview
+        NotesWidget {
+            anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
+            preview: true; darkGlass: root.look.dark; ready: true
+            notes: [{id: "demo", body: "Shopping\nMilk, bread, fruit"}]
+            body: "Shopping\nMilk, bread, fruit"
+        }
+    }
+    Component {
+        id: remindersPreview
+        RemindersWidget {
+            anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
+            preview: true; darkGlass: root.look.dark; ready: true
+            tasks: [{id: "a", title: "Try the new widgets", done: false}, {id: "b", title: "Open Reminders", done: true}]
+        }
+    }
+    Component {
+        id: imagePreview
+        ImageWidget {
+            anchors.fill: parent; size: root.widgetSize; style: root.widgetStyle; fam: root.look.family; textScale: root.look.textScale
+            preview: true; darkGlass: root.look.dark; settings: root.image
+        }
+    }
     Loader {
         id: loader; anchors.fill: parent
-        sourceComponent: root.definition ? ({WeatherWidget: weather, CalendarWidget: calendar, ClockWidget: clock, PlayerWidget: player, ActivityWidget: activityPreview, BatteriesWidget: batteriesPreview, TimerWidget: timerPreview})[root.definition.component] || null : null
+        sourceComponent: root.definition ? ({WeatherWidget: weather, CalendarWidget: calendar, ClockWidget: clock, PlayerWidget: player, ActivityWidget: activityPreview, BatteriesWidget: batteriesPreview, TimerWidget: timerPreview, NotesWidget: notesPreview, RemindersWidget: remindersPreview, ImageWidget: imagePreview})[root.definition.component] || null : null
     }
 }

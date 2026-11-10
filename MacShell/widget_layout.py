@@ -8,7 +8,8 @@ from preference_store import LIMIT, PreferenceStore
 
 STYLES = {'weather': ('liquid', 'normal'), 'calendar': ('liquid', 'normal'),
           'clock': ('liquid', 'light', 'dark'), 'player': ('liquid', 'light', 'dark'),
-          'activity': ('liquid', 'normal'), 'batteries': ('liquid', 'normal'), 'timer': ('liquid', 'normal')}
+          'activity': ('liquid', 'normal'), 'batteries': ('liquid', 'normal'), 'timer': ('liquid', 'normal'),
+          'notes': ('liquid', 'normal'), 'reminders': ('liquid', 'normal'), 'image': ('liquid', 'normal')}
 SIZES = ('small', 'medium', 'large')
 
 
@@ -38,6 +39,16 @@ def valid_timer(value):
     presets = value.get('presets', [5, 15, 25])
     return (isinstance(presets, list) and len(presets) == 3
             and all(type(minutes) is int and 1 <= minutes <= 1440 for minutes in presets))
+
+
+def valid_image(value):
+    if not isinstance(value, dict):
+        return False
+    path = value.get('path', '')
+    if not isinstance(path, str) or len(path) > 4096 or any(ord(char) < 32 for char in path):
+        return False
+    lower = path.strip().lower()
+    return not lower.startswith(('http:', 'https:', 'ftp:'))
 
 
 def valid_appearance(value):
@@ -221,6 +232,8 @@ def normalize(source, strict=False):
                 valid = valid and valid_batteries(settings.get('batteries', {}))
             if record['type'] == 'timer':
                 valid = valid and valid_timer(settings.get('timer', {}))
+            if record['type'] == 'image':
+                valid = valid and valid_image(settings.get('image', {}))
         if not valid:
             errors['widgets'] = 'Invalid widget instance, duplicate ID, position or settings. Restore a backup or reset widgets.'
             continue

@@ -269,6 +269,17 @@ def main():
                     time.sleep(.25)
                 else: raise RuntimeError('Showcase was not ready: ' + repr(state))
                 time.sleep(1)
+                ipc('scene', 'cc')
+                for page in ('wifi', 'bt'):
+                    ipc('networkPage', page)
+                    time.sleep(.4)
+                    page_state = json.loads(ipc('state'))
+                    if page_state['popup'] != page or not page_state['networkEmbedded']:
+                        raise RuntimeError('Network page was not embedded: ' + repr(page_state))
+                    ipc('networkPage', 'cc')
+                    time.sleep(.4)
+                    if json.loads(ipc('state'))['popup'] != 'cc':
+                        raise RuntimeError('Network page did not return to Control Center')
                 for theme in args.themes:
                     ipc('theme',str(theme == 'dark').lower()); time.sleep(.8)
                     for scene in args.scenes:

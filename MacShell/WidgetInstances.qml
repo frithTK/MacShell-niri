@@ -104,7 +104,7 @@ ControlMenu {
                     onActivated: index => root.apply(index === 0 ? root.controller.resetWidgetAppearance(root.selected.id, "style") : root.controller.setStyle(root.selected.id, model[index].key), Language.I18n.text("ui.t_8b2bf5544972"))
                 }
             }
-            ControlButton { objectName: "widgetAppearanceExpand"; visible: !!root.definition; text: (root.appearanceExpanded ? "▾" : "▸") + (root.selected && root.selected.type === "activity" ? " Appearance & metrics…" : root.selected && root.selected.type === "batteries" ? " Appearance & devices…" : " Appearance…"); onClicked: root.appearanceExpanded = !root.appearanceExpanded }
+            ControlButton { objectName: "widgetAppearanceExpand"; visible: !!root.definition; text: (root.appearanceExpanded ? "▾" : "▸") + (root.selected && root.selected.type === "activity" ? " Appearance & metrics…" : root.selected && root.selected.type === "batteries" ? " Appearance & devices…" : root.selected && root.selected.type === "image" ? " Appearance & image…" : " Appearance…"); onClicked: root.appearanceExpanded = !root.appearanceExpanded }
             WidgetAppearanceEditor {
                 objectName: "widgetAppearanceEditor"; width: parent.width; visible: !!root.definition && root.appearanceExpanded
                 controller: root.controller; record: root.selected

@@ -6,6 +6,8 @@ This port is based on [0-ss/MacShell](https://github.com/0-ss/MacShell) at commi
 
 The credits images in `MacShell/assets/credits/` are inherited from upstream. Screenshots in both project overviews and `docs/images/` show this port with demonstration data or a synthetic test window.
 
+Later upstream Open Runde OTF files are not bundled: the lock screen and widgets keep Inter / Roboto Flex / system faces. Unicode CLDR data is documented below; `lang/es.js` from upstream is not part of this catalog.
+
 The legacy Clock sound groups in `MacShell/sounds/` are synthesized by `scripts/generate-clock-sounds.py` from mathematical waveforms and are covered by the project's MIT license.
 
 The distribution does not include the previously bundled third-party macOS sound collection or its converted default sounds. Users may import their own audio into Clock.

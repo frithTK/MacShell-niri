@@ -15,6 +15,22 @@ ORIGIN = {'name': 'DP-1', 'make': 'Demo', 'model': 'Display', 'serial': 'one', '
 
 
 class WidgetLayoutTests(unittest.TestCase):
+    def test_image_path_rejects_network_and_survives_storage(self):
+        values = migrate(self.legacy(), ORIGIN)
+        item = values['widgets'][0]
+        item.update(type='image', settings={'image': {'path': '/tmp/photo.png', 'future': False}})
+        self.assertFalse(normalize(values, strict=True)[1])
+        state = self.save_legacy()
+        self.assertTrue(self.store.commit(values, state['token'])['success'])
+        self.assertEqual(self.store.load()['values']['widgets'][0], item)
+        for options in ({}, {'path': ''}, {'path': '/home/user/Pictures/a.jpg'}):
+            item['settings']['image'] = options
+            self.assertFalse(normalize(values, strict=True)[1], options)
+        for options in (None, [], {'path': 'https://example.com/a.png'}, {'path': 'http://x'}, {'path': 'ftp://x'},
+                        {'path': 'a' * 4097}, {'path': 'bad\npath'}):
+            item['settings']['image'] = options
+            self.assertIn('widgets', normalize(values, strict=True)[1], options)
+
     def test_timer_presets_validate_and_survive_storage(self):
         values = migrate(self.legacy(), ORIGIN)
         item = values['widgets'][0]

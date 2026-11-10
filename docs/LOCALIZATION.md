@@ -18,7 +18,7 @@
 
 ## Каталог
 
-Общий singleton `Locale/I18n.qml` и `TranslationState.qml` используют **1361 RU/EN ID**. `MacLock/Locale` ссылается на `MacShell/Locale` в исходниках; installer копирует каталог в самостоятельную конфигурацию MacLock. LocaleRuntime следит за файлом через FileView, без новых фоновых процессов и периодического опроса. Writer работает, пока открыт раздел языка.
+Общий singleton `Locale/I18n.qml` и `TranslationState.qml` используют **1553 matching RU/EN ID** (проверка `scripts/check-translations.py`; также 1374 migrated literal calls). Каталог галереи виджетов держит английские `label`/`description`/`shared` в `WidgetCatalog.js`; UI берёт их через `I18n.legacy()`. `MacLock/Locale` ссылается на `MacShell/Locale` в исходниках; installer копирует каталог в самостоятельную конфигурацию MacLock. Upstream `lang/es.js` не подставлялся: это другой словарь поверх English keys, не замена `Locale/`. LocaleRuntime следит за файлом через FileView, без новых фоновых процессов и периодического опроса. Writer работает, пока открыт раздел языка.
 
 Новые UI-тексты используют literal ID через `Language.I18n.text("language.title")` или `plural("notifications.more", count)`. Параметры именованные, подстановка однопроходная; результат — plain text, rich text отдельно экранирует значения. RU: one/few/many/other; EN: one/other. Missing translation получает English fallback, неизвестный ID — `⟦id⟧`. `legacy()` предназначен только для собственных метаданных/старых сообщений, не пользовательского текста.
 

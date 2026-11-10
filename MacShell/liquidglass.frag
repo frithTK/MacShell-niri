@@ -35,6 +35,9 @@ layout(std140, binding = 0) uniform buf {
     float grain;        // fine noise amplitude over the whole glass
     float magnify;      // vertical lens magnification of the whole slab
     float shadowAmt;    // drop-shadow strength (1 = original, 0 = none) - appended last so older layouts stay compatible
+    float rimTint;
+    float ringW;
+    float flatInner;
 };
 
 layout(binding = 1) uniform sampler2D src;
@@ -166,8 +169,10 @@ void main()
     // ── depth: soft top sheen, darker lower inner edge ──
     float ty = clamp((q.y + hs.y) / glassSize.y, 0.0, 1.0);
     col += (1.0 - ty) * mix(0.040, 0.030, dark);
-    col *= 1.0 - 0.12 * exp(-t / 6.0) * clamp(g.y, 0.0, 1.0);
-    col *= 1.0 - 0.10 * exp(-t / (bz * 0.45));          // thick glass absorbs light toward the edge (heavier feel)
+    float innerK = 1.0 - clamp(flatInner, 0.0, 1.0);
+    col *= 1.0 - 0.12 * exp(-t / 6.0) * clamp(g.y, 0.0, 1.0) * innerK;
+    col *= 1.0 - 0.10 * exp(-t / (bz * 0.45)) * innerK;
+    vec3 rimCol = mix(vec3(0.96, 0.98, 1.0), clamp(col * 1.5 + 0.12, 0.0, 1.0), rimTint);
 
     // ── specular rim, light from the top-left ──
     vec2  L      = normalize(vec2(-0.55, -0.83));
@@ -177,12 +182,16 @@ void main()
     float wide   = exp(-t / 5.0);
     float edgeHi = hair * (0.18 + 0.78 * spec) + wide * 0.10 * (0.30 + spec);
     edgeHi *= rim * mix(0.85, 1.0, dark);
-    col += edgeHi * vec3(0.96, 0.98, 1.0);
+    col += edgeHi * rimCol;
 
     // meniscus: a soft second highlight inside the rim, like surface tension pulling the liquid together
     float mx  = (t - bz * 0.5) / (bz * 0.2 + 1.0);
     float men = exp(-mx * mx);
-    col += men * 0.07 * (0.35 + spec) * rim * vec3(0.96, 0.98, 1.0);
+    col += men * 0.07 * (0.35 + spec) * rim * rimCol;
+    if (ringW > 0.0) {
+        float ring = 1.0 - smoothstep(ringW * 0.5, ringW * 0.5 + 1.0, t);
+        col = mix(col, rimCol, ring * (0.55 + 0.35 * clamp(facing * 0.5 + 0.5, 0.0, 1.0)));
+    }
 
     // fine triangular-distribution grain, same on every channel so it reads as texture, not colour noise
     float gn = hash12(gl_FragCoord.xy) + hash12(gl_FragCoord.xy * 1.7 + 17.0) - 1.0;

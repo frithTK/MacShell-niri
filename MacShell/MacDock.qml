@@ -3,6 +3,7 @@ import QtQuick
 import "Locale" as Language
 import "Utilities.js" as Utilities
 import "GlassTheme.js" as GlassTheme
+import "GlassLook.js" as GlassLook
 import "PreferenceFields.js" as PreferenceFields
 import QtQuick.Effects
 import QtQuick.Controls
@@ -146,6 +147,26 @@ Scope {
     property real glassLiquid: 1.0
     readonly property bool glassRT: bar ? bar.glassRealtime : true     // real-time glass (Menu Bar settings)
     property real glassBlur: 5            // shared blur level: shader radius and niri Kawase strength
+    property bool glassAdvancedOpen: false
+    readonly property int glassLookMatch: GlassLook.matchIndex(glassBlur, glassOpacity, glassLiquid, glassRim, glassGrain)
+    readonly property int glassLookSlider: glassLookMatch >= 0 ? glassLookMatch : GlassLook.nearestIndex(glassBlur, glassOpacity, glassLiquid)
+    readonly property string glassLookId: glassLookMatch >= 0 ? GlassLook.at(glassLookMatch).id : "custom"
+    function applyGlassLook(look) {
+        if (!look) return;
+        setLook("glassRim", look.rim);
+        setLook("glassGrain", look.grain);
+        setLook("glassOpacity", look.opacity);
+        setLook("glassLiquid", look.liquid);
+        setLook("glassBlur", look.blur);
+    }
+    function applyGlassPreset(name) { applyGlassLook(GlassLook.byId(name)); }
+    function glassLookLabel(id) {
+        if (id === "clear") return Language.I18n.text("appearance.glass_clear");
+        if (id === "standard") return Language.I18n.text("appearance.glass_standard");
+        if (id === "vibrant") return Language.I18n.text("appearance.glass_vibrant");
+        if (id === "frosted") return Language.I18n.text("appearance.glass_frosted");
+        return Language.I18n.text("appearance.glass_custom");
+    }
     property bool glassDebug: false       // settings.json only: draw the raw Liquid Glass backdrop texture
     property string wallpaperPath: ""    // optional override for the wallpaper the Liquid Glass refracts
     property real glassOpacity: 0.42     // 0 = fully clear; below the layerrule's ignore_alpha (0.2) the blur turns off
@@ -311,6 +332,7 @@ Scope {
         property real to: 1
         property real value: 0
         property real stepSize: 0
+        property int tickCount: 0
         property string leftLabel: ""
         property string rightLabel: ""
         signal moved(real v)
@@ -333,6 +355,16 @@ Scope {
             height: 4
             radius: 2
             color: s.t.accent
+        }
+        Repeater {
+            model: s.tickCount >= 2 ? s.tickCount : 0
+            Rectangle {
+                width: 2; height: 6; radius: 1
+                x: index * (s.width - 20) / Math.max(1, s.tickCount - 1) + 9
+                y: track.y - 1
+                color: s.t.text2
+                opacity: 0.4
+            }
         }
         Rectangle {   // knob shadow
             x: knob.x - 1; y: knob.y + 1
@@ -381,50 +413,7 @@ Scope {
     }
 
     // macOS segmented control
-    component SSegmented: Item {
-        id: g
-        required property var t
-        property var model: []
-        property int current: 0
-        property real segWidth: 72
-        signal picked(int index)
-        width: model.length * segWidth + 4
-        height: 26
-        Rectangle { anchors.fill: parent; radius: 7; color: g.t.ctrl }
-        Rectangle {
-            visible: g.current >= 0
-            y: 2
-            x: 2 + g.current * g.segWidth
-            width: g.segWidth
-            height: parent.height - 4
-            radius: 5
-            color: g.t.ctrlSel
-            border.width: g.t.dark ? 0 : 1
-            border.color: Qt.rgba(0, 0, 0, 0.10)
-            Behavior on x { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-        }
-        Row {
-            x: 2; y: 2
-            Repeater {
-                model: g.model
-                delegate: Item {
-                    required property var modelData
-                    required property int index
-                    width: g.segWidth
-                    height: g.height - 4
-                    Text {
-                        anchors.centerIn: parent
-                        text: parent.modelData
-                        color: g.t.text
-                        font.family: g.t.fam
-                        font.pixelSize: 12
-                        font.weight: parent.index === g.current ? Font.Medium : Font.Normal
-                    }
-                    MouseArea { anchors.fill: parent; onClicked: g.picked(parent.index) }
-                }
-            }
-        }
-    }
+    component SSegmented: SegmentedControl {}
 
     // macOS push button
     component SButton: Rectangle {
@@ -448,6 +437,88 @@ Scope {
             font.pixelSize: 13
         }
         MouseArea { id: ma; anchors.fill: parent; onClicked: b.clicked() }
+    }
+
+    component GlassLookRows: Column {
+        id: gl
+        required property var t
+        required property string glassStyle
+        required property string glassShader
+        property string lookName: "appearanceGlassLook"
+        property string advancedName: "appearanceGlassAdvanced"
+        property string blurName: "appearanceGlassBlur"
+        property string intensityName: "appearanceGlassIntensity"
+        property string frostingName: "appearanceGlassFrosting"
+        width: parent ? parent.width : 0
+        SRow {
+            t: gl.t
+            title: Language.I18n.text("appearance.glass_look")
+            subtitle: root.glassLookId === "custom"
+                      ? Language.I18n.text("appearance.glass_custom_hint")
+                      : Language.I18n.text("appearance.glass_look_hint", {look: root.glassLookLabel(root.glassLookId)})
+            SSlider {
+                objectName: gl.lookName
+                t: gl.t
+                from: 0; to: GlassLook.count() - 1; stepSize: 1
+                tickCount: GlassLook.count()
+                value: root.glassLookSlider
+                leftLabel: Language.I18n.text("appearance.glass_clear")
+                rightLabel: Language.I18n.text("appearance.glass_frosted")
+                onMoved: v => root.applyGlassLook(GlassLook.at(v))
+            }
+        }
+        SRow {
+            t: gl.t
+            title: Language.I18n.text("appearance.glass_advanced")
+            subtitle: Language.I18n.text("appearance.glass_advanced_hint")
+            SButton {
+                objectName: gl.advancedName
+                t: gl.t
+                text: root.glassAdvancedOpen ? Language.I18n.text("ui.t_ac20a57bfde0") : Language.I18n.text("ui.t_0df6f1cad36c")
+                onClicked: root.glassAdvancedOpen = !root.glassAdvancedOpen
+            }
+        }
+        SRow {
+            t: gl.t
+            visible: root.glassAdvancedOpen
+            title: Language.I18n.text("ui.t_1707f1c01954")
+            subtitle: root.lensDescription(gl.glassStyle, gl.glassShader)
+            SSlider {
+                objectName: gl.intensityName
+                enabled: root.lensReady(gl.glassStyle, gl.glassShader)
+                t: gl.t; from: 0; to: 2.5; stepSize: .05
+                value: root.glassLiquid
+                leftLabel: "Subtle"; rightLabel: Math.round(value * 100) + "%"
+                onMoved: v => root.setLook("glassLiquid", v)
+            }
+        }
+        SRow {
+            t: gl.t
+            visible: root.glassAdvancedOpen
+            title: Language.I18n.text("ui.t_cd83e6731d2b")
+            subtitle: root.blurDescription
+            SSlider {
+                objectName: gl.blurName
+                t: gl.t; from: 0; to: 80; stepSize: 1
+                enabled: root.blurReady(gl.glassStyle, gl.glassShader)
+                value: root.glassBlur
+                leftLabel: "Sharp"; rightLabel: nativeBlurControl.managed || root.lensReady(gl.glassStyle, gl.glassShader) ? Math.round(value) + " / 80" : "System"
+                onMoved: v => root.setLook("glassBlur", Math.round(v))
+            }
+        }
+        SRow {
+            t: gl.t
+            visible: root.glassAdvancedOpen
+            title: Language.I18n.text("ui.t_e5eb30cec45d")
+            subtitle: Language.I18n.text("ui.t_1d08265744a5")
+            SSlider {
+                objectName: gl.frostingName
+                t: gl.t; from: .1; to: .85; stepSize: .01
+                value: root.glassOpacity
+                leftLabel: "Clear"; rightLabel: "Frosted"
+                onMoved: v => root.setLook("glassOpacity", v)
+            }
+        }
     }
 
     // Light / Dark appearance thumbnail
@@ -634,11 +705,11 @@ Scope {
             { id: "general",    sec: 2, name: Language.I18n.text("ui.t_c910d474dcd7"), searchName: Language.I18n.english("ui.t_c910d474dcd7"),         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
             { id: "updates",    sec: 2, name: Language.I18n.text("updates.title"), searchName: Language.I18n.english("updates.title"), glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "update upgrade version packages pacman обновление обновления версия пакеты система" },
             { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
-            { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font" },
+            { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font preset look clear standard vibrant frosted advanced стекло прозрачное обычное живое матовое пресет вид" },
              { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
              { id: "airplay",     sec: 2, name: Language.I18n.text("ui.t_a72c5d7ed939"), searchName: Language.I18n.english("ui.t_a72c5d7ed939"), wg: "mirroring", c1: "#BF5AF2", c2: "#8E44AD", keys: "airplay screen mirroring fps frame rate volume television tv дублирование экран телевизор частота громкость" },
             { id: "dock",       sec: 2, name: Language.I18n.text("ui.t_7517ffc8943c"), searchName: Language.I18n.english("ui.t_7517ffc8943c"),  glyph: "dock",     c1: "#2C2C2E", c2: "#1C1C1E", keys: "size icon magnification zoom spacing margin distance edge hide auto labels indicators bounce trash monitor preview" },
-            { id: "widgets", sec: 2, name: Language.I18n.text("ui.t_1fda79ffb659"), searchName: Language.I18n.english("ui.t_1fda79ffb659"), glyph: "apps", c1: "#9A7BF8", c2: "#6B48C8", keys: "desktop widgets gallery weather calendar clock player activity batteries charge cpu memory network disk size style forecast temperature city виджеты галерея погода календарь часы плеер батареи заряд устройства нагрузка процессор память сеть диск размер стиль город" },
+            { id: "widgets", sec: 2, name: Language.I18n.text("ui.t_1fda79ffb659"), searchName: Language.I18n.english("ui.t_1fda79ffb659"), glyph: "apps", c1: "#9A7BF8", c2: "#6B48C8", keys: "desktop widgets gallery weather calendar clock player activity batteries timer notes reminders image picture charge cpu memory network disk size style forecast temperature city виджеты галерея погода календарь часы плеер батареи таймер заметки напоминания изображение фото заряд устройства нагрузка процессор память сеть диск размер стиль город" },
             { id: "displays",   sec: 2, name: Language.I18n.text("ui.t_5a3452eb50bc"), searchName: Language.I18n.english("ui.t_5a3452eb50bc"),        wg: "sun",        c1: "#3D9BFF", c2: "#0A6CFF", keys: "brightness night shift monitor resolution refresh scale" },
             { id: "menubar",    sec: 2, name: Language.I18n.text("ui.t_0db85de8b72f"), searchName: Language.I18n.english("ui.t_0db85de8b72f"),        glyph: "menubar",  c1: "#3D9BFF", c2: "#0A6CFF", keys: "panel bar height clock date seconds 24 hour battery tray search spotlight week monday style liquid bluetooth widget" },
             { id: "barlayout", sec: 2, name: Language.I18n.text("ui.t_a73484fbbf67"), searchName: Language.I18n.english("ui.t_a73484fbbf67"), glyph: "menubar", c1: "#9A7BF8", c2: "#6B48C8", keys: "bar layout zones blocks priority overflow spacer monitor display items arrange раскладка зоны блоки приоритет монитор экран элементы порядок" },
@@ -1403,43 +1474,15 @@ Scope {
 
                 SCard {
                     t: pal
-                    SRow {
+                    GlassLookRows {
                         t: pal
-                        title: Language.I18n.text("ui.t_1707f1c01954")
-                        subtitle: root.lensDescription(root.bar ? root.bar.barStyle : "blur", root.bar ? root.bar.glassState : "")
-                        SSlider {
-                            objectName: "menuGlassIntensity"
-                            enabled: root.lensReady(root.bar ? root.bar.barStyle : "blur", root.bar ? root.bar.glassState : "")
-                            t: pal; from: 0; to: 2.5; stepSize: .05
-                            value: root.bar ? root.bar.glassLiquid : root.glassLiquid
-                            leftLabel: "Subtle"; rightLabel: Math.round(value * 100) + "%"
-                            onMoved: v => root.setLook("glassLiquid", v)
-                        }
-                    }
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_cd83e6731d2b")
-                        subtitle: root.blurDescription
-                        SSlider {
-                            objectName: "menuGlassBlur"
-                            t: pal; from: 0; to: 80; stepSize: 1
-                            enabled: root.blurReady(root.bar ? root.bar.barStyle : "blur", root.bar ? root.bar.glassState : "")
-                            value: root.glassBlur
-                            leftLabel: "Sharp"; rightLabel: nativeBlurControl.managed || root.lensReady(root.bar ? root.bar.barStyle : "blur", root.bar ? root.bar.glassState : "") ? Math.round(value) + " / 80" : "System"
-                            onMoved: v => root.setLook("glassBlur", Math.round(v))
-                        }
-                    }
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_e5eb30cec45d")
-                        subtitle: Language.I18n.text("ui.t_1d08265744a5")
-                        SSlider {
-                            objectName: "menuGlassFrosting"
-                            t: pal; from: .1; to: .85; stepSize: .01
-                            value: root.bar ? root.bar.glassOpacity : root.glassOpacity
-                            leftLabel: "Clear"; rightLabel: "Frosted"
-                            onMoved: v => root.setLook("glassOpacity", v)
-                        }
+                        glassStyle: root.bar ? root.bar.barStyle : "blur"
+                        glassShader: root.bar ? root.bar.glassState : ""
+                        lookName: "menuGlassLook"
+                        advancedName: "menuGlassAdvanced"
+                        blurName: "menuGlassBlur"
+                        intensityName: "menuGlassIntensity"
+                        frostingName: "menuGlassFrosting"
                     }
                 }
                 SCard {
@@ -2030,46 +2073,10 @@ Scope {
 
                 SCard {
                     t: pal
-                    SRow {
+                    GlassLookRows {
                         t: pal
-                        title: Language.I18n.text("ui.t_22a60631a085")
-                        subtitle: root.dockStyle === "liquid" ? Language.I18n.text("ui.t_244043cda554")
-                                                              : Language.I18n.text("ui.t_5c87ff7e4b17")
-                        SSlider {
-                            t: pal
-                            from: 0.0; to: 0.85; stepSize: 0.01
-                            value: root.glassOpacity
-                            leftLabel: "Clear"; rightLabel: "Frosted"
-                            onMoved: v => root.setLook("glassOpacity", v)
-                        }
-                    }
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_cd83e6731d2b")
-                        subtitle: root.blurDescription
-                        SSlider {
-                            objectName: "appearanceGlassBlur"
-                            t: pal
-                            enabled: root.blurReady(root.dockStyle, root.glassState)
-                            from: 0; to: 80; stepSize: 1
-                            value: root.glassBlur
-                            leftLabel: "Sharp"; rightLabel: nativeBlurControl.managed || root.lensReady(root.dockStyle, root.glassState) ? Math.round(value) + " / 80" : "System"
-                            onMoved: v => root.setLook("glassBlur", Math.round(v))
-                        }
-                    }
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_1707f1c01954")
-                        subtitle: root.lensDescription(root.dockStyle, root.glassState)
-                        SSlider {
-                            objectName: "appearanceGlassIntensity"
-                            t: pal
-                            enabled: root.lensReady(root.dockStyle, root.glassState)
-                            from: 0; to: 2.5; stepSize: 0.05
-                            value: root.glassLiquid
-                            leftLabel: "Subtle"; rightLabel: Math.round(value * 100) + "%"
-                            onMoved: v => root.setLook("glassLiquid", v)
-                        }
+                        glassStyle: root.dockStyle
+                        glassShader: root.glassState
                     }
                     SRow {
                         t: pal
@@ -3539,6 +3546,8 @@ Scope {
     }
 
     readonly property real effMag: magnificationEnabled ? magnification : 1
+    // hover labels and the right-click menu scale with the Dock (52 px icons = the reference size)
+    readonly property real labelK: Math.max(0.7, Math.min(2.2, iconSize / 52))
     readonly property int bgHeight: iconSize + topPad + bottomPad
     readonly property int sepWidth: 9
     readonly property real magRadius: (iconSize + spacing) * 2.6
@@ -4031,6 +4040,9 @@ Scope {
     readonly property string glassShaderSrc: decodeURIComponent(Qt.resolvedUrl("liquidglass.frag").toString().replace("file://", ""))
     readonly property string glassShaderOut: configDir + "/liquidglass.frag.qsb"
     readonly property url glassShaderUrl: "file://" + glassShaderOut
+    property bool dockGlassFailed: false
+    property int dockGlassShaderStatus: -1
+    readonly property url dockGlassUrl: Qt.resolvedUrl("dockglass.frag.qsb")
 
     onDockStyleChanged: if (dockStyle === "liquid") startGlass()
     onGlassStateChanged: console.log("[macdock-glass] state:", glassState)
@@ -4276,8 +4288,63 @@ Scope {
                 property var menuItem: null
                 property var menuModel: []
                 property string armed: ""            // label of a confirm-type entry that was clicked once (e.g. Empty Trash)
-                onMenuItemChanged: armed = ""
+                property real menuTailX: -1
+                function updateMenuTail() {
+                    if (!menuOpen) return;
+                    var w = menuW;
+                    var idealX = menuCx - w / 2;
+                    var clampedX = Math.max(8, Math.min(ui.width - w - 8, idealX));
+                    menuTailX = Math.round(menuCx - clampedX);
+                }
+                onMenuItemChanged: {
+                    armed = "";
+                    if (menuItem === null) {
+                        menuCell = null;
+                        menuIconTop = -1;
+                        menuTailX = -1;
+                    } else {
+                        updateMenuTail();
+                    }
+                }
+                // the cell the right-click menu belongs to: while the menu is open it follows that icon (its centre and its top edge)
+                property Item menuCell: null
+                property real menuIconTop: -1
+                function syncMenu() {
+                    var c = menuCell;
+                    if (!c || !c.iconImg) return;
+                    var p = c.mapToItem(ui, c.width / 2, 0);
+                    if (Math.abs(p.x - menuCx) > 0.05) menuCx = p.x;
+                    var t = c.iconImg.mapToItem(ui, 0, 0).y;
+                    if (Math.abs(t - menuIconTop) > 0.05) menuIconTop = t;
+                    if (menuTailX < 0) updateMenuTail();
+                }
+                FrameAnimation { running: ui.menuOpen && ui.menuCell !== null; onTriggered: ui.syncMenu() }
                 property real menuCx: 0
+                property real menuTextW: 0
+                readonly property real menuW: Math.max(Math.round(168 * root.labelK), Math.min(Math.round(360 * root.labelK), Math.ceil(menuTextW) + Math.round(38 * root.labelK)))
+                TextMetrics {
+                    id: menuTm
+                    font.pixelSize: Math.max(9, Math.round(13 * root.labelK))
+                    font.family: root.fontFamily
+                }
+                function measureMenu() {
+                    var w = 0;
+                    for (var i = 0; i < menuModel.length; i++) {
+                        var e = menuModel[i];
+                        if (e.kind === "sep") continue;
+                        menuTm.text = e.label || "";
+                        w = Math.max(w, menuTm.advanceWidth);
+                        if (e.confirm === true) {
+                            menuTm.text = Language.I18n.text("ui.t_1f8c95036230");
+                            w = Math.max(w, menuTm.advanceWidth);
+                        }
+                    }
+                    menuTextW = w;
+                }
+                onMenuModelChanged: {
+                    measureMenu();
+                    updateMenuTail();
+                }
                 readonly property bool menuOpen: menuItem !== null
                 readonly property bool wantsHide: root.hideMode === "always"
                     || (root.hideMode === "smart" && root.busyMonitors[win.modelData.name] === true)
@@ -4635,6 +4702,7 @@ Scope {
                     // ── Apple Liquid Glass: real-time refraction of the backdrop (see liquidglass.frag) ──
                     Loader {
                         id: glassLayer
+                        objectName: "dockGlassLayer"
                         anchors.fill: parent
                         active: root.liquidActive && win.captureGlass
                         sourceComponent: Item {
@@ -4643,7 +4711,7 @@ Scope {
                             readonly property real ds: root.glassBlur >= 8 ? 0.5 : 1.0
                             readonly property real bn: root.glassBlur * 1.4 * ds / 64.0
                             readonly property real margin: 72      // extra backdrop captured around the Dock (refraction + blur reach)
-                            readonly property real padPx: 10       // shader item padding (drop shadow)
+                            readonly property real padPx: root.dockGlassFailed ? 10 : 30
                             ShaderEffectSource {
                                 id: bsrc
                                 sourceItem: glassBackdrop.item
@@ -4694,13 +4762,26 @@ Scope {
                             }
                             ShaderEffect {
                                 id: glassFx
+                                objectName: "dockGlassEffect"
                                 x: -padPx; y: -padPx
                                 width: dock.width + 2 * padPx
                                 height: dock.height + 2 * padPx
-                                fragmentShader: root.glassShaderUrl
+                                fragmentShader: root.dockGlassFailed ? root.glassShaderUrl : root.dockGlassUrl
                                 onStatusChanged: {
+                                    root.dockGlassShaderStatus = status;
                                     console.log("[macdock-glass] shader status:", status, "(0 = compiled, 1 = uncompiled, 2 = error)", log);
-                                    if (status === ShaderEffect.Error) root.glassState = "failed";
+                                    if (status === ShaderEffect.Error) {
+                                        const failedShader = fragmentShader;
+                                        Qt.callLater(() => {
+                                            if (glassFx.status !== ShaderEffect.Error || glassFx.fragmentShader !== failedShader) return;
+                                            // Two screens can error on dockglass together. Only a failure of the
+                                            // shared fallback QSB marks the Dock glass as fully failed.
+                                            if (String(failedShader) === String(root.glassShaderUrl))
+                                                root.glassState = "failed";
+                                            else
+                                                root.dockGlassFailed = true;
+                                        });
+                                    }
                                 }
 
                                 property variant src: dg.bn > 1.0 ? bblur2 : bblur
@@ -4723,6 +4804,10 @@ Scope {
                                 property real dark: root.darkMode ? 1 : 0
                                 property real debug: root.glassDebug ? 1 : 0
                                 property real shadowAmt: 1
+                                property real rimTint: 0
+                                property real ringW: 0
+                                property real flatInner: 0
+                                property vector4d edgeTint: Qt.vector4d(0, 0, 0, 0)
                             }
                         }
                     }
@@ -4749,8 +4834,10 @@ Scope {
 
                             delegate: Item {
                                 id: cell
+                                objectName: "dockCell:" + key
                                 required property string key
                                 required property int index
+                                readonly property alias iconImg: img
                                 readonly property var modelData: root.itemMap[key] || ({ kind: "sep", key: key, nA: 0, nS: 0 })
                                 readonly property bool isSep: modelData.kind === "sep"
                                 readonly property bool canDrag: !isSep && modelData.pinned === true && !modelData.special
@@ -4786,8 +4873,7 @@ Scope {
                                 readonly property bool leavingCell: modelData.leaving === true
                                 property real appear: modelData.fresh ? 0 : 1
                                 Behavior on appear { NumberAnimation { duration: cell.leavingCell ? root.leaveMs : 320; easing.type: cell.leavingCell ? Easing.InOutCubic : Easing.OutCubic } }
-                                Component.onCompleted: { heldTl = thumbWin; Qt.callLater(function () { cell.appear = cell.leavingCell ? 0 : 1; }); }
-                                onLeavingCellChanged: appear = leavingCell ? 0 : 1
+                                Component.onCompleted: { heldTl = thumbWin; Qt.callLater(function () { cell.appear = cell.leavingCell ? 0 : 1; cell.bounceStep(); }); }
                                 enabled: !leavingCell
 
                                 readonly property real c0: modelData.nA * (root.iconSize + root.spacing)
@@ -4906,38 +4992,87 @@ Scope {
                                     y: cell.height + 3
                                 }
 
+                                readonly property bool wantBounce: !cell.isSep && root.bounceOnLaunch && root.launching[cell.modelData.key] !== undefined && !ui.tucked
+                                readonly property real bounceLift: img.lift
+                                property bool bounceShown: false
+                                function bounceStep() {
+                                    if (ui.tucked || cell.leavingCell) { bounceAnim.stop(); settleAnim.stop(); img.lift = 0; bounceShown = false; return; }
+                                    if (wantBounce && !bounceAnim.running && !settleAnim.running) { bounceShown = true; bounceAnim.start(); }
+                                    else if (!wantBounce && bounceShown && !bounceAnim.running && !settleAnim.running) { bounceShown = false; settleAnim.start(); }
+                                }
+                                onWantBounceChanged: bounceStep()
+                                onLeavingCellChanged: { appear = leavingCell ? 0 : 1; bounceStep(); }
                                 SequentialAnimation {
-                                    running: !cell.isSep && root.bounceOnLaunch && root.launching[cell.modelData.key] !== undefined
-                                    loops: Animation.Infinite
-                                    NumberAnimation { target: img; property: "lift"; to: root.iconSize * 0.4
-                                                      duration: 260; easing.type: Easing.OutQuad }
-                                    NumberAnimation { target: img; property: "lift"; to: 0
-                                                      duration: 260; easing.type: Easing.InQuad }
-                                    onRunningChanged: if (!running) img.lift = 0
+                                    id: bounceAnim
+                                    NumberAnimation { target: img; property: "lift"; to: root.iconSize * 0.4; duration: 260; easing.type: Easing.OutQuad }
+                                    NumberAnimation { target: img; property: "lift"; to: 0; duration: 260; easing.type: Easing.InQuad }
+                                    onFinished: cell.bounceStep()
+                                }
+                                SequentialAnimation {
+                                    id: settleAnim
+                                    NumberAnimation { target: img; property: "lift"; to: root.iconSize * 0.13; duration: 150; easing.type: Easing.OutQuad }
+                                    NumberAnimation { target: img; property: "lift"; to: 0; duration: 150; easing.type: Easing.InQuad }
+                                    onFinished: cell.bounceStep()
                                 }
 
-                                Rectangle {
+                                // macOS Tahoe hover label: Liquid Glass bubble with a pointer tail. Built only after a short dwell
+                                // so a fast sweep over pinned apps does not create a bubble per icon.
+                                property bool hoverSettled: false
+                                Timer { id: tipDwell; interval: 90; running: ma.containsMouse && !cell.isSep; onTriggered: cell.hoverSettled = true }
+                                Connections { target: ma; function onContainsMouseChanged() { if (!ma.containsMouse) cell.hoverSettled = false; } }
+                                readonly property bool tipOn: root.showLabels && !cell.isSep && cell.hoverSettled && ma.containsMouse && !ma.pressed && !ui.menuOpen && !ui.dragging
+                                readonly property alias tipPanel: tip.item
+                                Loader {
                                     id: tip
-                                    visible: opacity > 0
-                                    opacity: (root.showLabels && !cell.isSep && ma.containsMouse && !ma.pressed && !ui.menuOpen && !ui.dragging) ? 1 : 0
-                                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                                    objectName: "dockHoverTip"
                                     z: 10
-                                    width: label.implicitWidth + 22
-                                    height: label.implicitHeight + 10
-                                    radius: 8
-                                    color: Qt.rgba(0.12, 0.12, 0.13, 0.72)
-                                    border.width: 1
-                                    border.color: Qt.rgba(1, 1, 1, 0.12)
+                                    opacity: cell.tipOn ? 1 : 0
+                                    Behavior on opacity { NumberAnimation { duration: 120 } }
+                                    active: cell.tipOn || opacity > 0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    y: cell.height - img.height - img.lift - height - 10
+                                    y: cell.height - img.height - img.lift - height - Math.round(9 * root.labelK)
+                                    sourceComponent: DockGlassPanel {
+                                        id: lp
+                                        objectName: "dockHoverLabel"
+                                        readonly property string title: cell.isSep ? "" : ((cell.modelData.kind === "win" && cell.modelData.tl && cell.modelData.tl.title) ? Utilities.displayTitle(root.appOf(cell.modelData.tl), cell.modelData.tl.title, value => Language.I18n.legacy(value), Language.I18n.activeLanguage) : cell.modelData.name)
+                                        readonly property string sub: (!cell.isSep && cell.modelData.kind === "win" && cell.modelData.name && cell.modelData.name !== title) ? cell.modelData.name : ""
+                                        readonly property real fs: Math.max(9, Math.round(13 * k))
+                                        backdrop: glassBackdrop.item
+                                        live: root.liquidActive && glassBackdrop.item !== null
+                                        dark: root.darkMode
+                                        k: root.labelK
+                                        radius: Math.min(11.7 * k, bodyH / 2)
+                                        tailW: 21 * k
+                                        tailH: 5.8 * k
+                                        tailTipR: 2.4 * k
+                                        bodyH: sub !== "" ? 32 * k : 26 * k
+                                        width: Math.ceil(Math.max(tt.width, st.visible ? st.width : 0)) + 2 * Math.round(12 * k)
 
-                                    Text {
-                                        id: label
-                                        anchors.centerIn: parent
-                                        text: cell.isSep ? "" : ((cell.modelData.kind === "win" && cell.modelData.tl && cell.modelData.tl.title) ? Utilities.displayTitle(root.appOf(cell.modelData.tl), cell.modelData.tl.title, value => Language.I18n.legacy(value), Language.I18n.activeLanguage) : cell.modelData.name)
-                                        color: "white"
-                                        font.pixelSize: 13
-                                        font.family: root.fontFamily
+                                        Text {
+                                            id: tt
+                                            text: lp.title
+                                            width: Math.min(implicitWidth, Math.round(320 * lp.k))
+                                            elide: Text.ElideRight
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            anchors.verticalCenter: parent.top
+                                            anchors.verticalCenterOffset: lp.sub !== "" ? 9.2 * lp.k : lp.bodyH / 2 + 0.5 * lp.k
+                                            color: lp.dark ? Qt.rgba(1, 1, 1, 0.92) : Qt.rgba(0, 0, 0, 0.86)
+                                            font.pixelSize: lp.fs
+                                            font.family: root.fontFamily
+                                        }
+                                        Text {
+                                            id: st
+                                            visible: lp.sub !== ""
+                                            text: lp.sub
+                                            width: Math.min(implicitWidth, Math.round(320 * lp.k))
+                                            elide: Text.ElideRight
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            anchors.verticalCenter: parent.top
+                                            anchors.verticalCenterOffset: 22.4 * lp.k
+                                            color: lp.dark ? Qt.rgba(1, 1, 1, 0.60) : Qt.rgba(0, 0, 0, 0.58)
+                                            font.pixelSize: Math.max(8, Math.round(10.2 * lp.k))
+                                            font.family: root.fontFamily
+                                        }
                                     }
                                 }
 
@@ -4988,7 +5123,9 @@ Scope {
                                         if (mouse.button === Qt.RightButton) {
                                             ui.menuCx = cell.mapToItem(ui, cell.width / 2, 0).x;
                                             ui.menuModel = root.menuFor(cell.modelData);
+                                            ui.menuCell = cell;
                                             ui.menuItem = cell.modelData;
+                                            ui.syncMenu();
                                         } else {
                                             root.activate(cell.modelData, mouse.button === Qt.MiddleButton);
                                         }
@@ -5008,8 +5145,9 @@ Scope {
                     onPressed: ui.menuItem = null
                 }
 
-                Rectangle {
+                DockGlassPanel {
                     id: menu
+                    objectName: "dockContextMenu"
                     z: 60
                     visible: opacity > 0
                     opacity: ui.menuOpen ? 1 : 0
@@ -5018,56 +5156,69 @@ Scope {
                     Behavior on opacity { NumberAnimation { duration: 110 } }
                     Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
 
-                    width: 230
-                    height: menuCol.height + 10
+                    backdrop: glassBackdrop.item
+                    live: root.liquidActive && glassBackdrop.item !== null
+                    frozen: ui.menuOpen
+                    dark: root.darkMode
+                    k: root.labelK
+                    radius: 16 * k
+                    tailW: 24 * k
+                    tailH: 9 * k
+                    tailTipR: 3.6 * k
+                    readonly property real pad: Math.round(5 * k)
+
+                    width: ui.menuW
+                    bodyH: menuCol.height + 2 * pad
                     x: Math.max(8, Math.min(ui.width - width - 8, ui.menuCx - width / 2))
-                    y: ui.height - root.margin - root.bgHeight - root.iconSize * (root.effMag - 1) - 14 - height
-                    radius: 10
-                    color: Qt.rgba(0.14, 0.14, 0.15, 0.62)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.16)
+                    y: ui.menuIconTop >= 0 ? ui.menuIconTop - Math.round(10 * k) - height
+                                           : ui.height - root.margin - root.bgHeight - root.iconSize * (root.effMag - 1) - Math.round(10 * k) - height
+                    // The tail points at the icon the menu belongs to. Its position along the bubble is locked when the menu opens:
+                    // re-evaluating tailX while the menu follows its icon during magnification changed shapeKey on every frame.
+                    tailX: ui.menuTailX >= 0 ? ui.menuTailX : width / 2
 
                     Column {
                         id: menuCol
-                        x: 5
-                        y: 5
-                        width: parent.width - 10
+                        x: menu.pad
+                        y: menu.pad
+                        width: menu.width - 2 * menu.pad
 
                         Repeater {
                             model: ui.menuModel
 
                             delegate: Item {
                                 id: mi
+                                objectName: isSep ? "dockMenuSep" : ("dockMenu:" + String(modelData.label))
                                 required property var modelData
                                 readonly property bool isSep: modelData.kind === "sep"
                                 readonly property bool off: !isSep && modelData.disabled === true
                                 readonly property bool armedNow: !isSep && modelData.confirm === true && ui.armed === modelData.label
                                 width: menuCol.width
-                                height: isSep ? 9 : 26
+                                height: isSep ? Math.round(11 * menu.k) : Math.round(22 * menu.k)
 
                                 Rectangle {
                                     visible: mi.isSep
                                     anchors.verticalCenter: parent.verticalCenter
-                                    x: 6
-                                    width: parent.width - 12
+                                    width: parent.width
                                     height: 1
-                                    color: Qt.rgba(1, 1, 1, 0.14)
+                                    color: menu.dark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.12)
                                 }
                                 Rectangle {
                                     visible: !mi.isSep && !mi.off && mia.containsMouse
                                     anchors.fill: parent
-                                    radius: 5
+                                    radius: Math.round(8 * menu.k)
                                     color: mi.armedNow ? "#FF453A" : root.accent
                                 }
                                 Text {
                                     visible: !mi.isSep
-                                    x: 10
+                                    x: Math.round(11 * menu.k)
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 20
+                                    width: parent.width - 2 * Math.round(11 * menu.k)
                                     elide: Text.ElideRight
                                     text: mi.isSep ? "" : (mi.armedNow ? Language.I18n.text("ui.t_1f8c95036230") : mi.modelData.label)
-                                    color: mi.off ? Qt.rgba(1, 1, 1, 0.4) : "white"
-                                    font.pixelSize: 13
+                                    color: (!mi.isSep && !mi.off && mia.containsMouse) ? "white"
+                                         : (mi.off ? (menu.dark ? Qt.rgba(1, 1, 1, 0.30) : Qt.rgba(0, 0, 0, 0.28))
+                                                   : (menu.dark ? Qt.rgba(1, 1, 1, 0.92) : Qt.rgba(0, 0, 0, 0.86)))
+                                    font.pixelSize: Math.max(9, Math.round(13 * menu.k))
                                     font.family: root.fontFamily
                                 }
                                 MouseArea {

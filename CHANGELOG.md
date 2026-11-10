@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.3
+
+- Refined Liquid Glass rim and inner shading on the menu bar, Dock and widgets. Dock can load a dedicated glass shader and falls back to the shared one if that shader fails.
+- Control Center tiles use the flatter glass treatment. Opening Wi-Fi or Bluetooth from Control Center keeps the list inside that panel, with Back and Escape; the matching menu-bar icons still open separate popovers.
+- Dock hover labels and context menus use a Tahoe-style glass bubble with a tail. Launch bounce eases out instead of cutting off; Trash and app menus follow light and dark themes.
+- Shared `ControlSwitch`, `ControlSlider`, `LevelSlider` and `SegmentedControl` match the newer capsule shapes; a glass lens is used while dragging where the shader loads.
+- Calendar desktop cards place the month grid on integer cells and draw an even “today” circle in the same box as the date.
+- Desktop widget catalog adds Notes and Reminders cards on the existing Rust stores (not ExtraWidgets markdown files) and an Image card for a local file path only. Network image URLs are rejected. Stocks, Photos and ExtraWidgets Alarms are not included.
+- Isolated nested-niri click checks cover Control Center navigation and Dock menus, bounce, auto-hide and glass fallback. Offscreen QML tests cover the new widget cards, calendar grid, segmented control and Dock glass panel.
+- Appearance and Menu Bar replace the raw glass sliders with a Clear / Standard / Vibrant / Frosted look. Named looks keep blur below the half-resolution threshold. Blur, refraction and frosting stay under Advanced.
+
 ## 1.2.2
 
 - Fixed CI dependency preparation for offline Rust builds and installation tests.

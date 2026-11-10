@@ -21,14 +21,14 @@ Item {
         color: s.t.fg
     }
     Rectangle {
-        x: s.trackX; width: s.trackW; height: 4; radius: 2
+        x: s.trackX; width: s.trackW; height: 6; radius: 3
         anchors.verticalCenter: parent.verticalCenter
         color: s.t.track
     }
     Rectangle {
         x: s.trackX
         width: s.position * s.trackW
-        height: 4; radius: 2
+        height: 6; radius: 3
         anchors.verticalCenter: parent.verticalCenter
         color: s.t.fg
     }

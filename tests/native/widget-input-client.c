@@ -78,7 +78,11 @@ int main(int argc, char **argv) {
         wl_display_disconnect(display);
         return manager_version >= 2 ? 0 : 77;
     }
-    if (argc != 9 && argc != 11) { fprintf(stderr, "Expected click/drag, output and bounded coordinates\n"); return 2; }
+    int scrolling = argc == 9 && strcmp(argv[1], "scroll") == 0;
+    int dragging = argc == 11 && strcmp(argv[1], "drag") == 0;
+    int clicking = argc == 9 && strcmp(argv[1], "click") == 0;
+    int moving = argc == 8 && strcmp(argv[1], "move") == 0;
+    if (!scrolling && !dragging && !clicking && !moving) { fprintf(stderr, "Expected click/drag/scroll/move, output and bounded coordinates\n"); return 2; }
     if (manager_version < 2) { fprintf(stderr, "Virtual pointer v2 unavailable\n"); return 77; }
     struct wl_output *output = NULL;
     for (size_t i = 0; i < output_count; i++) if (strcmp(outputs[i].name, argv[2]) == 0) output = outputs[i].proxy;
@@ -86,23 +90,44 @@ int main(int argc, char **argv) {
     unsigned x = number(argv[3], 100000), y = number(argv[4], 100000);
     unsigned width = number(argv[5], 100000), height = number(argv[6], 100000);
     if (!width || !height || x >= width || y >= height) return 2;
-    unsigned code = strcmp(argv[7], "right") == 0 ? BTN_RIGHT : BTN_LEFT;
     // Last argument is an explicit guard word supplied by the Python probe.
     if (strcmp(argv[argc - 1], "owned-probe") != 0) return 2;
-    int dragging = strcmp(argv[1], "drag") == 0 && argc == 11;
-    if (!dragging && (strcmp(argv[1], "click") != 0 || argc != 9)) return 2;
     unsigned target_x = dragging ? number(argv[8], width - 1) : x;
     unsigned target_y = dragging ? number(argv[9], height - 1) : y;
+    unsigned code = (!scrolling && !moving && strcmp(argv[7], "right") == 0) ? BTN_RIGHT : BTN_LEFT;
+    int32_t scroll = 0;
+    if (scrolling) {
+        char *end;
+        long value = strtol(argv[7], &end, 10);
+        if (*argv[7] == '\0' || *end || value < -10000 || value > 10000) { fprintf(stderr, "Invalid scroll delta\n"); return 2; }
+        scroll = (int32_t)value;
+    }
     struct wl_proxy *pointer = wl_proxy_marshal_flags(manager, 2, &pointer_interface, 2, 0, NULL, output, NULL);
     // Send the bounded sequence in one batch so another pointing device cannot
     // move a button press away from its guarded target between client waits.
     motion(pointer, x, y, width, height);
-    button(pointer, code, WL_POINTER_BUTTON_STATE_PRESSED);
-    if (dragging) {
-        motion(pointer, (x + target_x) / 2, (y + target_y) / 2, width, height);
-        motion(pointer, target_x, target_y, width, height);
+    wl_display_roundtrip(display);
+    if (scrolling) {
+        /* Wheel frames must not send axis_stop: smithay replaces the pending
+         * axis with a zero stop, so the compositor delivers no scroll. */
+        int32_t notch = (scroll / 3) * 256;
+        if (!notch) notch = (scroll < 0 ? -1 : 1) * 256;
+        int32_t step = scroll < 0 ? -1 : 1;
+        for (int i = 0; i < 3; i++) {
+            wl_proxy_marshal_flags(pointer, 5, NULL, 2, 0, 0u);
+            wl_proxy_marshal_flags(pointer, 7, NULL, 2, 0, now(), 0u, notch, step);
+            wl_proxy_marshal_flags(pointer, 3, NULL, 2, 0, now(), 0u, notch);
+            frame(pointer);
+        }
+    } else if (!moving) {
+        button(pointer, code, WL_POINTER_BUTTON_STATE_PRESSED);
+        if (dragging) {
+            motion(pointer, (x + target_x) / 2, (y + target_y) / 2, width, height);
+            motion(pointer, target_x, target_y, width, height);
+        }
+        button(pointer, code, WL_POINTER_BUTTON_STATE_RELEASED);
     }
-    button(pointer, code, WL_POINTER_BUTTON_STATE_RELEASED); wl_display_roundtrip(display);
+    wl_display_roundtrip(display);
     wl_proxy_marshal_flags(pointer, 8, NULL, 2, WL_MARSHAL_FLAG_DESTROY);
     wl_proxy_marshal_flags(manager, 1, NULL, 2, WL_MARSHAL_FLAG_DESTROY);
     wl_display_roundtrip(display); wl_display_disconnect(display);

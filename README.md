@@ -18,9 +18,9 @@ A macOS-inspired desktop for **niri**, with a Dock, Spotlight, Liquid Glass and 
 
 ## Features
 
-- **Desktop:** Dock, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes.
+- **Desktop:** Dock with hover labels and glass menus, Spotlight, Control Center, adjustable menu bar, desktop widgets and light and dark themes. Wi-Fi and Bluetooth lists opened from Control Center stay inside that panel.
 - **Clock:** world clocks, alarms, stopwatch and a shared timer, with a desktop Timer widget and a customizable sound library.
-- **Notes, Stickies and Reminders:** local notes with search and autosave, floating sticky notes and task lists with due dates, notifications and repeating tasks.
+- **Notes, Stickies and Reminders:** local notes with search and autosave, floating sticky notes and task lists with due dates, notifications and repeating tasks. Matching Notes and Reminders desktop widgets share those stores; an Image widget shows a local file only.
 - **Calendar:** a local month view with all-day and timed events, editing and recovery of deleted events. Recurrence, notifications and synchronization are not yet available.
 - **Calculator:** basic and scientific modes, unit and currency conversion.
 - **Settings and lock screen:** Russian and English interface, regional formats and a separate MacLock screen locker.

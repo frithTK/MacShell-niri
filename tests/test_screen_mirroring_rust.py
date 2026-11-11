@@ -62,10 +62,15 @@ class RustScreenMirroringTests(original.ScreenMirroringTests):
             if virtual_niri:
                 extra.setdefault('NIRI_FAKE_VIRTUAL', '1')
         if dummy_hdmi:
+            edid = bytearray(128)
+            edid[77:85] = b'MacShell'
+            (sysfs / 'card1-HDMI-A-1' / 'edid').write_bytes(bytes(edid))
             pkexec.write_text('#!' + sys.executable + '\n' + """
 import os, pathlib, sys
 sysfs = pathlib.Path(os.environ['MACSHELL_DRM_SYSFS'])
-(sysfs / 'card1-HDMI-A-1' / 'status').write_text('connected\\n')
+action = sys.argv[-2] if len(sys.argv) >= 2 else 'on'
+status = 'connected\\n' if action == 'on' else 'disconnected\\n'
+(sysfs / 'card1-HDMI-A-1' / 'status').write_text(status)
 sys.exit(0)
 """)
             pkexec.chmod(0o755)
@@ -90,7 +95,7 @@ sys.exit(0)
         client.wait(lambda m: m.get('type') == 'ready')
         return client
 
-    def test_launcher_uses_compatible_rust_and_falls_back(self):
+    def test_launcher_uses_compatible_rust_and_refuses_missing(self):
         import shutil
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -98,10 +103,15 @@ sys.exit(0)
             (root / 'screen_mirroring.py').write_text('print("python fallback")\n')
             binary = root / 'screen-mirroring-service-rust'
             launcher = ['sh', str(root / 'screen-mirroring-service.sh')]
-            self.assertEqual(subprocess.check_output(launcher, text=True).strip(), 'python fallback')
+            missing = subprocess.run(launcher, capture_output=True, text=True)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('python fallback', missing.stdout)
+            self.assertIn('Rust', missing.stderr)
             binary.write_text('#!/bin/sh\nif [ "$1" = --protocol-version ]; then printf "wrong\\n"; else printf "rust\\n"; fi\n')
             binary.chmod(0o755)
-            self.assertEqual(subprocess.check_output(launcher, text=True).strip(), 'python fallback')
+            incompatible = subprocess.run(launcher, capture_output=True, text=True)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('python fallback', incompatible.stdout)
             shutil.copy(self.binary, binary)
             result = subprocess.run(launcher, input='', capture_output=True, text=True, check=True)
             self.assertEqual(json.loads(result.stdout.splitlines()[0])['type'], 'ready')
@@ -121,42 +131,40 @@ sys.exit(0)
         self.assertIn('-volume-percent', state['senderError'])
         self.assertFalse(client.trace.exists())
 
-    def test_extend_without_virtual_output_is_refused(self):
+    def test_extend_preference_is_ignored_and_mirrors(self):
         client = self.client()
         state = self.discover(client)
-        self.assertFalse(state.get('extendAvailable'))
         client.send('connect', key=state['devices'][0]['key'], layout='extend')
-        error = client.wait(lambda m: m.get('type') == 'error')
-        self.assertIn('virtual display', error['error'])
-        self.assertFalse(any(line.get('request', {}).get('cmd') == 'connect' for line in self.trace(client)))
+        connected = client.wait(lambda m: m.get('senderState') == 'pin_required')
+        self.assertEqual(connected.get('layout'), 'mirror')
+        self.assertTrue(any(line.get('request', {}).get('cmd') == 'connect' for line in self.trace(client)))
 
-    def test_extend_creates_virtual_output_and_releases_it(self):
+    def test_extend_does_not_create_a_virtual_output(self):
         client = self.client(virtual_niri=True)
         state = self.discover(client)
         self.assertTrue(state.get('virtualOutputsSupported'))
-        self.assertTrue(state.get('extendAvailable'))
-        self.assertEqual(state.get('extendOutput'), 'MacShell-AirPlay')
         client.send('connect', key=state['devices'][0]['key'], layout='extend')
         client.wait(lambda m: m.get('senderState') == 'pin_required')
-        outputs = json.loads(client.niri_state.read_text())['outputs']
-        self.assertIn('MacShell-AirPlay', outputs)
-        self.assertGreater(outputs['MacShell-AirPlay']['logical']['x'], 0)
-        log = client.niri_log.read_text()
-        self.assertIn('create-virtual-output', log)
-        client.send('disconnect')
-        client.wait(lambda m: m.get('senderState') in ('ready', 'off'))
         self.assertNotIn('MacShell-AirPlay', json.loads(client.niri_state.read_text())['outputs'])
-        self.assertIn('remove-virtual-output', client.niri_log.read_text())
+        self.assertNotIn('create-virtual-output', client.niri_log.read_text())
 
-    def test_extend_forces_disconnected_hdmi_through_authorization(self):
+    def test_extend_does_not_force_hdmi_dummy(self):
         client = self.client(dummy_hdmi=True)
         state = self.discover(client)
-        self.assertFalse(state.get('virtualOutputsSupported'))
-        self.assertTrue(state.get('extendAvailable'))
-        self.assertEqual(state.get('extendMethod'), 'dummy')
-        self.assertEqual(state.get('extendOutput'), 'HDMI-A-1')
         client.send('connect', key=state['devices'][0]['key'], layout='extend')
         client.wait(lambda m: m.get('senderState') == 'pin_required')
-        self.assertIn('HDMI-A-1', json.loads(client.niri_state.read_text())['outputs'])
-        client.send('disconnect')
-        client.wait(lambda m: m.get('senderState') in ('ready', 'off'))
+        self.assertNotIn('HDMI-A-1', json.loads(client.niri_state.read_text())['outputs'])
+
+    def test_mirror_turns_off_leftover_macshell_dummy(self):
+        client = self.client(dummy_hdmi=True)
+        sysfs = Path(client.niri_state).parent / 'drm-sysfs'
+        (sysfs / 'card1-HDMI-A-1' / 'status').write_text('connected\n')
+        client.niri_state.write_text(json.dumps({'outputs': {
+            'eDP-1': {'logical': {'x': 0, 'y': 0, 'width': 1920, 'height': 1080}},
+            'HDMI-A-1': {'logical': {'x': 1920, 'y': 0, 'width': 1920, 'height': 1080}},
+        }, 'casts': []}))
+        state = self.discover(client)
+        client.send('connect', key=state['devices'][0]['key'], layout='mirror')
+        client.wait(lambda m: m.get('senderState') == 'pin_required')
+        self.assertNotIn('HDMI-A-1', json.loads(client.niri_state.read_text())['outputs'])
+        self.assertEqual((sysfs / 'card1-HDMI-A-1' / 'status').read_text().strip(), 'disconnected')

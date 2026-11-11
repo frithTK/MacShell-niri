@@ -7,8 +7,8 @@ session bus. It rejects a failed process, a Qt rebuild warning, a configuration
 load failure, invalid output and a timeout. Child output is bounded; on timeout
 the helper stops its own process group.
 
-`session-preflight.sh` checks the Rust protocol version and can fall back to the
-previous Python helper. The installer refreshes the separate login script and
+`session-preflight.sh` checks the Rust protocol version and fails if the binary
+is missing or incompatible. The installer refreshes the separate login script and
 its helper with `--session`. A plain installation does not rewrite an existing
 login script. The Python installer still uses its existing runtime check.
 

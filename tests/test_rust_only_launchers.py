@@ -1,4 +1,4 @@
-"""Installed Rust-only policy and compatibility with legacy profiles."""
+"""Runtime launchers never invoke Python; missing Rust binaries fail."""
 import os
 from pathlib import Path
 import re
@@ -11,13 +11,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RustOnlyLauncherTests(unittest.TestCase):
-    def test_all_python_fallback_launchers_obey_profile_policy(self):
+    def test_runtime_launchers_never_invoke_python(self):
         launchers = []
         for folder in ('MacShell', 'MacLock', 'scripts'):
             for path in (ROOT / folder).glob('*.sh'):
                 content = path.read_text()
-                if 'exec python3' in content:
-                    launchers.append((path, content))
+                if 'binary="$directory/' not in content:
+                    continue
+                if 'Rust' not in content or 'exit 1' not in content:
+                    continue
+                self.assertNotIn('exec python3', content)
+                self.assertNotIn('python3', content)
+                launchers.append((path, content))
         self.assertGreaterEqual(len(launchers), 30)
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -35,40 +40,16 @@ class RustOnlyLauncherTests(unittest.TestCase):
                     self.assertIsNotNone(match)
                     binary = folder / match.group(1)
                     command = ['/bin/sh', str(launcher), 'input', '{}']
-                    legacy = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
-                    self.assertEqual(legacy.returncode, 0, legacy.stderr)
-                    self.assertIn('legacy-python', legacy.stdout)
-                    (folder / '.macshell-rust-only').write_text('1\n')
-                    for present in (False, True):
-                        if present:
-                            binary.write_text('#!/bin/sh\nprintf "incompatible\\n"\n')
-                            binary.chmod(0o755)
-                        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
-                        self.assertNotEqual(result.returncode, 0)
-                        self.assertNotIn('legacy-python', result.stdout)
-                        self.assertIn('Rust', result.stderr)
-                    marker = folder / '.macshell-rust-only'
-                    marker.unlink()
-                    for marker_type in ('directory', 'broken-link'):
-                        with self.subTest(marker=marker_type):
-                            if marker_type == 'directory':
-                                marker.mkdir()
-                            else:
-                                marker.symlink_to('missing-marker-target')
-                            for present in (False, True):
-                                if present:
-                                    binary.write_text('#!/bin/sh\nprintf "incompatible\\n"\n')
-                                    binary.chmod(0o755)
-                                else:
-                                    binary.unlink(missing_ok=True)
-                                result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
-                                self.assertNotEqual(result.returncode, 0)
-                                self.assertNotIn('legacy-python', result.stdout)
-                                self.assertIn('Rust', result.stderr)
-                            if marker_type == 'directory':
-                                marker.rmdir()
-                            else:
-                                marker.unlink()
+                    missing = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+                    self.assertNotEqual(missing.returncode, 0, missing.stdout)
+                    self.assertNotIn('legacy-python', missing.stdout)
+                    self.assertIn('Rust', missing.stderr)
+                    binary.write_text('#!/bin/sh\nprintf "incompatible\\n"\n')
+                    binary.chmod(0o755)
+                    incompatible = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+                    self.assertNotEqual(incompatible.returncode, 0)
+                    self.assertNotIn('legacy-python', incompatible.stdout)
+                    self.assertIn('Rust', incompatible.stderr)
 
 
 if __name__ == '__main__':

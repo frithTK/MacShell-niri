@@ -4,7 +4,7 @@ This service maintains the JSON-lines contract for focus and keep-awake modes. F
 
 The session comes from the managed session token, or from a successful niri `Version` request and the socket's filesystem identity. A replaced socket, full backlog, missing socket or failed response leaves the session unknown. Saved unknown fields remain intact. The service only publishes state; it does not itself inhibit sleep or edit settings.
 
-The installer builds the service offline before replacing installed files. The launcher uses the Rust binary when compatible and falls back to the Python implementation during migration. Other components and the installer still require Python.
+The installer builds the service offline before replacing installed files. The launcher requires a compatible Rust binary. Python remains for comparison tests and development tools.
 
 ```sh
 cargo test --offline --locked --manifest-path native/timed-modes/Cargo.toml

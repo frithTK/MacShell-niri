@@ -129,12 +129,14 @@ ControlMenu {
     contentItem: Column {
         spacing: 14
         Text { width: parent.width; text: Language.I18n.text("security.intro"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
+        Text { width: parent.width; text: Language.I18n.text("security.templates_hardware"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { text: Language.I18n.text("security.fingerprint"); color: root.foreground; font.family: root.font.family; font.pixelSize: root.font.pixelSize; font.bold: true }
         Text { width: parent.width; visible: root.status !== "ok"; text: root.message(); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { visible: root.devices.length > 1; text: Language.I18n.text("security.choose_reader"); color: root.foreground; font: root.font }
         ControlComboBox { visible: root.devices.length > 1; width: parent.width; model: root.devices; textRole: "name"; currentIndex: root.selectedDeviceIndex; enabled: !operation.running; onActivated: index => { root.selectedDeviceIndex = index; root.confirmAction = ""; } }
         Text { objectName: "biometricDeviceName"; visible: !!root.selectedDevice; width: parent.width; text: root.selectedDevice ? root.selectedDevice.name : ""; textFormat: Text.PlainText; color: root.foreground; wrapMode: Text.Wrap; font: root.font }
         Text { objectName: "biometricEnrollment"; visible: !!root.selectedDevice; width: parent.width; text: !root.selectedDevice ? "" : root.selectedDevice.enrollment === "ok" ? Language.I18n.text("security.registered", {count: root.selectedDevice.fingers.length}) : Language.I18n.text("security.unknown"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
+        Text { objectName: "biometricNoneEnrolled"; visible: !!root.selectedDevice && root.selectedDevice.enrollment === "ok" && root.selectedDevice.fingers.length === 0; width: parent.width; text: Language.I18n.text("security.none_enrolled"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { visible: root.status === "ok"; text: Language.I18n.text("security.choose_finger"); color: root.foreground; font: root.font }
         ControlComboBox {
             id: fingerSelection

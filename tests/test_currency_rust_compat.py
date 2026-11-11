@@ -56,8 +56,9 @@ class CurrencyRustCompatibilityTests(unittest.TestCase):
         self.assertEqual(check.stdout.strip(), 'macshell-currency-fetch 1')
         (shell / 'currency-fetch-rust').unlink()
         currency_fetch.save_cache(self.path, self.snapshot)
-        result = subprocess.run(['sh', str(shell / 'currency-fetch.sh'), '22', '--cache', str(self.path)], capture_output=True, text=True, check=True, timeout=5)
-        self.assertEqual(json.loads(result.stdout.splitlines()[-1])['snapshot'], self.snapshot)
+        result = subprocess.run(['sh', str(shell / 'currency-fetch.sh'), '22', '--cache', str(self.path)], capture_output=True, text=True, timeout=5)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Rust', result.stderr)
 
 
 if __name__ == '__main__':

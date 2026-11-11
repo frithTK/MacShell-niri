@@ -144,9 +144,18 @@ class PowerRustTests(fixtures.PowerTests):
             (root/'power_control.py').write_text('print("legacy")\n')
             binary=root/'power-profiles-rust'
             binary.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo "macshell-power-profiles 1"; else echo rust; fi\n'); binary.chmod(0o755)
-            def launch(): return subprocess.run(['sh',str(root/'power-profiles.sh')],capture_output=True,text=True,timeout=5,check=True).stdout.strip()
-            self.assertEqual(launch(),'rust'); binary.write_text('#!/bin/sh\necho wrong\n'); self.assertEqual(launch(),'legacy')
-            binary.unlink(); self.assertEqual(launch(),'legacy')
+            def launch(check=True):
+                return subprocess.run(['sh',str(root/'power-profiles.sh')],capture_output=True,text=True,timeout=5,check=check)
+            self.assertEqual(launch().stdout.strip(),'rust')
+            binary.write_text('#!/bin/sh\necho wrong\n')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
+            self.assertIn('Rust', incompatible.stderr)
+            binary.unlink()
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
     @unittest.skipUnless(shutil.which(quickshell()),'Quickshell is required')
     def test_qml_uses_rust_with_private_dbus(self):
         with tempfile.TemporaryDirectory(prefix='macshell-power-qml-') as temp:

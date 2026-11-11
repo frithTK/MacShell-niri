@@ -8,8 +8,7 @@ layer-rule {
     match namespace="^macshell-wallpaper$"
     place-within-backdrop true
 }
-// ext-background-effect supplies live window pixels where IPC geometry is absent.
-// Xray would blur only the wallpaper, even above an application window.
+// Live window pixels under the glass. Xray true would blur only the wallpaper.
 layer-rule {
     match namespace="^mac(bar|barbg|dock|spot|switch|wall|osd)$"
     background-effect { xray false; }

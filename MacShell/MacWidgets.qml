@@ -137,6 +137,26 @@ Scope {
     property alias clockSource: widgetClock
     WidgetSubscriptions { id: widgetSubscriptions; instances: root.renderedRows; enabled: root.widgetsEnabled }
     WidgetClock { id: widgetClock; precision: widgetSubscriptions.clockPrecision }
+    readonly property var calendarMarkedDays: {
+        var app = hub && hub.calendar, now = widgetClock.dayNow, days = [];
+        if (!app || !app.controller || !now) return days;
+        var month = now.getMonth(), year = now.getFullYear();
+        var seen = {};
+        var rows = app.controller.occurrences && app.controller.occurrences.length ? app.controller.occurrences : app.controller.events || [];
+        for (var i = 0; i < rows.length; i++) {
+            var event = rows[i], day = event && event.all_day ? event.day : "";
+            if (!day && event && event.start_ms) {
+                var start = new Date(event.start_ms);
+                if (start.getMonth() === month && start.getFullYear() === year) day = start.getDate();
+            } else if (day) {
+                var parts = String(day).split("-");
+                if (parts.length === 3 && +parts[1] === month + 1 && +parts[0] === year) day = +parts[2];
+                else day = 0;
+            }
+            if (day && !seen[day]) { seen[day] = true; days.push(day); }
+        }
+        return days;
+    }
     readonly property bool notesWanted: ready && widgetSubscriptions.counts.notes > 0
     Binding {
         target: root.hub && root.hub.notes ? root.hub.notes : null
@@ -258,9 +278,9 @@ Scope {
     readonly property string configDir: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("HOME") + "/.config") + "/macwidgets"
 
     // Liquid Glass look = the Appearance sliders (Translucency / Blur / Liquid strength) of the Dock + Menu Bar
-    readonly property real glassOpacity: dock ? dock.glassOpacity : 0.42
-    readonly property real glassBlur: (dock ? dock.glassBlur : 5) + 11     // the Appearance blur slider, plus 11 more for widgets
-    readonly property real glassLiquid: dock ? dock.glassLiquid : 1.0
+    readonly property real glassOpacity: dock ? dock.glassOpacity : 0.28
+    readonly property real glassBlur: (dock ? dock.glassBlur : 4) + 4
+    readonly property real glassLiquid: dock ? dock.glassLiquid : 1.2
     readonly property real glassRim: dock ? dock.glassRim : 0.45
     readonly property real glassGrain: dock ? dock.glassGrain : 0.03
     readonly property bool darkGlass: dock ? dock.darkMode : true

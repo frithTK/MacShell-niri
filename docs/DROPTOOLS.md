@@ -1,15 +1,15 @@
 # Convert
 
-Локальное преобразование изображений и PDF в духе Tangerine / DragShift, без обещания глобального жеста на Wayland.
+Локальное преобразование изображений и PDF рядом с оригиналом, без отдельного окна.
 
-Tangerine — проприетарная программа для macOS и в MacShell не входит. [DragShift](https://github.com/llamaboi55/DragShift) — MIT, Python; его код не вендорится и не вызывается. На X11 DragShift перехватывает Shift+drag; **на Wayland этого жеста нет**, в том числе в niri. Рабочие входы:
+Tangerine — проприетарная программа для macOS и в MacShell не входит. [DragShift](https://github.com/llamaboi55/DragShift) — MIT, Python; его код не вендорится и не вызывается. На X11 DragShift перехватывает Shift+drag; **на Wayland этого жеста нет**, в том числе в niri. Рабочий вход — **контекстное меню файлового менеджера**: ПКМ по файлу → **Convert** / **Преобразовать** → PNG, JPEG, PDF или поворот на 90°. Установщик кладёт пункты в Nautilus (Scripts → Convert), Nemo, Caja, Dolphin (подменю Convert) и Thunar.
 
-- Spotlight: действие **Convert** / **Преобразовать** у локального файла
-- Apps / Dock: утилита **Convert**
-- обычное окно с зоной перетаскивания (`text/uri-list`) — удобно из Nautilus
-- IPC: `droptools open`, `droptools files PATH`, `spotlight convert PATH`
+Тип берётся из magic bytes, не только из расширения. Оригинал не перезаписывается; новый файл — `имя-действие.ext` рядом, при занятом имени `имя-действие-1.ext`. Пакет до 8 файлов, до 40 МиБ каждый. Для PDF пункты PNG/JPEG дают первую страницу, если в PATH есть `pdftoppm`. Автоудаления нет.
 
-Круговое меню: стрелки / Tab, Enter, Escape. Действия зависят от magic bytes, не только от расширения. Оригинал не перезаписывается; новый файл — `имя-действие.ext` рядом, при занятом имени `имя-действие-1.ext`. Пакет до 8 файлов, до 40 МиБ каждый; частичный успех и отмена сообщаются отдельно. Автоудаления нет.
+```bash
+~/.local/bin/macshell-convert --op png /abs/path/photo.jpg
+~/.config/quickshell/MacShell-niri/drop-tools.sh --convert --op jpeg /abs/path/photo.png
+```
 
 ## Форматы
 

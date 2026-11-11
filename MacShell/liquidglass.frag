@@ -150,38 +150,44 @@ void main()
     vec3 n = normalize(vec3(g * slope, 1.0));
 
     // ── refraction: glass n≈1.5, ray enters straight down ──
-    vec3 rd   = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
-    vec2 disp = rd.xy / max(-rd.z, 0.2) * thickness * 1.35;
+    vec3 rd   = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.52);
+    vec2 disp = rd.xy / max(-rd.z, 0.18) * thickness * 1.55;
 
-    // the whole slab acts as a gentle vertical lens; blur is crisper right at the curved rim
-    vec2 ps = vec2(p.x, (p.y - pad - hs.y) * (1.0 - magnify * 1.5) + pad + hs.y);
-    float rad = blurPx * mix(0.45, 1.0, smoothstep(0.0, bz, t));
+    // Convex lens: the middle of the slab slightly magnifies, the rim bends more.
+    float mag = 1.0 - magnify * (1.0 - 0.28 * clamp(length(q / max(hs, vec2(1.0))), 0.0, 1.0));
+    vec2 ps = vec2(pad) + hs + q * mag;
+    float rad = blurPx * mix(0.28, 1.0, smoothstep(0.0, bz, t));
 
-    vec3 col = blurredDisp(ps, disp, dispersion * 0.6, rad);
+    vec3 col = blurredDisp(ps, disp, dispersion * 0.85, rad);
 
-    // ── colour grading: vibrancy, tint, milky lift ──
+    // Thin film: dark mode keeps a clear lens; light mode keeps a white body
+    // so dark ink stays readable. The rim still picks up Fresnel. A heavy
+    // tint (Tinted / Frosted looks) fills the body toward an opaque material.
     float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
     col = mix(vec3(l), col, saturation);
-    vec3 tintC = mix(vec3(1.0), vec3(0.09, 0.09, 0.10), dark);
-    col = mix(col, tintC, tintMix);
-    col += mix(0.055, 0.020, dark);
+    float fres = pow(clamp(1.0 - u, 0.0, 1.0), 1.55);
+    float opaque = clamp((tintMix - mix(0.55, 0.20, dark)) / mix(0.35, 0.55, dark), 0.0, 1.0);
+    float body = mix(mix(0.68, 0.28, dark), 0.95, opaque);
+    float film = clamp(tintMix, 0.0, 1.0) * mix(body, 1.0, fres);
+    vec3 tintC = mix(vec3(1.0), mix(vec3(0.08, 0.085, 0.10), vec3(0.19, 0.195, 0.21), opaque), dark);
+    col = mix(col, tintC, clamp(film, 0.0, mix(mix(0.72, 0.58, dark), 0.88, opaque)));
+    col += mix(0.012, 0.010, dark) * mix(0.4, 1.0, fres);
 
-    // ── depth: soft top sheen, darker lower inner edge ──
-    float ty = clamp((q.y + hs.y) / glassSize.y, 0.0, 1.0);
-    col += (1.0 - ty) * mix(0.040, 0.030, dark);
+    // Soft top sheen only — smoked inner edges hide the wallpaper.
+    float ty = clamp((q.y + hs.y) / max(glassSize.y, 1.0), 0.0, 1.0);
+    col += (1.0 - ty) * mix(0.018, 0.018, dark);
     float innerK = 1.0 - clamp(flatInner, 0.0, 1.0);
-    col *= 1.0 - 0.12 * exp(-t / 6.0) * clamp(g.y, 0.0, 1.0) * innerK;
-    col *= 1.0 - 0.10 * exp(-t / (bz * 0.45)) * innerK;
+    col *= 1.0 - 0.045 * exp(-t / 8.0) * clamp(g.y, 0.0, 1.0) * innerK;
     vec3 rimCol = mix(vec3(0.96, 0.98, 1.0), clamp(col * 1.5 + 0.12, 0.0, 1.0), rimTint);
 
     // ── specular rim, light from the top-left ──
     vec2  L      = normalize(vec2(-0.55, -0.83));
     float facing = dot(g, L);
     float spec   = pow(max(facing, 0.0), 1.6) + 0.55 * pow(max(-facing, 0.0), 2.2);
-    float hair   = exp(-t / 1.1);
-    float wide   = exp(-t / 5.0);
-    float edgeHi = hair * (0.18 + 0.78 * spec) + wide * 0.10 * (0.30 + spec);
-    edgeHi *= rim * mix(0.85, 1.0, dark);
+    float hair   = exp(-t / 0.95);
+    float wide   = exp(-t / 4.2);
+    float edgeHi = hair * (0.22 + 0.82 * spec) + wide * 0.12 * (0.32 + spec);
+    edgeHi *= rim * mix(0.9, 1.05, dark);
     col += edgeHi * rimCol;
 
     // meniscus: a soft second highlight inside the rim, like surface tension pulling the liquid together

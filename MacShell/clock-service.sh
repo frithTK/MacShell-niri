@@ -16,5 +16,5 @@ if [ -x "$binary" ] && [ -x "$directory/clock-audio-worker-rust" ] && [ "$("$bin
     fi
     exec "$binary" --prototype --store "$store"
 fi
-[ ! -e "$directory/.macshell-rust-only" ] && [ ! -L "$directory/.macshell-rust-only" ] || { echo 'Clock Rust service or audio worker is missing or incompatible' >&2; exit 1; }
-exec python3 -u "$directory/clock_service.py" "$@"
+echo 'Clock Rust service or audio worker is missing or incompatible' >&2
+exit 1

@@ -40,8 +40,8 @@ further operations. A multi-adapter operation can partially succeed; cancellatio
 or failure cannot roll back changes already applied by BlueZ.
 
 `macshell-bluetooth` supplies the JSON-lines protocol to `BluetoothControl.qml`
-and is the default Bluetooth helper. The launcher falls back to Python only if
-the Rust binary is missing or incompatible. Connected Apple audio devices also open AACP on L2CAP PSM 0x1001 (handshake,
+and is the default Bluetooth helper. The launcher requires a compatible Rust
+binary. Connected Apple audio devices also open AACP on L2CAP PSM 0x1001 (handshake,
 SET_FEATURES, REQUEST_NOTIFICATIONS) and merge 1%-step battery frames into the
 snapshot. `watchBatteries` / `unwatchBatteries`
 call `hold_discovery()` / `release_hold()` so a visible Batteries card can listen

@@ -1,8 +1,10 @@
 // Desktop Notes card. It never starts a notes service; WidgetVisual feeds hub.notes.
 import QtQuick
 import QtQuick.Effects
+import "GlassTheme.js" as GlassTheme
 import "Locale" as Language
 import "WidgetCatalog.js" as Catalog
+import "NotesFormat.js" as NotesFormat
 
 Item {
     id: w
@@ -33,19 +35,19 @@ Item {
     signal openRequested()
     readonly property bool dark: darkGlass
     readonly property real radiusPx: 28
-    readonly property real tint: Math.min(.92, dark ? .25 + glassOpacity * .8 : .45 + glassOpacity * .9)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
     readonly property bool glassOn: style === "liquid" && glassReady && !preview && wallUrl != ""
     readonly property color fg: dark ? "#f5f5f7" : "#202025"
     readonly property color fgSub: dark ? "#b9b9c4" : "#60606c"
     readonly property color accent: "#FFD60A"
     readonly property var shown: notes && notes.length ? notes[0] : null
     readonly property string titleText: {
-        var source = body !== "" ? body : (shown ? String(shown.body || "") : "");
+        var source = shown ? NotesFormat.preview(shown) : String(body || "");
         var line = source.split("\n")[0].trim();
         return line || Language.I18n.text("notes.untitled");
     }
     readonly property string bodyText: {
-        var source = body !== "" ? body : (shown ? String(shown.body || "") : "");
+        var source = shown ? NotesFormat.preview(shown) : String(body || "");
         if (!ready && !preview) return Language.I18n.text("notes.unavailable");
         if (!source.trim()) return Language.I18n.text("notes.no_notes");
         return source.replace(/^#+\s*/gm, "");

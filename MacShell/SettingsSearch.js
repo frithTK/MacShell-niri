@@ -63,7 +63,7 @@ function actionsFor(kind) {
 }
 
 function extras(kind) {
-    if (kind === "file") return ["reveal", "copyPath", "preview", "convert"];
+    if (kind === "file") return ["reveal", "copyPath", "preview"];
     if (kind === "app") return ["pin", "reveal", "info"];
     return [];
 }
@@ -99,7 +99,6 @@ function describe(kind, item) {
         rows.push({ id: "reveal", enabled: parent !== "", reason: parent !== "" ? "" : "missing", close: true });
         rows.push({ id: "copyPath", enabled: local, reason: local ? "" : "missing", close: false });
         rows.push({ id: "preview", enabled: local, reason: local ? "" : "missing", close: false });
-        rows.push({ id: "convert", enabled: local, reason: local ? "" : "missing", close: false });
     } else if (kind === "app") {
         var appPath = item && item.path;
         var appLocal = isLocalPath(appPath);

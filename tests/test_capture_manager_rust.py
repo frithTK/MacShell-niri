@@ -132,8 +132,10 @@ class CaptureLauncherTests(unittest.TestCase):
                 GST_PLUGIN_SYSTEM_PATH_1_0=str(root / 'missing'), GST_PLUGIN_PATH_1_0=str(root / 'missing'))
             check = subprocess.run([str(binary), '--protocol-version'], env=env, capture_output=True, text=True, timeout=5)
             self.assertNotEqual(check.returncode, 0)
-            result = subprocess.run(['sh', str(launcher)], env=env, capture_output=True, text=True, timeout=5, check=True)
-            self.assertEqual(result.stdout.strip(), 'legacy')
+            result = subprocess.run(['sh', str(launcher)], env=env, capture_output=True, text=True, timeout=5)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn('legacy', result.stdout)
+            self.assertIn('Rust', result.stderr)
 
 
 if __name__ == '__main__':

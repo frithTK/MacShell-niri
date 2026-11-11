@@ -1,5 +1,6 @@
 // A read-only view of the existing laptop and Bluetooth battery sources.
 import QtQuick
+import "GlassTheme.js" as GlassTheme
 import "Locale" as Language
 import QtQuick.Effects
 import "WidgetCatalog.js" as Catalog
@@ -33,13 +34,13 @@ Item {
     readonly property bool isSmall: size === "small"
     readonly property bool isLarge: size === "large"
     readonly property real radiusPx: 28
-    readonly property real tint: Math.min(.92, dark ? .25 + glassOpacity * .8 : .45 + glassOpacity * .9)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
     readonly property bool glassOn: style === "liquid" && glassReady && !preview && wallUrl != ""
     readonly property color fg: dark ? "#f5f5f7" : "#202025"
     readonly property color fgSub: dark ? "#b9b9c4" : "#60606c"
     readonly property var devices: Data.rows(entries, settings)
     readonly property int capacity: isSmall ? 2 : isLarge ? 6 : 4
-    readonly property var shownDevices: devices.slice(0, capacity)
+    readonly property var shownDevices: Data.pickShown(entries, settings, capacity)
     readonly property int columns: isSmall ? 1 : isLarge ? Math.min(2, Math.max(1, shownDevices.length)) : Math.max(1, shownDevices.length)
     readonly property int rows: Math.max(1, Math.ceil(shownDevices.length / columns))
     readonly property string summary: devices.map(row => row.label + ": " + Data.value(row) + " " + Data.status(row) + " " + row.detail).join("; ")
@@ -215,7 +216,7 @@ Item {
                 readonly property real textX: horizontal ? circleSize + 8 : 0
                 readonly property real textY: horizontal ? Math.max(0, (height - 53) / 2) : circleSize + 6
                 readonly property real textWidth: width - textX
-                readonly property color tint: !modelData.connected || modelData.percentage < 0 ? w.fgSub
+                readonly property color tint: modelData.percentage < 0 ? w.fgSub
                     : modelData.percentage <= 10 ? (w.dark ? "#ff786f" : "#c23532")
                     : modelData.percentage <= 20 ? (w.dark ? "#f2c46d" : "#a56c13") : (w.dark ? "#5dd9a3" : "#157a55")
                 Canvas {
@@ -236,14 +237,14 @@ Item {
                         c.reset(); c.clearRect(0, 0, width, height); c.lineWidth = line;
                         c.strokeStyle = dark ? "#50505a" : "#d1d1d9";
                         c.beginPath(); c.arc(width / 2, height / 2, radius, 0, 2 * Math.PI); c.stroke();
-                        if (device.connected && device.percentage > 0) {
+                        if (device.percentage > 0) {
                             c.strokeStyle = tint; c.lineCap = "round"; c.beginPath();
                             c.arc(width / 2, height / 2, radius, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * device.percentage / 100); c.stroke();
                         }
                     }
                     ShellGlyph {
                         anchors.centerIn: parent; width: parent.width * .48; height: width
-                        kind: tile.modelData.kind; color: tile.modelData.connected ? w.fg : w.fgSub
+                        kind: tile.modelData.kind; color: tile.modelData.connected || tile.modelData.percentage >= 0 ? w.fg : w.fgSub
                     }
                     ShellGlyph {
                         visible: tile.modelData.charging

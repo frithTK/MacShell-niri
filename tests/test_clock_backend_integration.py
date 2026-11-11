@@ -15,6 +15,7 @@ from clock_source import boot_id, boot_time_ms
 from clock_store import ClockStore
 from clock_timer import migrate_legacy
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -24,6 +25,7 @@ class ClockBackendIntegrationTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            point_copied_launchers_at_python(shell)
             prototype = os.environ.get('MACSHELL_TEST_CLOCK_PROTOTYPE')
             if prototype:
                 shutil.copy(prototype, shell / 'clock-service-prototype')
@@ -61,6 +63,7 @@ class ClockBackendIntegrationTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            point_copied_launchers_at_python(shell)
             prototype = os.environ.get('MACSHELL_TEST_CLOCK_PROTOTYPE')
             if prototype:
                 shutil.copy(prototype, shell / 'clock-service-prototype')

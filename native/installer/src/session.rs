@@ -75,12 +75,9 @@ pub fn launchers(
         } else {
             script.push_str("if [[ $# -eq 0 && ${MACSHELL_MANAGED_SHELL:-} == 1 && ${MACSHELL_SERVICE_CHILD:-} != 1 ]]; then\n");
             script.push_str(&format!(
-                "    if [[ -f {} ]]; then\n        exec sh {} start\n    fi\n    if [[ -e {} || -L {} ]]; then\n        echo 'Shell supervisor Rust helper is missing or incompatible' >&2\n        exit 1\n    fi\n    exec python3 {} start\nfi\n",
+                "    if [[ -f {} ]]; then\n        exec sh {} start\n    fi\n    echo 'Shell supervisor Rust helper is missing or incompatible' >&2\n    exit 1\nfi\n",
                 quote(&profile.join("shell-supervisor.sh"))?,
                 quote(&profile.join("shell-supervisor.sh"))?,
-                quote(&profile.join(".macshell-rust-only"))?,
-                quote(&profile.join(".macshell-rust-only"))?,
-                quote(&profile.join("shell-supervisor.py"))?
             ));
             script.push_str(
                 "unset MACSHELL_SERVICE_CHILD\nexec \"$MACSHELL_QS_BIN\" -c MacShell-niri \"$@\"\n",
@@ -175,7 +172,6 @@ pub fn files(p: Paths<'_>) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::symlink;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -199,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn managed_launcher_respects_profile_policy_and_legacy_sessions() {
+    fn managed_launcher_requires_supervisor_helper_and_never_invokes_python() {
         let fixture = Fixture::new();
         let root = &fixture.0;
         let profile = root.join("profile 'quoted %");
@@ -207,36 +203,31 @@ mod tests {
         let tools = root.join("tools");
         fs::create_dir(&profile).unwrap();
         fs::create_dir(&tools).unwrap();
+        let called = root.join("python-called");
         write_executable(
             &tools.join("python3"),
-            "#!/bin/sh\nprintf 'legacy:%s\\n' \"$2\"\n",
+            "#!/bin/sh\ntouch \"$PYTHON_CALLED\"\nprintf 'legacy:%s\\n' \"$2\"\n",
         )
         .unwrap();
         let qs = tools.join("qs");
         write_executable(&qs, "#!/bin/sh\nprintf 'qs:%s\\n' \"$*\"\n").unwrap();
         launchers(&profile, &bin, &root.join("cache"), &root.join("lock"), &qs).unwrap();
+        let path = format!("{}:/usr/bin:/bin", tools.display());
         let run = |managed: bool, child: bool| {
             Command::new(bin.join("macshell-niri"))
+                .env("PATH", &path)
+                .env("PYTHON_CALLED", &called)
                 .env("MACSHELL_MANAGED_SHELL", if managed { "1" } else { "0" })
                 .env("MACSHELL_SERVICE_CHILD", if child { "1" } else { "0" })
                 .output()
                 .unwrap()
         };
-        let legacy = run(true, false);
-        assert!(legacy.status.success());
-        assert_eq!(legacy.stdout, b"legacy:start\n");
-
-        let marker = profile.join(".macshell-rust-only");
-        fs::write(&marker, "1\n").unwrap();
         let denied = run(true, false);
         assert!(!denied.status.success());
         assert!(denied.stdout.is_empty());
         assert!(String::from_utf8_lossy(&denied.stderr)
             .contains("Shell supervisor Rust helper is missing"));
-
-        fs::remove_file(&marker).unwrap();
-        symlink("missing-marker", &marker).unwrap();
-        assert!(!run(true, false).status.success());
+        assert!(!called.exists());
 
         write_executable(
             &profile.join("shell-supervisor.sh"),
@@ -246,6 +237,7 @@ mod tests {
         let helper = run(true, false);
         assert!(helper.status.success());
         assert_eq!(helper.stdout, b"helper:start\n");
+        assert!(!called.exists());
         for (managed, child) in [(false, false), (true, true)] {
             let direct = run(managed, child);
             assert!(direct.status.success());
@@ -312,7 +304,6 @@ mod tests {
         let source =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/shell-supervisor.sh");
         fs::copy(source, profile.join("shell-supervisor.sh")).unwrap();
-        fs::write(profile.join(".macshell-rust-only"), "1\n").unwrap();
         let called = root.join("python-called");
         write_executable(
             &tools.join("python3"),

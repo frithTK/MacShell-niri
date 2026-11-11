@@ -14,6 +14,7 @@ from clock_store import ClockStore
 from clock_source import boot_id, boot_time_ms, wall_time_ms
 from clock_timer import migrate_legacy
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -22,6 +23,7 @@ class ClockClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copytree(ROOT / 'MacShell', root / 'shell')
+            point_copied_launchers_at_python(root / 'shell')
             shutil.copy(ROOT / 'tests/clock-client.qml', root / 'shell/shell.qml')
             if crash_after_commit:
                 service = root / 'shell/clock_service.py'

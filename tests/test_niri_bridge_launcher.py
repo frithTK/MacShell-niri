@@ -15,7 +15,6 @@ class BridgeLauncherTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         shutil.copy2(ROOT / 'MacShell/niri-bridge.sh', self.root / 'niri-bridge.sh')
-        (self.root / 'niri_ipc.py').write_text('# unused fixture\n')
         bindir = self.root / 'bin'; bindir.mkdir()
         python = bindir / 'python3'; python.write_text('#!/bin/sh\necho PYTHON_BRIDGE\n'); python.chmod(0o755)
         self.env = dict(os.environ, PATH=str(bindir) + ':/usr/bin:/bin')
@@ -31,18 +30,25 @@ class BridgeLauncherTests(unittest.TestCase):
         if selection is not None: env['MACSHELL_NIRI_BRIDGE_BACKEND'] = selection
         return subprocess.run(['sh', str(self.root / 'niri-bridge.sh')], env=env, text=True, capture_output=True, timeout=5)
 
-    def test_auto_prefers_compatible_rust_and_can_force_python(self):
+    def test_auto_prefers_compatible_rust_and_rejects_other_backends(self):
         self.binary('"macshell-niri-bridge 1"')
         self.assertEqual(self.launch().stdout.strip(), 'RUST_BRIDGE')
         self.assertEqual(self.launch('rust').stdout.strip(), 'RUST_BRIDGE')
-        self.assertEqual(self.launch('python').stdout.strip(), 'PYTHON_BRIDGE')
+        refused = self.launch('python')
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertNotIn('PYTHON_BRIDGE', refused.stdout)
+        self.assertIn('Invalid niri bridge selection', refused.stderr)
 
-    def test_missing_or_incompatible_binary_falls_back_only_in_auto(self):
-        self.assertEqual(self.launch().stdout.strip(), 'PYTHON_BRIDGE')
+    def test_missing_or_incompatible_binary_fails_without_python(self):
+        missing = self.launch()
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertNotIn('PYTHON_BRIDGE', missing.stdout)
+        self.assertIn('Rust niri bridge is missing or incompatible', missing.stderr)
         self.assertNotEqual(self.launch('rust').returncode, 0)
         self.binary('"wrong protocol"')
-        self.assertEqual(self.launch().stdout.strip(), 'PYTHON_BRIDGE')
-        self.assertNotEqual(self.launch('rust').returncode, 0)
+        incompatible = self.launch()
+        self.assertNotEqual(incompatible.returncode, 0)
+        self.assertNotIn('PYTHON_BRIDGE', incompatible.stdout)
         self.assertNotEqual(self.launch('invalid').returncode, 0)
 
 

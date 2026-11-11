@@ -139,28 +139,32 @@ void main()
     slope = min(slope, 7.0);
     vec3 n = normalize(vec3(g * slope, 1.0));
 
-    // ── refraction: glass n~1.5, ray enters straight down ──
-    vec3 rd   = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.5);
-    vec2 disp = rd.xy / max(-rd.z, 0.2) * thickness * 1.35;
+    // ── refraction: glass n~1.52, ray enters straight down ──
+    vec3 rd   = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / 1.52);
+    vec2 disp = rd.xy / max(-rd.z, 0.18) * thickness * 1.55;
 
-    vec2 ps = vec2(p.x, (p.y - pad - hs.y) * (1.0 - magnify * 1.5) + pad + hs.y);
-    float rad = blurPx * mix(0.45, 1.0, smoothstep(0.0, bz, t));
+    float mag = 1.0 - magnify * (1.0 - 0.28 * clamp(length(q / max(hs, vec2(1.0))), 0.0, 1.0));
+    vec2 ps = vec2(pad) + hs + q * mag;
+    float rad = blurPx * mix(0.28, 1.0, smoothstep(0.0, bz, t));
 
-    vec3 col = blurredDisp(ps, disp, dispersion * 0.6, rad);
+    vec3 col = blurredDisp(ps, disp, dispersion * 0.85, rad);
 
-    // ── colour: vibrancy, then an ADAPTIVE tint ──
+    // Thin film + mild adaptive tint. Dark mode stays a lens; light mode keeps
+    // a white body so the Dock does not read as a hole in a light desktop.
     float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
     col = mix(vec3(l), col, saturation);
-    vec3 behind = col;                                            // the colour right behind this pixel, kept for the border below
     float lw    = smoothstep(0.30, 0.80, l);
-    float adapt = mix(0.78, 1.28, mix(1.0 - lw, lw, dark));       // more tint where the backdrop would fight the icons
-    vec3 tintC  = mix(vec3(1.0), vec3(0.09, 0.09, 0.10), dark);
-    col = mix(col, tintC, clamp(tintMix * adapt, 0.0, 1.0));
-    col += mix(0.055, 0.020, dark);
+    float adapt = mix(0.92, 1.10, mix(1.0 - lw, lw, dark));
+    float fres  = pow(clamp(1.0 - u, 0.0, 1.0), 1.55);
+    float opaque = clamp((tintMix - mix(0.55, 0.20, dark)) / mix(0.35, 0.55, dark), 0.0, 1.0);
+    float body  = mix(mix(0.68, 0.28, dark), 0.95, opaque);
+    float film  = clamp(tintMix * adapt, 0.0, mix(mix(0.78, 0.70, dark), 0.88, opaque)) * mix(body, 1.0, fres);
+    vec3 tintC  = mix(vec3(1.0), mix(vec3(0.08, 0.085, 0.10), vec3(0.19, 0.195, 0.21), opaque), dark);
+    col = mix(col, tintC, film);
+    col += mix(0.012, 0.010, dark) * mix(0.4, 1.0, fres);
 
-    // ── depth: soft light from above, faint absorption toward the edge (clear glass, not smoked) ──
-    float ty = clamp((q.y + hs.y) / glassSize.y, 0.0, 1.0);
-    col += (1.0 - ty) * mix(0.040, 0.034, dark);
+    float ty = clamp((q.y + hs.y) / max(glassSize.y, 1.0), 0.0, 1.0);
+    col += (1.0 - ty) * mix(0.018, 0.020, dark);
 
     // ── edge light, measured from the real macOS Dock ──
     // a thin bright line along the top (+18%) and bottom (+30%) that fades out around the corners, only a whisper on the straight

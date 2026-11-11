@@ -6,9 +6,8 @@ and displays the existing notification. Canceling does not touch the clipboard.
 Responses are bounded and invalid results are rejected before copying; the
 interactive picker has no fixed deadline while the user is choosing.
 
-The launcher checks the binary protocol and falls back to the existing Python
-implementation. The separate input-configuration operation in `niri_tools.py`
-still uses Python and is not changed by this component.
+The launcher checks the binary protocol and fails if the Rust binary is missing
+or incompatible. Python `niri_tools.py` remains for comparison tests.
 
 ```sh
 cargo build --locked --offline --manifest-path native/niri-color/Cargo.toml

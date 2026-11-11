@@ -131,7 +131,10 @@ class BiometricProbeRustTests(unittest.TestCase):
             binary.chmod(0o755)
             self.assertEqual(subprocess.check_output(["sh", str(launcher)], text=True).strip(), "rust")
             binary.write_text("#!/bin/sh\necho wrong\n")
-            self.assertEqual(subprocess.check_output(["sh", str(launcher)], text=True).strip(), "python")
+            refused = subprocess.run(["sh", str(launcher)], capture_output=True, text=True)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertNotIn("python", refused.stdout)
+            self.assertIn("Rust", refused.stderr)
 
     def test_operation_launcher_checks_protocol_and_preserves_arguments(self):
         with tempfile.TemporaryDirectory(prefix="fingerprint-launcher-") as directory:
@@ -145,7 +148,10 @@ class BiometricProbeRustTests(unittest.TestCase):
             command = ["sh", str(launcher), "verify", "/reader/0", "right-index-finger"]
             self.assertEqual(subprocess.check_output(command, text=True).strip(), "rust verify /reader/0 right-index-finger")
             binary.write_text("#!/bin/sh\necho wrong\n")
-            self.assertEqual(subprocess.check_output(command, text=True).strip(), "python verify /reader/0 right-index-finger")
+            refused = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertNotIn("python", refused.stdout)
+            self.assertIn("Rust", refused.stderr)
 
 
 if __name__ == "__main__":

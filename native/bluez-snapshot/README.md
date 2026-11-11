@@ -1,7 +1,7 @@
 # BlueZ snapshot decoding
 
 This crate converts a `GetManagedObjects` reply into the JSON state used by
-`macshell-bluetooth` (and the Python fallback), including known and discovered
+`macshell-bluetooth` (and the Python comparison decoder), including known and discovered
 devices. The asynchronous reader requests this data from the unique owner and
 discards stale replies, applies a timeout, and coalesces overlapping refreshes.
 It never changes Bluetooth settings or devices. The owner must feed each loss

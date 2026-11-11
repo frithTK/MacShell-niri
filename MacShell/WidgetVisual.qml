@@ -69,7 +69,9 @@ Item {
     readonly property var liveNotesData: {
         if (!renderActive || wtype !== "notes" || !host.hub || !host.hub.notes) return null;
         var controller = host.hub.notes.controller;
-        return {ready: !!(controller && controller.ready), notes: controller ? controller.notes : [], body: controller ? controller.body : ""};
+        var notes = controller ? controller.notes : [];
+        var first = notes && notes.length ? notes[0] : null;
+        return {ready: !!(controller && controller.ready), notes: notes, body: first ? (first.excerpt || first.body || "") : ""};
     }
     onLiveNotesDataChanged: if (liveNotesData !== null) notesData = liveNotesData
     property var remindersData: ({ready: false, tasks: []})
@@ -120,6 +122,7 @@ Item {
                 size: wsize
                 mode: v.look.theme
                 managedClock: true; active: v.renderActive; now: v.displayDate
+                markedDays: host.calendarMarkedDays
                 fam: v.look.family
                 textScale: v.look.textScale
                 screenX: v.sx; screenY: v.sy

@@ -1,10 +1,13 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import Quickshell
 import "Locale" as Language
 import "StickiesText.js" as StickiesText
+import "NotesFormat.js" as NotesFormat
+import "QuickLook.js" as QuickLook
 
 Scope {
     id: root
@@ -58,12 +61,22 @@ Scope {
             closeLabel: root.tr.text("notes.close"); minimizeLabel: root.tr.text("notes.minimize"); maximizeLabel: root.tr.text("notes.maximize")
             onCloseRequested: root.requestClose()
         }
+        FileDialog {
+            id: attachDialog; objectName: "notesAttachDialog"; title: root.tr.text("notes.attach"); fileMode: FileDialog.OpenFile
+            onAccepted: {
+                var path = QuickLook.localPath(selectedFile);
+                if (path) controller.attach(path);
+            }
+        }
         Loader {
             anchors { left: parent.left; right: parent.right; top: titlebar.bottom; bottom: parent.bottom; margins: 1 }
             active: win.visible
             sourceComponent: RowLayout {
                 spacing: 0
                 Shortcut { sequence: "Ctrl+F"; enabled: win.visible && win.active; onActivated: { search.forceActiveFocus(); search.selectAll(); } }
+                Shortcut { sequence: "Ctrl+B"; enabled: win.visible && win.active && editor.enabled; onActivated: editor.applyTag("b") }
+                Shortcut { sequence: "Ctrl+I"; enabled: win.visible && win.active && editor.enabled; onActivated: editor.applyTag("i") }
+                Shortcut { sequence: "Ctrl+U"; enabled: win.visible && win.active && editor.enabled; onActivated: editor.applyTag("u") }
                 Rectangle {
                     Layout.fillHeight: true; Layout.preferredWidth: 255; color: root.dark ? "#29292c" : "#eeeeef"
                     Rectangle { anchors.right: parent.right; height: parent.height; width: 1; color: root.dark ? "#424245" : "#d4d4d8" }
@@ -80,13 +93,13 @@ Scope {
                         }
                         ListView {
                             id: list; objectName: "notesList"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 4
-                            model: controller.notes.filter(n => !search.text || n.body.toLocaleLowerCase().indexOf(search.text.toLocaleLowerCase()) >= 0)
+                            model: controller.notes.filter(n => NotesFormat.matches(n, search.text))
                             delegate: Rectangle {
                                 required property var modelData
                                 width: ListView.view.width; height: 68; radius: 9
                                 activeFocusOnTab: true
                                 Accessible.role: Accessible.Button
-                                Accessible.name: modelData.body.split("\n")[0].trim() || root.tr.text("notes.untitled")
+                                Accessible.name: NotesFormat.titleLine(modelData) || root.tr.text("notes.untitled")
                                 border.width: activeFocus ? 1 : 0; border.color: root.dark ? "#f5ce67" : "#9e7400"
                                 Keys.onReturnPressed: if (!controller.busy && !controller.dirty) controller.select(modelData.id)
                                 Keys.onSpacePressed: if (!controller.busy && !controller.dirty) controller.select(modelData.id)
@@ -95,8 +108,8 @@ Scope {
                                 Column {
                                     anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 10 }
                                     spacing: 4
-                                    Text { width: parent.width; text: modelData.body.split("\n")[0].trim() || root.tr.text("notes.untitled"); color: root.foreground; font.family: root.family; font.weight: Font.DemiBold; font.pixelSize: 13; elide: Text.ElideRight; textFormat: Text.PlainText }
-                                    Text { width: parent.width; text: modelData.body.replace(/\n/g, " ").trim() || root.tr.text("notes.empty"); color: root.secondary; font.family: root.family; font.pixelSize: 11; elide: Text.ElideRight; textFormat: Text.PlainText }
+                                    Text { width: parent.width; text: NotesFormat.titleLine(modelData) || root.tr.text("notes.untitled"); color: root.foreground; font.family: root.family; font.weight: Font.DemiBold; font.pixelSize: 13; elide: Text.ElideRight; textFormat: Text.PlainText }
+                                    Text { width: parent.width; text: NotesFormat.snippet(modelData) || root.tr.text("notes.empty"); color: root.secondary; font.family: root.family; font.pixelSize: 11; elide: Text.ElideRight; textFormat: Text.PlainText }
                                 }
                                 MouseArea { id: noteMouse; anchors.fill: parent; hoverEnabled: true; enabled: !controller.busy && !controller.dirty; cursorShape: Qt.PointingHandCursor; onClicked: controller.select(parent.modelData.id) }
                             }
@@ -119,7 +132,17 @@ Scope {
                             Text { Layout.fillWidth: true; color: root.secondary; font.family: root.family; font.pixelSize: 12; text: !controller.ready ? root.tr.text("notes.unavailable") : controller.dirty || controller.busy ? root.tr.text("notes.saving") : root.tr.text("notes.saved") }
                             AppIconButton { objectName: "notesUndoDelete"; visible: !!controller.deletedNote; glyph: "undo"; label: root.tr.text("notes.undo_delete"); dark: root.dark; enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.undoDelete() }
                             AppIconButton { objectName: "notesPin"; visible: !!(root.hub && root.hub.stickies); glyph: "pin"; label: StickiesText.text(root.tr.activeLanguage, "pin"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: root.hub.stickies.openNote(controller.selectedId) }
+                            AppIconButton { objectName: "notesAttach"; glyph: "link"; label: root.tr.text("notes.attach"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: attachDialog.open() }
                             AppIconButton { objectName: "notesDelete"; glyph: "trash"; label: root.tr.text("notes.delete"); dark: root.dark; enabled: !!controller.selectedId && controller.ready && !controller.busy && !controller.dirty; onClicked: controller.remove() }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: !!controller.selectedId
+                            NotesButton { objectName: "notesBold"; text: "B"; implicitWidth: 36; enabled: controller.ready && !controller.busy; onClicked: editor.applyTag("b") }
+                            NotesButton { objectName: "notesItalic"; text: "I"; implicitWidth: 36; enabled: controller.ready && !controller.busy; onClicked: editor.applyTag("i") }
+                            NotesButton { objectName: "notesUnderline"; text: "U"; implicitWidth: 36; enabled: controller.ready && !controller.busy; onClicked: editor.applyTag("u") }
+                            NotesButton { objectName: "notesList"; text: "•"; implicitWidth: 36; enabled: controller.ready && !controller.busy; onClicked: editor.applyTag("li") }
+                            Item { Layout.fillWidth: true }
                         }
                         RowLayout {
                             visible: controller.error !== ""; Layout.fillWidth: true
@@ -130,12 +153,52 @@ Scope {
                         ScrollView {
                             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                             TextArea {
+                                id: editor
                                 objectName: "notesEditor"; text: controller.body; enabled: !!controller.selectedId
                                 placeholderText: controller.selectedId ? root.tr.text("notes.write") : root.tr.text("notes.select")
                                 wrapMode: TextEdit.Wrap; selectByMouse: true; color: root.foreground; font.family: root.family; font.pixelSize: 16
                                 textFormat: TextEdit.PlainText
                                 onTextChanged: if (text !== controller.body) controller.edit(text)
                                 background: Rectangle { color: "transparent" }
+                                Component.onCompleted: textFormat = controller.format === "html" ? TextEdit.RichText : TextEdit.PlainText
+                                Connections {
+                                    target: controller
+                                    function onSelectedIdChanged() { editor.textFormat = controller.format === "html" ? TextEdit.RichText : TextEdit.PlainText; }
+                                    function onFormatChanged() {
+                                        if (!controller.dirty)
+                                            editor.textFormat = controller.format === "html" ? TextEdit.RichText : TextEdit.PlainText;
+                                    }
+                                }
+                                function applyTag(tag) {
+                                    if (!enabled) return;
+                                    if (textFormat !== TextEdit.RichText) {
+                                        var start = selectionStart, end = selectionEnd, plain = text;
+                                        textFormat = TextEdit.RichText;
+                                        text = plain;
+                                        select(start, end);
+                                        controller.format = "html";
+                                    }
+                                    var selected = selectedText, from = selectionStart, to = selectionEnd;
+                                    if (from === to) {
+                                        insert(from, tag === "li" ? "<ul><li></li></ul>" : "<" + tag + "></" + tag + ">");
+                                        cursorPosition = from + (tag === "li" ? 8 : tag.length + 2);
+                                    } else {
+                                        remove(from, to);
+                                        insert(from, tag === "li" ? "<ul><li>" + selected + "</li></ul>" : "<" + tag + ">" + selected + "</" + tag + ">");
+                                    }
+                                    if (text !== controller.body) controller.edit(text);
+                                }
+                            }
+                        }
+                        ListView {
+                            objectName: "notesAttachments"; Layout.fillWidth: true; Layout.preferredHeight: controller.attachments.length ? Math.min(96, controller.attachments.length * 28) : 0
+                            visible: controller.attachments.length > 0; clip: true; spacing: 2; model: controller.attachments
+                            delegate: RowLayout {
+                                required property var modelData
+                                width: ListView.view.width; height: 26
+                                Text { Layout.fillWidth: true; text: modelData.name; color: root.secondary; font.family: root.family; font.pixelSize: 12; elide: Text.ElideRight; textFormat: Text.PlainText }
+                                NotesButton { objectName: "notesOpenAttachment_" + modelData.id; text: root.tr.text("notes.open_attachment"); implicitWidth: 72; implicitHeight: 24; enabled: controller.ready && !controller.busy; onClicked: Quickshell.execDetached(["xdg-open", controller.storePath.replace(/\/[^/]+$/, "/attachments/" + controller.selectedId + "/" + modelData.id)]) }
+                                NotesButton { objectName: "notesDetach_" + modelData.id; text: root.tr.text("notes.remove_attachment"); implicitWidth: 72; implicitHeight: 24; enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.detach(modelData.id) }
                             }
                         }
                     }
@@ -156,7 +219,7 @@ Scope {
                                 width: ListView.view.width; height: 48; radius: 8; color: root.dark ? "#414146" : "#e1e1e6"
                                 RowLayout {
                                     anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
-                                    Text { Layout.fillWidth: true; text: modelData.body.split("\n")[0].trim() || root.tr.text("notes.untitled"); color: root.foreground; font.family: root.family; elide: Text.ElideRight; textFormat: Text.PlainText }
+                                    Text { Layout.fillWidth: true; text: NotesFormat.titleLine(modelData) || root.tr.text("notes.untitled"); color: root.foreground; font.family: root.family; elide: Text.ElideRight; textFormat: Text.PlainText }
                                     AppIconButton { objectName: "notesRestore_" + modelData.id; glyph: "undo"; label: root.tr.text("notes.restore"); dark: root.dark; enabled: controller.ready && !controller.busy && !controller.dirty; onClicked: controller.restore(modelData) }
                                 }
                             }

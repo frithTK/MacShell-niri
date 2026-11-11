@@ -17,6 +17,7 @@ import clock_stopwatch
 from clock_store import ClockStore
 from clock_timer import migrate_legacy
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -24,6 +25,7 @@ class ManagedClockAppTests(unittest.TestCase):
     def prepare_shell(self, root, fixture):
         shell = root / 'shell'
         shutil.copytree(ROOT / 'MacShell', shell, ignore=shutil.ignore_patterns('apple', 'alarm.wav', 'timer.wav'))
+        point_copied_launchers_at_python(shell)
         shutil.copy(ROOT / fixture, shell / 'shell.qml')
         app = shell / 'ClockApp.qml'
         source = app.read_text()

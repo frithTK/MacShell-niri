@@ -8,5 +8,5 @@ if [ -x "$binary" ] && [ "$(timeout 3 "$binary" --supervisor-protocol-version 2>
         check) shift; exec "$binary" --supervisor-check "$@" ;;
     esac
 fi
-[ ! -e "$directory/.macshell-rust-only" ] && [ ! -L "$directory/.macshell-rust-only" ] || { echo 'Shell supervisor Rust helper is missing or incompatible' >&2; exit 1; }
-exec python3 "$directory/shell-supervisor.py" "$@"
+echo 'Shell supervisor Rust helper is missing or incompatible' >&2
+exit 1

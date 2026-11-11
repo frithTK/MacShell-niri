@@ -7,9 +7,8 @@ with a durable journal, progress snapshots and explicit recovery cleanup.
 The binary exposes `diagnose <journal>` for read-only JSON diagnostics and
 `resolve-cleanup <journal>` for explicit cleanup after a diagnostic reports
 `cleanupAllowed: true`.
-Taking the lock can create a private lock file in a profile. The launcher selects
-the compatible Rust service and falls back to `niri_tools.py` when it is absent or
-incompatible.
+Taking the lock can create a private lock file in a profile. The launcher requires
+the compatible Rust service.
 
 The service intentionally limits writes to the managed single-file fragment.
 Snapshots are not atomic and are revalidated before committing; path and identity

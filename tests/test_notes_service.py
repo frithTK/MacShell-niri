@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'MacShell'))
-from notes_service import MAX_BODY, NotesError, NotesStore
+from notes_service import MAX_BODY, NotesError, NotesStore, normalize_note
 
 
 class NotesStoreTests(unittest.TestCase):
@@ -108,6 +108,95 @@ class NotesStoreTests(unittest.TestCase):
             self.assertEqual(reopened.list_stickies(), layout)
         finally:
             reopened.close()
+
+    def test_sticky_color_rejects_unknown_and_keeps_palette_across_reopen(self):
+        self.store.create(self.note)
+        layout = [{'id': self.note, 'width': 410, 'height': 320, 'color': 'pink'}]
+        self.assertEqual(self.store.save_stickies(layout), layout)
+        missing = [{'id': self.note, 'width': 410, 'height': 320}]
+        self.assertEqual(self.store.save_stickies(missing), missing)
+        self.store.save_stickies(layout)
+        with self.assertRaisesRegex(NotesError, 'color'):
+            self.store.save_stickies([{'id': self.note, 'width': 410, 'color': 'red'}])
+        with self.assertRaisesRegex(NotesError, 'color'):
+            self.store.save_stickies([{'id': self.note, 'width': 410, 'color': '#ff00ff'}])
+        reopened = NotesStore(self.path)
+        try:
+            self.assertEqual(reopened.list_stickies(), layout)
+            note = reopened.get(self.note)
+            self.assertNotIn('color', note)
+        finally:
+            reopened.close()
+
+    def test_v1_migrates_body_to_plain_excerpt(self):
+        self.store.close()
+        db = sqlite3.connect(self.path)
+        db.executescript('''DROP TABLE IF EXISTS notes; DROP TABLE IF EXISTS attachments;
+            CREATE TABLE notes (id TEXT PRIMARY KEY, body TEXT NOT NULL, revision INTEGER NOT NULL,
+                updated INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0);
+            INSERT INTO notes VALUES ('%s', '<b>kept as text</b>', 1, 1, 0);
+            PRAGMA user_version=1;''' % self.note)
+        db.close()
+        migrated = NotesStore(self.path)
+        try:
+            self.assertEqual(migrated.db.execute('PRAGMA user_version').fetchone()[0], 2)
+            note = migrated.get(self.note)
+            self.assertEqual(note['format'], 'plain')
+            self.assertEqual(note['excerpt'], '<b>kept as text</b>')
+            self.assertEqual(note['body'], '<b>kept as text</b>')
+        finally:
+            migrated.close()
+
+    def test_html_is_sanitized_and_excerpted(self):
+        self.assertEqual(normalize_note('plain', 'plain'), ('plain', 'plain', 'plain'))
+        body, excerpt, fmt = normalize_note('<p>Hello <b>world</b><script>alert(1)</script></p>', 'html')
+        self.assertEqual(fmt, 'html')
+        self.assertEqual(excerpt, 'Hello world')
+        self.assertIn('<b>world</b>', body)
+        self.assertNotIn('script', body)
+        self.assertNotIn('alert', body)
+        stripped, text, fmt = normalize_note('<p>only text</p>', 'html')
+        self.assertEqual((stripped, text, fmt), ('only text', 'only text', 'plain'))
+        self.store.create(self.note)
+        saved = self.store.save(self.note, '<p>Hi <i>there</i><iframe src="x"></iframe></p>', 0, 'html')
+        self.assertEqual(saved['format'], 'html')
+        self.assertEqual(saved['excerpt'], 'Hi there')
+        self.assertNotIn('iframe', saved['body'])
+        listed = self.store.list()[0]
+        self.assertEqual(listed['excerpt'], 'Hi there')
+        self.assertNotEqual(listed['body'], listed['excerpt'])
+
+    def test_attachment_survives_reopen_and_stale_revision_is_rejected(self):
+        self.store.create(self.note)
+        source = Path(self.tmp.name) / 'photo.png'
+        source.write_bytes(b'\x89PNG\r\n' + b'x' * 32)
+        attached = self.store.attach(self.note, 0, str(uuid.uuid4()), source)
+        self.assertEqual(len(attached['attachments']), 1)
+        self.assertEqual(attached['attachments'][0]['name'], 'photo.png')
+        self.assertEqual(attached['attachments'][0]['mime'], 'image/png')
+        stored = self.store.attachment_path(self.note, attached['attachments'][0]['id'])
+        self.assertEqual(stored.read_bytes()[:8], source.read_bytes()[:8])
+        self.assertEqual(stored.stat().st_mode & 0o777, 0o600)
+        with self.assertRaisesRegex(NotesError, 'elsewhere'):
+            self.store.attach(self.note, 0, str(uuid.uuid4()), source)
+        reopened = NotesStore(self.path)
+        try:
+            note = reopened.get(self.note)
+            self.assertEqual(len(note['attachments']), 1)
+            self.assertTrue(reopened.attachment_path(self.note, note['attachments'][0]['id']).is_file())
+            reopened.detach(self.note, note['revision'], note['attachments'][0]['id'])
+            self.assertEqual(reopened.get(self.note)['attachments'], [])
+            self.assertFalse(reopened.attachment_path(self.note, note['attachments'][0]['id']).exists())
+        finally:
+            reopened.close()
+
+    def test_oversize_attachment_is_rejected(self):
+        self.store.create(self.note)
+        source = Path(self.tmp.name) / 'huge.bin'
+        source.write_bytes(b'a' * (20 * 1024 * 1024 + 1))
+        with self.assertRaisesRegex(NotesError, 'too large'):
+            self.store.attach(self.note, 0, str(uuid.uuid4()), source)
+        self.assertEqual(self.store.get(self.note)['attachments'], [])
 
 
 if __name__ == '__main__':

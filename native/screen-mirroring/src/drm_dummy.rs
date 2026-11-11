@@ -167,6 +167,40 @@ pub fn is_connected(name: &str) -> bool {
         .is_some_and(|status| status.trim() == "connected")
 }
 
+pub fn is_ours(name: &str) -> bool {
+    if !is_dummy_name(name) {
+        return false;
+    }
+    sysfs_connector(name)
+        .and_then(|sys| fs::read(sys.join("edid")).ok())
+        .is_some_and(|edid| edid.windows(8).any(|window| window == b"MacShell"))
+}
+
+pub fn connected_ours() -> Vec<String> {
+    let mut found = Vec::new();
+    let Ok(entries) = fs::read_dir(sysfs_root()) else {
+        return found;
+    };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let Some(full) = file_name.to_str() else {
+            continue;
+        };
+        let Some((_, connector)) = full
+            .split_once('-')
+            .filter(|(card, _)| card.starts_with("card"))
+        else {
+            continue;
+        };
+        if is_ours(connector) && is_connected(connector) {
+            found.push(connector.to_string());
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
 pub fn writable() -> bool {
     let Some(name) = candidate() else {
         return false;
@@ -375,6 +409,19 @@ mod tests {
         assert!(is_dummy_name("HDMI-A-1"));
         assert!(is_dummy_name("DP-2"));
         assert!(!is_dummy_name("eDP-1"));
+    }
+
+    #[test]
+    fn macshell_edid_marks_a_connected_dummy_as_ours() {
+        let _lock = LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let env = Env::new();
+        assert!(!is_ours("HDMI-A-1"));
+        assert!(connected_ours().is_empty());
+        fs::write(env.sysfs.join("card1-HDMI-A-1/edid"), edid_1920x1080()).unwrap();
+        fs::write(env.sysfs.join("card1-HDMI-A-1/status"), "connected\n").unwrap();
+        assert!(is_ours("HDMI-A-1"));
+        assert!(!is_ours("eDP-1"));
+        assert_eq!(connected_ours(), ["HDMI-A-1"]);
     }
 
     #[test]

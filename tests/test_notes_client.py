@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0, str(ROOT))
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -19,6 +20,7 @@ class NotesClientTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            point_copied_launchers_at_python(shell)
             shutil.copy(ROOT / ('tests/stickies-client.qml' if shared else 'tests/notes-client.qml'), shell / 'shell.qml')
             service = shell / 'notes_service.py'
             service.rename(shell / 'notes_service_impl.py')

@@ -54,9 +54,10 @@ class NotesRustTests(unittest.TestCase):
         self.assertEqual(saved['result']['revision'], 2)
         self.assertTrue(self.request(p, 'save', id=self.id, body='новый текст', revision=1)['success'])
         self.assertFalse(self.request(p, 'save', id=self.id, body='конфликт', revision=1)['success'])
-        layout = [{'id': self.id, 'width': 410, 'workspace': 1, 'output': 'test'}]
+        layout = [{'id': self.id, 'width': 410, 'workspace': 1, 'output': 'test', 'color': 'green'}]
         self.assertTrue(self.request(p, 'save-stickies', windows=layout)['success'])
         self.assertFalse(self.request(p, 'save-stickies', windows=layout * 2)['success'])
+        self.assertFalse(self.request(p, 'save-stickies', windows=[{'id': self.id, 'color': 'red'}])['success'])
         self.assertEqual(self.request(p, 'list-stickies')['result'], layout)
         deleted = self.request(p, 'delete', id=self.id, revision=2)['result']
         self.assertTrue(self.request(p, 'restore', id=self.id, revision=deleted['revision'])['success'])
@@ -85,6 +86,29 @@ class NotesRustTests(unittest.TestCase):
         self.assertFalse(self.request(p, 'save-copy', id=self.id, body='different')['success'])
         self.assertFalse(self.request(p, 'save', id=self.id, body='я' * 524289, revision=0)['success'])
         self.assertEqual(self.request(p, 'list')['result'][0]['body'], 'hello')
+
+    def test_html_sanitize_excerpt_and_attachments(self):
+        p = self.start()
+        self.assertTrue(self.request(p, 'create', id=self.id)['success'])
+        saved = self.request(p, 'save', id=self.id, body='<p>Hi <b>there</b><script>x()</script></p>', revision=0, format='html')
+        self.assertTrue(saved['success'])
+        self.assertEqual(saved['result']['format'], 'html')
+        self.assertEqual(saved['result']['excerpt'], 'Hi there')
+        self.assertNotIn('script', saved['result']['body'])
+        source = Path(self.temp.name) / 'note.txt'
+        source.write_text('hello', encoding='utf-8')
+        attached = self.request(p, 'attach', id=self.id, revision=saved['result']['revision'],
+                                attachmentId=str(uuid.uuid4()), path=str(source))
+        self.assertTrue(attached['success'], attached)
+        self.assertEqual(attached['result']['attachments'][0]['name'], 'note.txt')
+        self.stop(p)
+        python = NotesStore(self.path)
+        try:
+            note = python.get(self.id)
+            self.assertEqual(note['excerpt'], 'Hi there')
+            self.assertEqual(len(note['attachments']), 1)
+        finally:
+            python.close()
 
 
 if __name__ == '__main__': unittest.main()

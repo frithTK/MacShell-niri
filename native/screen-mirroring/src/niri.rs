@@ -114,6 +114,12 @@ pub fn extra_physical(outputs: &[OutputInfo]) -> Option<&OutputInfo> {
         .find(|output| output.name != VIRTUAL_NAME && output.name != primary.name)
 }
 
+pub fn macshell_dummy_output(outputs: &[OutputInfo]) -> Option<&OutputInfo> {
+    outputs
+        .iter()
+        .find(|output| super::drm_dummy::is_ours(&output.name))
+}
+
 pub fn right_edge(outputs: &[OutputInfo], except: &str) -> (i32, i32) {
     outputs
         .iter()
@@ -190,12 +196,20 @@ pub fn probe() -> Caps {
                 .and_then(|text| serde_json::from_str(&text).ok())
                 .unwrap_or(Value::Null),
         ),
-        dummy_connector: super::drm_dummy::candidate(),
+        dummy_connector: super::drm_dummy::candidate()
+            .or_else(|| super::drm_dummy::connected_ours().into_iter().next()),
     }
 }
 
 fn turn_on_output(name: &str) {
     let _ = run(&["msg", "output", name, "on"]);
+}
+
+pub fn turn_off_output(name: &str) {
+    if !valid_output_name(name) {
+        return;
+    }
+    let _ = run(&["msg", "output", name, "off"]);
 }
 
 fn wait_for_output(name: &str, timeout: Duration) -> Result<Caps, String> {
@@ -275,7 +289,16 @@ pub fn ensure_extend() -> Result<ExtendTarget, String> {
         return Ok(ExtendTarget {
             name: extra.name.clone(),
             owned: false,
-            dummy: false,
+            dummy: super::drm_dummy::is_ours(&extra.name),
+        });
+    }
+    if let Some(existing) = macshell_dummy_output(&caps.outputs) {
+        let _ = position_output(&existing.name, &caps);
+        match_primary_mode(&existing.name, &caps);
+        return Ok(ExtendTarget {
+            name: existing.name.clone(),
+            owned: false,
+            dummy: true,
         });
     }
     if let Some(name) = super::drm_dummy::candidate() {

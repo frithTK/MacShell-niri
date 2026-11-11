@@ -19,9 +19,14 @@ Scope {
     property date selectedDate: new Date()
     property date month: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
     property bool closePending: false
+    property bool backgroundEnabled: true
+    function repeatLabel(rule) {
+        return tr(({none: "repeatNone", daily: "repeatDaily", weekly: "repeatWeekly", monthly: "repeatMonthly"})[rule] || "repeatNone");
+    }
     property alias controller: controller
     property alias window: win
-    readonly property var dayEvents: controller.events.filter(event => root.onDay(event, root.selectedDate)).sort((a, b) =>
+    readonly property var visibleEvents: controller.occurrences.length ? controller.occurrences : controller.events
+    readonly property var dayEvents: visibleEvents.filter(event => root.onDay(event, root.selectedDate)).sort((a, b) =>
         b.all_day - a.all_day || (a.start_ms || 0) - (b.start_ms || 0) || a.title.localeCompare(b.title))
     function tr(key) { return Texts.text(i18n.activeLanguage, key); }
     function pad(n) { return String(n).padStart(2, "0"); }
@@ -66,7 +71,7 @@ Scope {
     }
     CalendarController {
         id: controller
-        enabled: win.visible || root.closePending || busy
+        enabled: root.backgroundEnabled || win.visible || root.closePending || busy
         storePath: (Quickshell.env("MACSHELL_CALENDAR_DATA_HOME") || Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/macshell/calendar/events.sqlite3"
         onSettled: if (root.closePending && !error) { root.closePending = false; win.hide(); }
     }
@@ -90,6 +95,7 @@ Scope {
                     var start = event && !event.all_day ? event.start_ms : new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9).getTime();
                     var end = event && !event.all_day ? event.end_ms : new Date(day.getFullYear(), day.getMonth(), day.getDate(), 10).getTime();
                     startInput.text = LocalTime.format(start); endInput.text = LocalTime.format(end);
+                    repeatInput.currentIndex = Math.max(0, repeatInput.rules.indexOf(event && event.repeat_rule ? event.repeat_rule : "none"));
                     controller.error = ""; eventDialog.open(); eventTitle.forceActiveFocus();
                 }
                 Connections { target: controller; function onSaved() { eventDialog.close(); } }
@@ -118,7 +124,7 @@ Scope {
                                     property date date: root.dayAt(index)
                                     readonly property bool selected: root.dateKey(date) === root.dateKey(root.selectedDate)
                                     readonly property bool currentMonth: date.getMonth() === root.month.getMonth()
-                                    readonly property bool hasEvents: controller.events.some(event => root.onDay(event, date))
+                                    readonly property bool hasEvents: root.visibleEvents.some(event => root.onDay(event, date))
                                     objectName: "calendarDay_" + root.dateKey(date)
                                     Layout.fillWidth: true; Layout.fillHeight: true; padding: 0
                                     Accessible.name: root.dateKey(date)
@@ -131,7 +137,7 @@ Scope {
                                 }
                             }
                         }
-                        Text { Layout.fillWidth: true; text: root.tr("noNotifications"); color: root.muted; font.family: root.family; font.pixelSize: 11; wrapMode: Text.Wrap }
+                        Text { Layout.fillWidth: true; text: root.tr("repeatHint"); color: root.muted; font.family: root.family; font.pixelSize: 11; wrapMode: Text.Wrap }
                     }
                 }
                 Rectangle {
@@ -155,7 +161,7 @@ Scope {
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 2
                                         Text { Layout.fillWidth: true; text: row.modelData.title; textFormat: Text.PlainText; color: root.ink; font.family: root.family; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                                        Text { Layout.fillWidth: true; text: row.modelData.all_day ? root.tr("allDay") : LocalTime.format(row.modelData.start_ms) + " – " + LocalTime.format(row.modelData.end_ms); color: root.muted; font.family: root.family; font.pixelSize: 11; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+                                        Text { Layout.fillWidth: true; text: (row.modelData.all_day ? root.tr("allDay") : LocalTime.format(row.modelData.start_ms) + " – " + LocalTime.format(row.modelData.end_ms)) + (row.modelData.repeat_rule && row.modelData.repeat_rule !== "none" ? " · " + root.repeatLabel(row.modelData.repeat_rule) : ""); color: root.muted; font.family: root.family; font.pixelSize: 11; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
                                     }
                                     AppIconButton { objectName: "calendarEdit_" + row.modelData.id; dark: root.dark; glyph: "pencil"; label: root.tr("edit"); enabled: controller.ready && !controller.busy; onClicked: content.editEvent(row.modelData) }
                                     AppIconButton { objectName: "calendarDelete_" + row.modelData.id; dark: root.dark; glyph: "trash"; label: root.tr("remove"); enabled: controller.ready && !controller.busy; onClicked: controller.setDeleted(row.modelData, true) }
@@ -182,9 +188,37 @@ Scope {
                         Text { Layout.fillWidth: true; visible: controller.error !== ""; text: root.tr("failed") + " " + controller.error; color: root.dark ? "#ffb3a8" : "#a32618"; wrapMode: Text.Wrap; textFormat: Text.PlainText }
                         Text { Layout.fillWidth: true; visible: !allDay.checked && (!startInput.parsed.ok || !endInput.parsed.ok || startInput.parsed.value === null || endInput.parsed.value === null || endInput.parsed.value <= startInput.parsed.value); text: startInput.parsed.error === "ambiguous" || endInput.parsed.error === "ambiguous" ? root.tr("ambiguous") : root.tr("invalidTime"); color: root.muted; wrapMode: Text.Wrap; font.pixelSize: 12 }
                         RowLayout {
+                            Layout.fillWidth: true; spacing: 12
+                            Text { text: root.tr("repeat"); color: root.ink; font.family: root.family; font.pixelSize: 12; Layout.fillWidth: true }
+                            ComboBox {
+                                id: repeatInput; objectName: "calendarRepeat"; Layout.preferredWidth: 200; Layout.preferredHeight: 32
+                                readonly property var rules: ["none", "daily", "weekly", "monthly"]
+                                readonly property string rule: rules[currentIndex] || "none"
+                                model: rules
+                                displayText: root.repeatLabel(rule)
+                                Accessible.name: root.tr("repeat")
+                                font.family: root.family; font.pixelSize: 12
+                                contentItem: Text { text: repeatInput.displayText; color: root.ink; font: repeatInput.font; leftPadding: 10; rightPadding: 28; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                                indicator: Text { x: repeatInput.width - width - 10; anchors.verticalCenter: parent.verticalCenter; text: "▾"; color: root.muted; font.pixelSize: 13 }
+                                background: Rectangle { radius: 8; color: root.dark ? "#424247" : "#dedee3"; border.width: repeatInput.activeFocus ? 1 : 0; border.color: root.dark ? "#83bfff" : "#2273c9" }
+                                delegate: ItemDelegate {
+                                    required property string modelData
+                                    required property int index
+                                    width: repeatInput.width; text: root.repeatLabel(modelData); highlighted: repeatInput.highlightedIndex === index
+                                    contentItem: Text { text: parent.text; color: root.ink; font: repeatInput.font; leftPadding: 8; verticalAlignment: Text.AlignVCenter }
+                                    background: Rectangle { radius: 6; color: parent.highlighted ? (root.dark ? "#48576b" : "#c6def9") : "transparent" }
+                                }
+                                popup: Popup {
+                                    y: repeatInput.height + 4; width: repeatInput.width; padding: 4
+                                    contentItem: ListView { implicitHeight: contentHeight; model: repeatInput.popup.visible ? repeatInput.delegateModel : null; currentIndex: repeatInput.highlightedIndex; clip: true }
+                                    background: Rectangle { radius: 9; color: root.dark ? "#37373c" : "#f4f4f6"; border.color: root.dark ? "#56565d" : "#c8c8ce" }
+                                }
+                            }
+                        }
+                        RowLayout {
                             Layout.alignment: Qt.AlignRight
                             ActionButton { text: root.tr("cancel"); enabled: !controller.busy; onClicked: eventDialog.close() }
-                            ActionButton { objectName: "calendarSave"; text: root.tr("save"); enabled: controller.ready && !controller.busy && !!eventTitle.text.trim() && (allDay.checked ? root.validDate(eventDate.text) : startInput.parsed.ok && endInput.parsed.ok && startInput.parsed.value !== null && endInput.parsed.value !== null && endInput.parsed.value > startInput.parsed.value); onClicked: controller.save(eventDialog.event, eventTitle.text, allDay.checked, eventDate.text, startInput.parsed.value, endInput.parsed.value) }
+                            ActionButton { objectName: "calendarSave"; text: root.tr("save"); enabled: controller.ready && !controller.busy && !!eventTitle.text.trim() && (allDay.checked ? root.validDate(eventDate.text) : startInput.parsed.ok && endInput.parsed.ok && startInput.parsed.value !== null && endInput.parsed.value !== null && endInput.parsed.value > startInput.parsed.value); onClicked: controller.save(eventDialog.event, eventTitle.text, allDay.checked, eventDate.text, startInput.parsed.value, endInput.parsed.value, repeatInput.rule) }
                         }
                     }
                 }

@@ -51,13 +51,18 @@ class RecordingRustProcessTests(legacy.RecordingProcessTests):
         launcher = directory / 'recording-service.sh'
         shutil.copy(ROOT / 'MacShell/recording-service.sh', launcher)
         (directory / 'recording_control.py').write_text('print("legacy")\n')
-        def launch():
-            return subprocess.run(['sh', str(launcher)], capture_output=True, text=True, check=True, timeout=5).stdout.strip()
-        self.assertEqual(launch(), 'legacy')
+        def launch(check=True):
+            return subprocess.run(['sh', str(launcher)], capture_output=True, text=True, check=check, timeout=5)
+        missing = launch(check=False)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertNotIn('legacy', missing.stdout)
+        self.assertIn('Rust', missing.stderr)
         binary = directory / 'recording-service-rust'
         binary.write_text('#!/bin/sh\necho incompatible\n')
         binary.chmod(0o755)
-        self.assertEqual(launch(), 'legacy')
+        incompatible = launch(check=False)
+        self.assertNotEqual(incompatible.returncode, 0)
+        self.assertNotIn('legacy', incompatible.stdout)
 
     def test_area_selector_uses_fresh_monitor_and_preserves_geometry(self):
         slurp = self.bin / 'slurp'

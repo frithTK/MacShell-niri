@@ -1,5 +1,6 @@
 //! Filesystem transaction backend for the MacShell installer.
 mod build;
+mod convert_menus;
 mod guard;
 mod install;
 mod niri;

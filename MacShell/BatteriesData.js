@@ -51,9 +51,15 @@ function normalize(laptop, devices, bluetooth, previous) {
         var ready = !!bluetooth.ready && !!bluetooth.available;
         var powered = !!bluetooth.enabled && device.adapterEnabled === true;
         var connected = ready && powered && device.connected === true && !device.blocked;
-        var left = connected ? percentage(device.batteryLeft) : -1;
-        var right = connected ? percentage(device.batteryRight) : -1;
-        var caseCharge = connected ? percentage(device.batteryCase) : -1;
+        // Parts from Apple ads stay while the buds are in the case. A leftover
+        // Battery1 percentage after disconnect is not a live value.
+        var advertised = ready && powered && !device.blocked && !connected
+            && (percentage(device.batteryLeft) >= 0 || percentage(device.batteryRight) >= 0
+                || percentage(device.batteryCase) >= 0);
+        var liveCharge = connected || advertised;
+        var left = liveCharge ? percentage(device.batteryLeft) : -1;
+        var right = liveCharge ? percentage(device.batteryRight) : -1;
+        var caseCharge = liveCharge ? percentage(device.batteryCase) : -1;
         var charge = connected ? percentage(device.battery) : -1;
         if (charge < 0) {
             var pods = [left, right].filter(value => value >= 0);
@@ -79,9 +85,26 @@ function normalize(laptop, devices, bluetooth, previous) {
     (previous || []).forEach(row => { if (result.length < 64 && !result.some(item => item.id === row.id)) result.push(missing(row.id, row)); });
     return result.slice(0, 64);
 }
+function hasCharge(row) {
+    return !!row && (row.percentage >= 0 || row.left >= 0 || row.right >= 0 || row.caseCharge >= 0);
+}
 function rows(entries, settings) {
     if (settings.mode === "selected") return (settings.devices || []).map(id => entries.find(item => item.id === id) || missing(id));
-    return entries.filter(item => item.present && (item.id === "laptop" || item.connected));
+    return entries.filter(item => item.present && (item.id === "laptop" || item.connected || hasCharge(item)));
+}
+function autoRank(row) {
+    if (!row || row.id === "laptop") return 0;
+    return (row.connected ? 100 : 0) + (row.kind === "headphones" ? 40 : 0) + (hasCharge(row) ? 10 : 0);
+}
+function pickShown(entries, settings, capacity) {
+    var list = rows(entries, settings);
+    var limit = Math.max(0, Number(capacity) || 0);
+    if (!limit || list.length <= limit) return list;
+    if (settings && settings.mode === "selected") return list.slice(0, limit);
+    var laptop = list.filter(item => item.id === "laptop");
+    var rest = list.filter(item => item.id !== "laptop");
+    rest.sort((a, b) => autoRank(b) - autoRank(a) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    return laptop.concat(rest).slice(0, limit);
 }
 function choices(entries, devices) {
     var result = entries.slice();
@@ -106,7 +129,7 @@ function status(row) {
     if (row.full) return "Fully charged";
     return row.percentage < 0 ? "Battery unknown" : "";
 }
-function value(row) { return row.connected && row.percentage >= 0 ? row.percentage + "%" : "—"; }
+function value(row) { return row.percentage >= 0 ? row.percentage + "%" : "—"; }
 function demoEntries() {
     return normalize({present: true, ready: true, percentage: 84, charging: true, remaining: "About 25 min until full"}, [
         {address: "AA:00:00:00:00:01", name: "Headphones", icon: "audio-headphones", connected: true, adapterEnabled: true, battery: 67},

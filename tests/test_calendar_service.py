@@ -1,5 +1,6 @@
 import os
 from contextlib import closing
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import select
@@ -76,6 +77,30 @@ class CalendarStoreTests(unittest.TestCase):
             CalendarStore(future)
         with closing(sqlite3.connect(future)) as db:
             self.assertEqual(db.execute('SELECT value FROM evidence').fetchone()[0], 'untouched')
+
+    def test_repeat_rejected_and_deleted_master_restores(self):
+        created = self.store.create(self.timed(repeat='daily'))
+        self.assertEqual(created['repeat_rule'], 'daily')
+        with self.assertRaises(CalendarError):
+            self.store.create(self.timed(id=str(uuid.uuid4()), repeat='yearly'))
+        self.store.change({'id': self.event_id, 'revision': 0, 'deleted': True}, deletion=True)
+        self.assertEqual(self.store.snapshot()['events'], [])
+        restored = self.store.change({'id': self.event_id, 'revision': 1, 'deleted': False}, deletion=True)
+        self.assertEqual(restored['deleted'], 0)
+        self.assertEqual(self.store.event(self.event_id)['repeat_rule'], 'daily')
+
+    def test_monthly_short_month_is_expanded(self):
+        start = int(datetime(2026, 1, 31, 9, tzinfo=timezone.utc).timestamp() * 1000)
+        created = self.store.create(self.timed(start=start, end=start + 3600000, repeat='monthly', zone='UTC'))
+        self.assertEqual(created['repeat_rule'], 'monthly')
+        window = self.store.snapshot(
+            int(datetime(2026, 2, 1, tzinfo=timezone.utc).timestamp() * 1000),
+            int(datetime(2026, 4, 1, tzinfo=timezone.utc).timestamp() * 1000))
+        days = [item.get('start_ms') for item in window['occurrences']]
+        self.assertIn(int(datetime(2026, 2, 28, 9, tzinfo=timezone.utc).timestamp() * 1000), days)
+        self.assertIn(int(datetime(2026, 3, 31, 9, tzinfo=timezone.utc).timestamp() * 1000), days)
+        with self.assertRaises(CalendarError):
+            self.store.create(self.timed(id=str(uuid.uuid4()), repeat='yearly'))
 
     def test_service_notifies_another_writer(self):
         helper = Path(__file__).resolve().parents[1] / 'MacShell' / 'calendar_service.py'

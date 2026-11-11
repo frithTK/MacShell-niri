@@ -15,6 +15,7 @@ SCRIPT = ROOT / 'MacLock/boot_clock.py'
 RUST_BINARY = os.environ.get('MACSHELL_TEST_BOOT_CLOCK_BINARY')
 sys.path.insert(0, str(ROOT))
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 class MacLockBootClockTests(unittest.TestCase):
@@ -26,14 +27,19 @@ class MacLockBootClockTests(unittest.TestCase):
             binary = shell / 'boot-clock-rust'
             binary.write_text('#!/bin/sh\nif [ "$1" = --protocol-version ]; then echo "macshell-boot-clock 1"; else echo rust; fi\n')
             binary.chmod(0o755)
-            def launch():
+            def launch(check=True):
                 return subprocess.run(['sh', str(shell / 'boot-clock.sh'), '--once'],
-                                      check=True, capture_output=True, text=True, timeout=5).stdout.strip()
-            self.assertEqual(launch(), 'rust')
+                                      check=check, capture_output=True, text=True, timeout=5)
+            self.assertEqual(launch().stdout.strip(), 'rust')
             binary.write_text('#!/bin/sh\necho incompatible\n')
-            self.assertEqual(launch(), 'legacy')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
+            self.assertIn('Rust', incompatible.stderr)
             binary.unlink()
-            self.assertEqual(launch(), 'legacy')
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
 
     @unittest.skipUnless(RUST_BINARY, 'Set MACSHELL_TEST_BOOT_CLOCK_BINARY to test Rust clock')
     def test_rust_clock_once_and_stream(self):
@@ -93,6 +99,7 @@ class MacLockBootClockTests(unittest.TestCase):
             shell.mkdir()
             shutil.copy(ROOT / 'MacLock/BootClock.qml', shell / 'BootClock.qml')
             shutil.copy(ROOT / 'MacLock/boot-clock.sh', shell / 'boot-clock.sh')
+            point_copied_launchers_at_python(shell, names=['boot-clock.sh'])
             shutil.copy(ROOT / 'tests/boot-clock-watchdog.qml', shell / 'shell.qml')
             (shell / 'boot_clock.py').write_text('import time\nprint(\'{"bootId":"boot-a","bootMs":1000}\', flush=True)\ntime.sleep(20)\n')
             for name in ('runtime', 'config', 'cache'):
@@ -119,6 +126,8 @@ class MacLockBootClockTests(unittest.TestCase):
             shutil.copy(SCRIPT, shell / 'boot_clock.py')
             if RUST_BINARY:
                 shutil.copy(RUST_BINARY, shell / 'boot-clock-rust')
+            else:
+                point_copied_launchers_at_python(shell, names=['boot-clock.sh'])
             shutil.copy(ROOT / 'tests/boot-clock-once.qml', shell / 'shell.qml')
             for name in ('runtime', 'config', 'cache'):
                 (root / name).mkdir()
@@ -144,6 +153,8 @@ class MacLockBootClockTests(unittest.TestCase):
             shutil.copy(SCRIPT, shell / 'boot_clock.py')
             if RUST_BINARY:
                 shutil.copy(RUST_BINARY, shell / 'boot-clock-rust')
+            else:
+                point_copied_launchers_at_python(shell, names=['boot-clock.sh'])
             shutil.copy(ROOT / 'tests/boot-clock-modes.qml', shell / 'shell.qml')
             for name in ('runtime', 'config', 'cache'):
                 (root / name).mkdir()

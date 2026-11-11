@@ -154,22 +154,25 @@ class LocaleSessionRustTests(unittest.TestCase):
         (folder/'session-locale.py').write_text('print("legacy session")\n')
         binary=folder/'locale-preferences-rust'
         binary.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo "macshell-locale-preferences 1"; else echo "rust ${1-service}"; fi\n'); binary.chmod(0o755)
-        def launch(name):
-            return subprocess.run(['sh',str(folder/name)],env=self.env,capture_output=True,text=True,timeout=5,check=True).stdout.strip()
-        self.assertEqual(launch('locale-preferences.sh'),'rust service')
-        self.assertEqual(launch('session-locale.sh'),'rust --session')
+        def launch(name, check=True):
+            return subprocess.run(['sh',str(folder/name)],env=self.env,capture_output=True,text=True,timeout=5,check=check)
+        self.assertEqual(launch('locale-preferences.sh').stdout.strip(),'rust service')
+        self.assertEqual(launch('session-locale.sh').stdout.strip(),'rust --session')
         binary.write_text('#!/bin/sh\necho incompatible\n')
-        self.assertEqual(launch('locale-preferences.sh'),'legacy service')
-        self.assertEqual(launch('session-locale.sh'),'legacy session')
+        for name in ('locale-preferences.sh', 'session-locale.sh'):
+            refused = launch(name, check=False)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertNotIn('legacy', refused.stdout)
+            self.assertIn('Rust', refused.stderr)
     def test_session_fallback_reads_the_same_document(self):
         folder=self.root/'fallback'; folder.mkdir()
         shutil.copy(ROOT/'scripts/session-locale.sh',folder/'session-locale.sh')
         shutil.copy(ROOT/'scripts/session_locale.py',folder/'session-locale.py')
         shutil.copy(ROOT/'MacShell/locale_preferences.py',folder/'locale_preferences.py')
         raw,_=locale.serialize(dict(ui='ru',session='C',region='system'),{'C'}); self.write(raw)
-        fallback=subprocess.run(['sh',str(folder/'session-locale.sh')],env=self.env,capture_output=True,text=True,timeout=6,check=True)
+        python=subprocess.run([sys.executable,str(folder/'session-locale.py')],env=self.env,capture_output=True,text=True,timeout=6,check=True)
         rust=subprocess.run([BINARY,'--session'],env=self.env,capture_output=True,text=True,timeout=6,check=True)
-        self.assertEqual(fallback.stdout,rust.stdout); self.assertEqual(self.path.read_bytes(),raw)
+        self.assertEqual(python.stdout,rust.stdout); self.assertEqual(self.path.read_bytes(),raw)
     @unittest.skipUnless(shutil.which(quickshell()),'Quickshell is required')
     def test_qml_saves_and_session_reader_exports_same_document(self):
         shell=self.root/'shell'; shutil.copytree(ROOT/'MacShell',shell)

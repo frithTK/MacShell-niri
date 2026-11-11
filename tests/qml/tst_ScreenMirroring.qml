@@ -116,15 +116,12 @@ TestCase {
         compare(findChild(menu, "mirroringDisconnect").text, "Stop Mirroring");
         verify(menu.implicitHeight < 700);
     }
-    function test_extend_stays_visible_when_niri_cannot_create_a_display() {
-        mouseClick(findChild(menu, "mirroringExtend"));
-        compare(fake.layout, "extend");
-        compare(findChild(menu, "mirroringDevice").enabled, false);
-        fake.extendAvailable = true;
-        fake.extendOutput = "HDMI-A-1";
-        fake.extendMethod = "dummy";
-        compare(findChild(menu, "mirroringDevice").enabled, true);
-        mouseClick(findChild(menu, "mirroringMirror"));
+    function test_extend_choice_is_hidden_and_devices_stay_enabled() {
+        compare(findChild(menu, "mirroringExtend"), null);
+        compare(findChild(menu, "mirroringMirror"), null);
         compare(fake.layout, "mirror");
+        compare(findChild(menu, "mirroringDevice").enabled, true);
+        fake.extendAvailable = false;
+        compare(findChild(menu, "mirroringDevice").enabled, true);
     }
 }

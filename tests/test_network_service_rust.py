@@ -175,15 +175,22 @@ class NetworkServiceTests(unittest.TestCase):
             shutil.copy(ROOT / 'MacShell/network-service.sh', root / 'network-service.sh')
             (root / 'network_control.py').write_text('print("legacy")\n')
             binary = root / 'network-service-rust'
-            def launch():
-                return subprocess.run(['sh', str(root / 'network-service.sh')], capture_output=True, text=True, check=True, timeout=5).stdout.strip()
-            self.assertEqual(launch(), 'legacy')
+            def launch(check=True):
+                return subprocess.run(['sh', str(root / 'network-service.sh')], capture_output=True, text=True, check=check, timeout=5)
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
+            self.assertIn('Rust', missing.stderr)
             shutil.copy(BINARY, binary)
             probe = subprocess.run([str(binary), '--protocol-version'], capture_output=True, text=True, timeout=3, check=True)
             self.assertEqual(probe.stdout.strip(), 'macshell-network 1')
+            ready = launch()
+            self.assertEqual(ready.returncode, 0, ready.stderr)
             binary.write_text('#!/bin/sh\necho incompatible\n')
             binary.chmod(0o755)
-            self.assertEqual(launch(), 'legacy')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
 
     @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
     def test_qml_controller_with_private_networkmanager(self):

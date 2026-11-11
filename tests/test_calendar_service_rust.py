@@ -1,5 +1,7 @@
+from datetime import datetime, timezone
 import json
 import select
+import time
 import sqlite3
 import subprocess
 import sys
@@ -69,8 +71,15 @@ class CalendarRustTests(unittest.TestCase):
         store = CalendarStore(self.path)
         try: store.create({'id': self.id, 'title': 'external', 'allDay': True, 'date': '2026-11-08'})
         finally: store.close()
-        self.assertTrue(select.select([p.stdout], [], [], 4)[0])
-        self.assertEqual(json.loads(p.stdout.readline())['type'], 'changed')
+        deadline = time.time() + 4
+        saw = None
+        while time.time() < deadline:
+            if not select.select([p.stdout], [], [], max(0, deadline - time.time()))[0]:
+                break
+            saw = json.loads(p.stdout.readline())
+            if saw.get('type') == 'changed':
+                break
+        self.assertEqual(saw and saw.get('type'), 'changed')
         self.assertEqual(self.request(p, 'load')['result']['events'][0]['title'], 'external')
 
     def test_invalid_dates_and_unrecognized_database(self):
@@ -86,6 +95,43 @@ class CalendarRustTests(unittest.TestCase):
         db = sqlite3.connect(other)
         try: self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0], 0)
         finally: db.close()
+
+    def test_monthly_short_month_dst_and_restored_master(self):
+        start = int(datetime(2026, 1, 31, 9, tzinfo=timezone.utc).timestamp() * 1000)
+        end = start + 3600000
+        p = self.start()
+        created = self.request(p, 'create', id=self.id, title='Month end', allDay=False,
+                               start=start, end=end, repeat='monthly', zone='UTC')
+        self.assertTrue(created['success'], created)
+        window = {'from': int(datetime(2026, 2, 1, tzinfo=timezone.utc).timestamp() * 1000),
+                  'to': int(datetime(2026, 4, 1, tzinfo=timezone.utc).timestamp() * 1000)}
+        loaded = self.request(p, 'load', **window)
+        days = [item.get('start_ms') for item in loaded['result']['occurrences']]
+        feb = int(datetime(2026, 2, 28, 9, tzinfo=timezone.utc).timestamp() * 1000)
+        mar = int(datetime(2026, 3, 31, 9, tzinfo=timezone.utc).timestamp() * 1000)
+        self.assertIn(feb, days)
+        self.assertIn(mar, days)
+        ny_start = int(datetime(2026, 3, 7, 7, 30, tzinfo=timezone.utc).timestamp() * 1000)
+        ny_id = str(uuid.uuid4())
+        gap = self.request(p, 'create', id=ny_id, title='DST', allDay=False,
+                           start=ny_start, end=ny_start + 60000, repeat='daily', zone='America/New_York')
+        self.assertTrue(gap['success'], gap)
+        ny_load = self.request(p, 'load', **{
+            'from': int(datetime(2026, 3, 8, tzinfo=timezone.utc).timestamp() * 1000),
+            'to': int(datetime(2026, 3, 9, tzinfo=timezone.utc).timestamp() * 1000)})
+        ny_days = [item['start_ms'] for item in ny_load['result']['occurrences'] if item['id'] == ny_id]
+        self.assertEqual(ny_days, [int(datetime(2026, 3, 8, 7, tzinfo=timezone.utc).timestamp() * 1000)])
+        deleted = self.request(p, 'delete', id=self.id, revision=created['result']['revision'], deleted=True)
+        self.assertTrue(deleted['success'])
+        gone = self.request(p, 'load', **window)
+        self.assertFalse(any(item['id'] == self.id for item in gone['result']['occurrences']))
+        restored = self.request(p, 'delete', id=self.id, revision=deleted['result']['revision'], deleted=False)
+        self.assertTrue(restored['success'])
+        back = self.request(p, 'load', **window)
+        self.assertTrue(any(item['id'] == self.id for item in back['result']['occurrences']))
+        first = created['result']['alert_next_ms']
+        again = self.request(p, 'load')['result']['events']
+        self.assertEqual([event['alert_next_ms'] for event in again if event['id'] == self.id][0], first)
 
 
 if __name__ == '__main__': unittest.main()

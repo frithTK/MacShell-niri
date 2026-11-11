@@ -27,7 +27,6 @@ ShellRoot {
         property var calendar: calendarApp
         property var desktopSource: desktopSourceService
         property var storage: storageService
-        property var dropTools: dropToolsApp
         property var quickLook: quickLookApp
         property var trash: trashApp.service
         property var trashUi: trashApp
@@ -36,7 +35,7 @@ ShellRoot {
         StorageControl { id: storageService }
         AppMenuService { id: appMenuService }
         readonly property var translations: Language.I18n
-        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); else if (key === "calendar") calendarApp.open(); else if (key === "droptools") dropToolsApp.openDrop(); }
+        function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); else if (key === "calendar") calendarApp.open(); }
         function openSettings(pane) { macDock.openPrefs(pane); }
         property bool barWantsGeo: false
         property bool dockWantsGeo: false
@@ -113,7 +112,6 @@ ShellRoot {
     RemindersApp { id: remindersApp; hub: sharedHub }
     CalendarApp { id: calendarApp; hub: sharedHub }
     QuickLookApp { id: quickLookApp; hub: sharedHub }
-    DropToolsApp { id: dropToolsApp; hub: sharedHub }
     TrashApp { id: trashApp; hub: sharedHub }
     ThemeCoordinator { bar: macBar; dock: macDock }
 
@@ -259,11 +257,6 @@ ShellRoot {
         function open(name: string): void { sharedHub.openUtility(name); }
     }
     IpcHandler {
-        target: "droptools"
-        function open(): void { dropToolsApp.openDrop(); }
-        function files(path: string): void { dropToolsApp.openFilesFromText(path); }
-    }
-    IpcHandler {
         target: "notifications"
         function open(): void { macBar.notifPopRequest(true); }
         function close(): void { macBar.notifPopRequest(false); }
@@ -300,6 +293,7 @@ ShellRoot {
                 barStyle: macBar.barStyle, dockStyle: macDock.dockStyle,
                 barShader: macBar.glassState, dockShader: macDock.glassState,
                 look: macDock.glassLookId, blur: macDock.glassBlur, refraction: macDock.glassLiquid, frosting: macDock.glassOpacity,
+                barFrosting: macBar.glassOpacity, barBlur: macBar.glassBlur, barRefraction: macBar.glassLiquid,
                 nativeBlur: {available: macDock.nativeBlur.available, managed: macDock.nativeBlur.managed,
                     appliedLevel: macDock.nativeBlur.appliedLevel, error: macDock.nativeBlur.error}})));
         }

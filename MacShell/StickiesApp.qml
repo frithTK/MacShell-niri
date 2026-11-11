@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Quickshell
 import "Locale" as Language
 import "StickiesText.js" as Texts
+import "StickiesColor.js" as Color
 
 Scope {
     id: root
@@ -29,7 +30,8 @@ Scope {
     }
     function createWindow(id, saved, restoring) {
         var item = stickyWindow.createObject(root, {noteId: id || "", createNew: !id,
-            savedGeometry: saved || {}, mappingTitle: "Stickies [" + (++serial) + "]"});
+            savedGeometry: saved || {}, paperColor: Color.normalize(saved && saved.color),
+            mappingTitle: "Stickies [" + (++serial) + "]"});
         if (item) {
             windows = windows.concat([item]); item.show();
             if (!restoring) { item.raise(); item.requestActivate(); }
@@ -53,7 +55,7 @@ Scope {
             sessionRequest = hub.notesService.send(sessionAction, {});
         } else if (sessionDirty) {
             if (windows.some(w => w.createNew && !w.noteId)) return;
-            var entries = windows.filter(w => !!w.noteId).map(w => Object.assign({}, w.savedGeometry, {id: w.noteId}));
+            var entries = windows.filter(w => !!w.noteId).map(w => Object.assign({}, w.savedGeometry, {id: w.noteId, color: Color.normalize(w.paperColor)}));
             sessionAction = "save-stickies";
             sessionRequest = hub.notesService.send(sessionAction, {windows: entries});
             if (sessionRequest > 0) sessionDirty = false;
@@ -138,6 +140,8 @@ Scope {
             property double niriId: 0
             property int placementAttempts: 0
             property var savedGeometry: ({})
+            property string paperColor: "yellow"
+            readonly property var paper: Color.paper(paperColor)
             readonly property alias geometryDelay: geometryDelay
             readonly property alias controller: controller
             title: mappingTitle; width: 340; height: 300; minimumWidth: 260; minimumHeight: 200
@@ -154,40 +158,62 @@ Scope {
                 storePath: root.storePath
                 sharedService: root.hub ? root.hub.notesService : null
                 enabled: win.visible || win.closePending || busy || dirty
-                autoRefresh: true; selectFirst: false; initialId: win.noteId
+                autoRefresh: true; selectFirst: false; plainOnly: true; initialId: win.noteId
                 onSelectedIdChanged: if (selectedId) { win.noteId = selectedId; win.createNew = false; root.scheduleSave(); }
                 onClean: {
                     if (win.closePending && !dirty && !busy) { win.closePending = false; win.finishClose(); }
                     else if (win.createNew && !selectedId && !busy && ready && error === "") create();
                 }
             }
-            Rectangle { anchors.fill: parent; radius: 12; color: "#fff1ad"; border.width: 1; border.color: "#c9ad61" }
+            Rectangle { anchors.fill: parent; radius: 12; color: win.paper.fill; border.width: 1; border.color: win.paper.border }
             AppTitlebar {
                 id: toolbar; x: 1; width: parent.width - 2
-                window: win; dark: false; barColor: "#efd984"; titleColor: "#574b22"; family: root.family
+                window: win; dark: false; barColor: win.paper.bar; titleColor: win.paper.title; family: root.family
                 title: root.tr("title"); closeLabel: root.tr("close"); minimizeLabel: root.tr("minimize"); maximizeLabel: root.tr("maximize")
                 controlObjectPrefix: "stickyWindowControl_"
                 onCloseRequested: win.requestClose()
+            }
+            Row {
+                objectName: "stickyColors"
+                anchors.right: parent.right; anchors.rightMargin: 10
+                y: 19; spacing: 5; z: 2
+                Repeater {
+                    model: Color.ids
+                    delegate: MouseArea {
+                        required property string modelData
+                        objectName: "stickyColor_" + modelData
+                        width: 14; height: 14; cursorShape: Qt.PointingHandCursor
+                        Accessible.role: Accessible.Button
+                        Accessible.name: root.tr("color" + modelData.charAt(0).toUpperCase() + modelData.slice(1))
+                        onClicked: { win.paperColor = modelData; root.scheduleSave(); }
+                        Rectangle {
+                            anchors.fill: parent; radius: 7
+                            color: Color.paper(parent.modelData).fill
+                            border.width: win.paperColor === parent.modelData ? 2 : 1
+                            border.color: win.paperColor === parent.modelData ? win.paper.title : Color.paper(parent.modelData).border
+                        }
+                    }
+                }
             }
             ColumnLayout {
                 anchors { top: toolbar.bottom; left: parent.left; right: parent.right; bottom: parent.bottom; margins: 12 }
                 spacing: 6
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { Layout.fillWidth: true; text: !controller.ready ? root.tr("unavailable") : controller.busy || controller.dirty ? root.tr("saving") : root.tr("saved"); color: "#756737"; font.family: root.family; font.pixelSize: 11; elide: Text.ElideRight }
-                    AppIconButton { objectName: "stickyNew"; glyph: "plus"; label: root.tr("newNote"); dark: false; iconColor: "#6e5d27"; implicitWidth: 32; implicitHeight: 28; onClicked: root.open() }
+                    Text { Layout.fillWidth: true; text: !controller.ready ? root.tr("unavailable") : controller.busy || controller.dirty ? root.tr("saving") : root.tr("saved"); color: win.paper.muted; font.family: root.family; font.pixelSize: 11; elide: Text.ElideRight }
+                    AppIconButton { objectName: "stickyNew"; glyph: "plus"; label: root.tr("newNote"); dark: false; iconColor: win.paper.title; implicitWidth: 32; implicitHeight: 28; onClicked: root.open() }
                 }
                 RowLayout {
                     visible: controller.error !== ""; Layout.fillWidth: true
-                    Text { Layout.fillWidth: true; text: controller.error === "Note no longer exists." ? root.tr("cannotOpen") : controller.error; color: "#8e2c20"; font.family: root.family; font.pixelSize: 12; wrapMode: Text.Wrap; textFormat: Text.PlainText }
-                    ControlButton { objectName: "stickySaveCopy"; visible: controller.dirty; text: root.tr("saveCopy"); palette.button: "#ead899"; palette.buttonText: "#42391b"; enabled: controller.ready && !controller.busy; onClicked: controller.saveCopy() }
-                    ControlButton { visible: !controller.dirty && controller.ready; text: root.tr("retry"); palette.button: "#ead899"; palette.buttonText: "#42391b"; enabled: !controller.busy; onClicked: controller.reload() }
+                    Text { Layout.fillWidth: true; text: controller.error === "Note no longer exists." ? root.tr("cannotOpen") : controller.error; color: win.paper.error; font.family: root.family; font.pixelSize: 12; wrapMode: Text.Wrap; textFormat: Text.PlainText }
+                    ControlButton { objectName: "stickySaveCopy"; visible: controller.dirty; text: root.tr("saveCopy"); palette.button: win.paper.button; palette.buttonText: win.paper.buttonText; enabled: controller.ready && !controller.busy; onClicked: controller.saveCopy() }
+                    ControlButton { visible: !controller.dirty && controller.ready; text: root.tr("retry"); palette.button: win.paper.button; palette.buttonText: win.paper.buttonText; enabled: !controller.busy; onClicked: controller.reload() }
                 }
                 ScrollView {
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                     TextArea {
                         objectName: "stickyEditor"; text: controller.body; enabled: !!controller.selectedId
-                        placeholderText: root.tr("placeholder"); color: "#302b1b"; placeholderTextColor: "#958456"
+                        placeholderText: root.tr("placeholder"); color: win.paper.ink; placeholderTextColor: win.paper.placeholder
                         font.family: root.family; font.pixelSize: 16; selectByMouse: true; wrapMode: TextEdit.Wrap; textFormat: TextEdit.PlainText
                         onTextChanged: if (text !== controller.body) controller.edit(text)
                         background: Rectangle { color: "transparent" }

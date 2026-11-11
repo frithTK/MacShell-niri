@@ -106,7 +106,8 @@ TestCase {
         var entries = Data.demoEntries();
         var card = createTemporaryObject(cardComponent, test, {entries: entries}); waitForRendering(card);
         compare(card.devices.length, 6); compare(card.shownDevices.length, 6);
-        card.size = "small"; compare(card.shownDevices.length, 2); compare(findChild(card, "batteriesFooter").text, "+4 more devices");
+        card.size = "small"; compare(card.shownDevices.length, 2); compare(card.shownDevices[0].id, "laptop");
+        compare(card.shownDevices[1].kind, "headphones"); compare(findChild(card, "batteriesFooter").text, "+4 more devices");
         card.size = "medium"; compare(card.shownDevices.length, 4);
         card.settings = {mode: "selected", devices: []}; compare(card.devices.length, 0); compare(findChild(card, "batteriesEmpty").text, "No devices selected");
         card.settings = {}; card.entries = []; compare(findChild(card, "batteriesEmpty").text, "No batteries available");
@@ -144,7 +145,7 @@ TestCase {
         compare(record.savedSettings.batteries.devices.join(), "laptop");
         backend.mutationFinished(false); verify(editor.dirty); verify(editor.error !== "");
     }
-    function test_apple_parts_are_shown_only_while_connected() {
+    function test_apple_parts_stay_when_advertised_in_the_case() {
         var rows = normalized([device("AA:BB:CC:DD:EE:01", {name: "AirPods", icon: "audio-headphones",
             battery: -1, batteryLeft: 80, batteryRight: 70, batteryCase: 50, charging: true})]);
         compare(rows[0].percentage, 70); compare(rows[0].left, 80); compare(rows[0].right, 70); compare(rows[0].caseCharge, 50);
@@ -152,8 +153,34 @@ TestCase {
         var card = createTemporaryObject(cardComponent, test, {entries: rows}); waitForRendering(card);
         compare(findChild(card, "batteryStatus_" + firstId).text, "L 80% · R 70% · Case 50%");
         verify(findChild(card, "batteryDevice_" + firstId));
-        rows = normalized([device("AA:BB:CC:DD:EE:01", {battery: -1, batteryLeft: 80, connected: false})], undefined, rows);
-        compare(rows[0].percentage, -1); compare(rows[0].left, -1); compare(Data.status(rows[0]), "Disconnected");
+        rows = normalized([device("AA:BB:CC:DD:EE:01", {name: "AirPods", icon: "audio-headphones",
+            battery: -1, batteryLeft: 80, batteryRight: 70, batteryCase: 50, connected: false})], undefined, rows);
+        compare(rows[0].percentage, 70); compare(rows[0].left, 80); compare(rows[0].right, 70); compare(rows[0].caseCharge, 50);
+        compare(Data.value(rows[0]), "70%"); compare(Data.status(rows[0]), "Disconnected");
+        compare(Data.rows(rows, {}).length, 1);
+    }
+    function test_small_auto_keeps_headphones_with_charge_beside_the_laptop() {
+        var laptop = Data.normalize({present: true, ready: true, percentage: 84}, [], {ready: true, available: true, enabled: true}, [])[0];
+        var airpods = normalized([device("AA:BB:CC:DD:EE:01", {name: "AirPods", icon: "audio-headphones",
+            connected: true, battery: 100})])[0];
+        var mouse = normalized([device("AA:BB:CC:DD:EE:02", {name: "Mouse", icon: "input-mouse",
+            connected: true, battery: 42})])[0];
+        var entries = [laptop, mouse, airpods];
+        compare(Data.pickShown(entries, {}, 2).map(row => row.kind).join(), "laptop,headphones");
+        var card = createTemporaryObject(cardComponent, test, {entries: entries, size: "small", settings: {}});
+        waitForRendering(card);
+        compare(card.shownDevices.length, 2); compare(card.shownDevices[0].id, "laptop");
+        compare(card.shownDevices[1].kind, "headphones"); compare(findChild(card, "batteryValue_" + firstId).text, "100%");
+        var cased = normalized([device("AA:BB:CC:DD:EE:01", {name: "AirPods", icon: "audio-headphones",
+            connected: false, battery: -1, batteryLeft: 88, batteryRight: 90, batteryCase: 40})])[0];
+        var idleMouse = normalized([device("AA:BB:CC:DD:EE:02", {name: "Mouse", icon: "input-mouse",
+            connected: false, battery: 12})])[0];
+        entries = [laptop, idleMouse, cased];
+        compare(Data.rows(entries, {}).map(row => row.kind).join(), "laptop,headphones");
+        compare(Data.pickShown(entries, {}, 2).map(row => row.kind).join(), "laptop,headphones");
+        card.entries = entries; waitForRendering(card);
+        compare(card.shownDevices[1].id, firstId); compare(findChild(card, "batteryValue_" + firstId).text, "88%");
+        compare(findChild(card, "batteryStatus_" + firstId).text, "Disconnected");
     }
     function test_invalid_ids_modes_and_duplicates_are_rejected() {
         for (var value of [null, [], {devices: "laptop"}, {mode: "other"}, {devices: ["laptop", "laptop"]}, {devices: [null]},

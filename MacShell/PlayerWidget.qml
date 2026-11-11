@@ -13,6 +13,7 @@
 // This file only draws. MacWidgets.qml owns the MPRIS player and feeds the data properties; the buttons emit
 // togglePlaying() / nextTrack() / previousTrack().
 import QtQuick
+import "GlassTheme.js" as GlassTheme
 import "Locale" as Language
 import QtQuick.Effects
 
@@ -97,7 +98,7 @@ Item {
 
     readonly property bool glassOn: style === "liquid" && glassReady && !preview && wallUrl != ""
     readonly property bool dark: style === "dark" || (style === "liquid" && darkGlass)
-    readonly property real tint: Math.min(0.92, dark ? 0.25 + glassOpacity * 0.8 : 0.45 + glassOpacity * 0.9)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
 
     // ───────────────────────── colours from the artwork ─────────────────────────
     function mix(c, o, t) { return Qt.rgba(c.r * (1 - t) + o.r * t, c.g * (1 - t) + o.g * t, c.b * (1 - t) + o.b * t, 1); }

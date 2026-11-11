@@ -30,7 +30,7 @@ Scope {
     property var devices: []
     property var streams: []
     readonly property var pending: streams.find(s => s.state === "pin_required") || null
-    readonly property bool sending: streams.some(s => s.state === "streaming")
+    readonly property bool sending: streams.some(s => s.state === "streaming") || senderState === "streaming"
     readonly property bool connecting: ["starting", "connecting", "pin_required"].indexOf(senderState) >= 0
     readonly property bool receiving: ["starting", "waiting", "streaming"].indexOf(receiverState) >= 0
     readonly property bool quiet: sending || connecting

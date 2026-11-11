@@ -2,7 +2,6 @@
 .import "RemindersText.js" as RemindersText
 .import "StickiesText.js" as StickiesText
 .import "CalendarText.js" as CalendarText
-.import "DropToolsText.js" as DropToolsText
 
 var apps = [
     {key: "clock", id: "macshell-clock", name: "Clock", title: "Clock", icon: "assets/app-icons/macshell-clock.svg", genericName: "Alarms, timers, stopwatch and world clock", comment: "MacShell Clock", categories: ["Utility"], keywords: ["clock", "alarm", "timer", "stopwatch", "world", "часы", "будильник", "таймер", "секундомер", "мировое время"]},
@@ -10,10 +9,9 @@ var apps = [
     {key: "notes", id: "macshell-notes", name: "Notes", title: "Notes", icon: "assets/app-icons/macshell-notes.svg", genericName: "Local notes and drafts", comment: "MacShell Notes", categories: ["Utility"], keywords: ["notes", "note", "draft", "text", "заметки", "заметка", "запись", "черновик"]},
     {key: "reminders", id: "macshell-reminders", name: "Reminders", title: "Reminders", icon: "assets/app-icons/macshell-reminders.svg", genericName: "Local task lists", comment: "MacShell Reminders", categories: ["Utility"], keywords: ["reminders", "tasks", "todo", "списки", "задачи", "напоминания"]},
     {key: "stickies", id: "macshell-stickies", name: "Stickies", title: "Stickies", icon: "assets/app-icons/macshell-stickies.svg", genericName: "Quick notes on your desktop", comment: "MacShell Stickies", categories: ["Utility"], keywords: ["stickies", "sticky", "notes", "note", "записки", "записка", "стикеры", "стикер"]},
-    {key: "calendar", id: "macshell-calendar", name: "Calendar", title: "Calendar", icon: "assets/app-icons/macshell-calendar.svg", genericName: "Local calendar events", comment: "MacShell Calendar", categories: ["Utility"], keywords: ["calendar", "events", "event", "календарь", "события", "событие"]},
-    {key: "droptools", id: "macshell-droptools", name: "Convert", title: "Convert", icon: "assets/app-icons/macshell-droptools.svg", genericName: "Convert images and PDF next to the original", comment: "MacShell Convert", categories: ["Utility"], keywords: ["convert", "converter", "png", "jpeg", "pdf", "tangerine", "конвертер", "преобразовать", "изображение"]}
+    {key: "calendar", id: "macshell-calendar", name: "Calendar", title: "Calendar", icon: "assets/app-icons/macshell-calendar.svg", genericName: "Local calendar events", comment: "MacShell Calendar", categories: ["Utility"], keywords: ["calendar", "events", "event", "календарь", "события", "событие"]}
 ];
-function textsFor(key) { return key === "reminders" ? RemindersText : key === "stickies" ? StickiesText : key === "calendar" ? CalendarText : key === "droptools" ? DropToolsText : null; }
+function textsFor(key) { return key === "reminders" ? RemindersText : key === "stickies" ? StickiesText : key === "calendar" ? CalendarText : null; }
 function find(id) {
     var key = String(id || "").replace(/\.desktop$/i, "").toLowerCase();
     return apps.find(app => app.key === key || app.id === key) || null;

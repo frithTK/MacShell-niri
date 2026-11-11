@@ -94,5 +94,7 @@ TestCase {
         compare(Utilities.ownWindow("org.quickshell", "Clock"), "macshell-clock");
         compare(Utilities.ownWindow("some.other.app", "Calculator"), "some.other.app");
         compare(Utilities.find("planned-notes"), null);
+        compare(Utilities.find("droptools"), null);
+        compare(Utilities.find("macshell-droptools"), null);
     }
 }

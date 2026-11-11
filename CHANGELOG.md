@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.5
+
+- Liquid Glass looks are Clear / Standard / Vibrant / Tinted / Frosted. Named looks keep a see-through centre and a refracting rim; Tinted and Frosted thicken the film instead of trading refraction for frosting. Changing the look while Control Center is closed no longer leaves its shader off.
+- Glass samples live window pixels, not only the wallpaper. The niri profile sets `xray false` on MacShell layers. The niri bridge reconstructs tiled window geometry from the scrolling layout when niri omits screen coordinates, so Control Center and Spotlight can refract windows.
+- Convert is a file-manager submenu (Nautilus, Nemo, Caja, Dolphin, Thunar), not a Dock or Apps window. The helper still writes PNG, JPEG, PDF or a 90° rotate beside the original.
+- Screen Mirroring always mirrors. The Control Center Extend picker is gone; connecting releases a leftover HDMI dummy force so a previous Extend session cannot leave the port on. Receive still uses UxPlay; 1.73.7 needs the PIN proof-length patch in `docs/UXPLAY_RUNTIME.md`.
+- Batteries auto/small keeps advertised AirPods/Beats charge beside the laptop, not only while BlueZ reports connected.
+- Spotlight ranking and file-search process live in `SpotlightSearch.qml` / `SpotlightRank.js`; the overlay stays in MacBar.
+- Stickies paper color is one of six named papers and is stored in the window layout, not in the note body.
+- Calendar expands local daily/weekly/monthly repeats on read and sends `notify-send` alerts (all-day at 09:00 in the event zone). CalDAV/ICS stay out of scope.
+- Notes store `format`/`excerpt`, sanitize a small HTML subset, and keep file attachments beside the database. Stickies still edit plain text.
+- Settings → Security no longer promises Face unlock or PAM/MacLock changes; fingerprint templates stay on the reader.
+- Hyprland desktop sheets, genie minimize and foreign window decorations are documented as nongoals for the niri port.
+- Source launchers and the generated `macshell-niri` session launcher no longer fall back to Python; missing or incompatible Rust binaries fail. Python service modules remain for comparison tests.
+
 ## 1.2.4
 
 - Convert turns local PNG/JPEG/GIF/BMP into PNG, JPEG or a one-page PDF, or rotates 90°, and can render the first PDF page when `pdftoppm` is installed. New files are written beside the original; name clashes get a numeric suffix; batches can succeed in part. Wayland has no global Shift+drag — open Convert from Spotlight, Apps, IPC, or drop files onto its window.

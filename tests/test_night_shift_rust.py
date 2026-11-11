@@ -83,14 +83,19 @@ class NightShiftRustTests(unittest.TestCase):
             binary = shell / 'night-shift-rust'
             binary.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo "macshell-night-shift 1"; else echo rust; fi\n')
             binary.chmod(0o755)
-            def launch():
+            def launch(check=True):
                 return subprocess.run(['sh', str(shell / 'night-shift.sh')], capture_output=True,
-                                      text=True, timeout=5, check=True).stdout.strip()
-            self.assertEqual(launch(), 'rust')
+                                      text=True, timeout=5, check=check)
+            self.assertEqual(launch().stdout.strip(), 'rust')
             binary.write_text('#!/bin/sh\necho incompatible\n')
-            self.assertEqual(launch(), 'legacy')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
+            self.assertIn('Rust', incompatible.stderr)
             binary.unlink()
-            self.assertEqual(launch(), 'legacy')
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
 
     def client(self, trace=TRACE, delay=0, close_stderr=False, late_failure=False, exit_after_trace=False, flood=False):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)

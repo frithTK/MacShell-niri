@@ -211,34 +211,13 @@ fn copy_sources(source: &Path, destination: &Path) -> io::Result<()> {
             copy_sources(&path, &target)?;
         } else if path.extension().is_some_and(|ext| ext == "sh") {
             let script = fs::read_to_string(&path)?;
-            let installed = if script.contains("exec python3 ") {
-                let marker = script.find(".macshell-rust-only").ok_or_else(|| {
-                    io::Error::other(format!("missing legacy policy in {}", path.display()))
-                })?;
-                let line = script[..marker].rfind('\n').map_or(0, |i| i + 1);
-                if !script[marker..].contains("exec python3 ") {
-                    return Err(io::Error::other(format!(
-                        "invalid legacy policy in {}",
-                        path.display()
-                    )));
-                }
-                let prefix = script[..line]
-                    .replace(
-                        "Rust bridge unavailable or incompatible; using Python bridge",
-                        "Rust bridge unavailable or incompatible",
-                    )
-                    .replace("    python) ;;\n", "");
-                format!("{prefix}echo 'Rust helper is missing, incompatible, or disabled' >&2\nexit 1\n")
-            } else {
-                script
-            };
-            if installed.to_ascii_lowercase().contains("python") {
+            if script.to_ascii_lowercase().contains("python") {
                 return Err(io::Error::other(format!(
                     "Python reference in Rust-only shell script {}",
                     path.display()
                 )));
             }
-            fs::write(&target, installed)?;
+            fs::write(&target, script)?;
             fs::set_permissions(&target, fs::metadata(&path)?.permissions())?;
         } else {
             fs::copy(path, target)?;
@@ -554,6 +533,7 @@ pub fn install(p: &Paths, mode: Mode) -> io::Result<PathBuf> {
         fs::copy(p.source.join("VERSION"), p.shell().join("VERSION"))?;
         fs::create_dir_all(p.profile().join("settings"))?;
         session::launchers(&p.profile(), &p.bin, &p.cache, &p.lock(), &p.qs)?;
+        crate::convert_menus::install(&p.bin, &p.shell(), &p.data, &p.config)?;
         if mode != Mode::Plain {
             crate::remove(&p.profile().join("niri"))?;
             crate::copy_tree(&generated, &p.profile().join("niri"))?;

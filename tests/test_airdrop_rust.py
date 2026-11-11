@@ -56,7 +56,7 @@ class RustAirDropTests(original.AirDropTests):
             client.send('files', paths=[value])
             client.wait(lambda s: s.get('type') == 'error')
 
-    def test_launcher_selects_compatible_rust_or_python_fallback(self):
+    def test_launcher_selects_compatible_rust_and_refuses_missing(self):
         import shutil
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -64,9 +64,14 @@ class RustAirDropTests(original.AirDropTests):
             (root / 'airdrop_service.py').write_text('print("python fallback")\n')
             binary = root / 'airdrop-service-rust'
             launcher = ['sh', str(root / 'airdrop-service.sh')]
-            self.assertEqual(subprocess.check_output(launcher, text=True).strip(), 'python fallback')
+            missing = subprocess.run(launcher, capture_output=True, text=True)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('python fallback', missing.stdout)
+            self.assertIn('Rust', missing.stderr)
             binary.write_text('#!/bin/sh\nprintf "wrong\\n"\n'); binary.chmod(0o755)
-            self.assertEqual(subprocess.check_output(launcher, text=True).strip(), 'python fallback')
+            incompatible = subprocess.run(launcher, capture_output=True, text=True)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('python fallback', incompatible.stdout)
             shutil.copy(self.binary, binary)
             result = subprocess.run(launcher, input='', capture_output=True, text=True, check=True)
             self.assertEqual(json.loads(result.stdout.splitlines()[0])['type'], 'ready')

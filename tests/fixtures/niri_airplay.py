@@ -49,6 +49,10 @@ if args[:2] == ['msg', 'remove-virtual-output']:
     state.setdefault('outputs', {}).pop(name, None)
     save(state)
     sys.exit(0)
+if args[:2] == ['msg', 'output'] and len(args) >= 4 and args[3] == 'off':
+    state.setdefault('outputs', {}).pop(args[2], None)
+    save(state)
+    sys.exit(0)
 if args[:2] == ['msg', 'output'] and len(args) >= 4 and args[3] == 'on':
     name = args[2]
     outputs = state.setdefault('outputs', {})

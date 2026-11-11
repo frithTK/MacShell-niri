@@ -9,16 +9,8 @@ case "$backend" in
         if [ -x "$binary" ] && [ "$(timeout 3 "$binary" --protocol-version 2>/dev/null || true)" = 'macshell-niri-bridge 1' ]; then
             exec "$binary"
         fi
-        if [ "$backend" = rust ]; then
-            echo 'Rust niri bridge is missing or incompatible' >&2
-            exit 1
-        fi
-        if [ -e "$binary" ]; then
-            echo '[niri] Rust bridge unavailable or incompatible; using Python bridge' >&2
-        fi
+        echo 'Rust niri bridge is missing or incompatible' >&2
+        exit 1
         ;;
-    python) ;;
     *) echo 'Invalid niri bridge selection' >&2; exit 1 ;;
 esac
-[ ! -e "$directory/.macshell-rust-only" ] && [ ! -L "$directory/.macshell-rust-only" ] || { echo 'Rust niri bridge is missing, incompatible or Python was selected' >&2; exit 1; }
-exec python3 -u "$directory/niri_ipc.py"

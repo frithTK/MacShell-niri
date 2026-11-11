@@ -35,6 +35,10 @@ with tempfile.TemporaryDirectory(prefix="macshell-biometric-native-") as directo
     fixture = root / "fixture.json"
     fixture.write_text(json.dumps(["left-thumb", "right-thumb"]))
     (shell / "biometric_probe.py").write_text('import json,os\nfingers=json.load(open(os.environ["MACSHELL_BIOMETRIC_FIXTURE"]))\nprint(json.dumps({"status":"ok","devices":[{"path":"/fixture/0","name":"Demo fingerprint reader","enrollment":"ok","scanType":"swipe","fingers":fingers}]}))\n')
+    (shell / "biometric-probe-rust").write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo macshell-biometric-probe 1; exit 0; fi\nexec python3 "$(dirname "$0")/biometric_probe.py" "$@"\n')
+    (shell / "fingerprint-operation-rust").write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo macshell-fingerprint-operation 1; exit 0; fi\nexec python3 "$(dirname "$0")/fingerprint_operation.py" "$@"\n')
+    (shell / "biometric-probe-rust").chmod(0o755)
+    (shell / "fingerprint-operation-rust").chmod(0o755)
     (shell / "fingerprint_operation.py").write_text('''import json,os,select,sys,time
 path=os.environ["MACSHELL_BIOMETRIC_FIXTURE"]
 action,device,finger=sys.argv[1:]

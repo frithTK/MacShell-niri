@@ -11,6 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -20,6 +21,7 @@ class ClockRecoveryIntegrationTests(unittest.TestCase):
             root = Path(directory)
             shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            point_copied_launchers_at_python(shell)
             shutil.copy(ROOT / 'tests/clock-recovery-integration.qml', shell / 'shell.qml')
             for name in ('config', 'cache', 'runtime'):
                 (root / name).mkdir()

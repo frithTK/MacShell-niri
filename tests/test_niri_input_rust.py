@@ -131,8 +131,10 @@ class InputCompatibilityTests(unittest.TestCase):
             rust = subprocess.run([str(service), "--protocol-version"], capture_output=True, text=True, check=True)
             self.assertEqual(rust.stdout.strip(), "macshell-niri-input 1")
             binary.unlink()
-            fallback = subprocess.run([str(service), "input", "{}"], capture_output=True, text=True, check=True)
-            self.assertEqual(fallback.stdout.strip(), "python-fallback:input")
+            missing = subprocess.run([str(service), "input", "{}"], capture_output=True, text=True)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn("python-fallback", missing.stdout)
+            self.assertIn("Rust", missing.stderr)
 
 
 if __name__ == "__main__":

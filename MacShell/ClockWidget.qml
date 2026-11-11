@@ -4,6 +4,7 @@
 
 import QtQuick
 import QtQuick.Effects
+import "GlassTheme.js" as GlassTheme
 
 Item {
     id: w
@@ -57,10 +58,7 @@ Item {
     readonly property bool glassOn:
         style === "liquid" && glassReady && !preview && wallUrl != ""
 
-    readonly property real tint:
-        Math.min(0.92,
-                 dark ? 0.25 + glassOpacity * 0.8
-                      : 0.45 + glassOpacity * 0.9)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
 
     width: (isSmall ? 158 : 358) * scaleF
            * (isSmall ? 168 / 158 : (isMedium ? 358 / 338 : 1.0))
@@ -292,7 +290,7 @@ Item {
         border.width: 1
         border.color:
             w.dark ? Qt.rgba(1, 1, 1, 0.22)
-                   : Qt.rgba(1, 1, 1, 0.70)
+                   : (w.style === "liquid" ? Qt.rgba(0, 0, 0, 0.10) : Qt.rgba(1, 1, 1, 0.70))
     }
 
     // ── dial ticks ──

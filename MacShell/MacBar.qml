@@ -6,6 +6,7 @@ import "SettingsMigrations.js" as SettingsMigrations
 import "BarLayout.js" as BarLayout
 import "SettingsSearch.js" as SettingsSearch
 import "FileSearch.js" as FileSearch
+import "SpotlightRank.js" as SpotlightRank
 import "AppMenu.js" as AppMenu
 import "AppMenuBar.js" as AppMenuBar
 import "QuickLook.js" as QuickLook
@@ -27,6 +28,25 @@ Scope {
 
     // shared helpers from shell.qml (window geometry poller, wallpaper lookup)
     property var hub: null
+    readonly property var dockRef: hub ? hub.dock : null
+    function pullDockGlass() {
+        var d = root.dockRef;
+        if (!d) return;
+        if (glassOpacity !== d.glassOpacity) glassOpacity = d.glassOpacity;
+        if (glassBlur !== d.glassBlur) glassBlur = d.glassBlur;
+        if (glassLiquid !== d.glassLiquid) glassLiquid = d.glassLiquid;
+        if (glassRim !== d.glassRim) glassRim = d.glassRim;
+        if (glassGrain !== d.glassGrain) glassGrain = d.glassGrain;
+    }
+    Connections {
+        target: root.dockRef
+        function onGlassOpacityChanged() { root.pullDockGlass(); }
+        function onGlassBlurChanged() { root.pullDockGlass(); }
+        function onGlassLiquidChanged() { root.pullDockGlass(); }
+        function onGlassRimChanged() { root.pullDockGlass(); }
+        function onGlassGrainChanged() { root.pullDockGlass(); }
+    }
+    onDockRefChanged: pullDockGlass()
     property int desktopSourceTick: 0
     Connections {
         target: hub && hub.desktopSource ? hub.desktopSource : null
@@ -65,12 +85,13 @@ Scope {
     // The bar-size slider scales its widget groups while the left/right groups stay pinned to their corners.
     readonly property real barWidgetScale: Math.max(0.8, Math.min(1.55, barHeight / 28))
     readonly property real barPopupScale: Math.max(0.9, Math.min(1.25, 1 + (barHeight - 28) / 88))
-    property real glassOpacity: 0.42
+    property real glassOpacity: 0.28
     property string barStyle: "liquid"        // "liquid" = Apple Liquid Glass popovers, "blur" = flat translucent
-    property real glassRim: 0.45
-    property real glassGrain: 0.015
-    property real glassLiquid: 1.0
-    property real glassBlur: 5
+    property real glassRim: 0.55
+    property real glassGrain: 0.02
+    property real glassLiquid: 1.2
+    property real glassBlur: 4
+    readonly property string glassLookSig: [glassOpacity, glassBlur, glassLiquid, glassRim, glassGrain, Number(effDark)].join("|")
     property int kbRepeatRate: 35
     property int kbRepeatDelay: 250
     property real mouseSens: 0
@@ -161,17 +182,7 @@ Scope {
     function acceptTone(text) {
         var parts = text.trim().split(/\s+/), epoch = Number(parts[0]), v = Number(parts[1]);
         if (parts.length !== 2 || epoch !== toneEpoch || !autoContrast || !isFinite(v) || v < 0 || v > 1) return false;
-        var L = Math.pow(v, 2.2);
-        if (darkMode) {
-            var tint = Math.min(.6, glassOpacity * .55 + .05);
-            var effD = L * (1 - tint) + .004 * tint;
-            bgTone = (1.05 / (effD + .05)) < 3 ? 1 : 0;
-        } else {
-            // Match the actual light material rather than the old weak tint.
-            var light = GlassTheme.lightTint(glassOpacity);
-            var surface = Math.pow(v * (1 - light) + light, 2.2);
-            bgTone = ((surface + .05) / .062) < 3 ? -1 : 0;
-        }
+        bgTone = GlassTheme.popupTone(darkMode, v, glassOpacity);
         return true;
     }
     Process {
@@ -249,7 +260,7 @@ Scope {
     property int airplayFps: 60
     property int airplayVolumePercent: 20
     property string airplayLayout: "mirror"
-    onAirplayLayoutChanged: if (airplayLayout !== "mirror" && airplayLayout !== "extend") airplayLayout = "mirror"
+    onAirplayLayoutChanged: if (airplayLayout !== "mirror") airplayLayout = "mirror"
     property string airdropReceiverName: "MacShell"
     property bool ccMigRec: false              // one-time: add the Screen Recording tile to an existing Control Center layout
     readonly property bool recording: recordingControl.recording
@@ -260,10 +271,10 @@ Scope {
     property int kbIndex: 0                   // index of the active one
     property string kbMain: ""                // name of the main keyboard (niri)
     property string recordFile: ""
-    property string fileQuery: ""
-    property string fileSearchFor: ""
-    property bool fileSearchPending: false
-    property var fileHits: []
+    property alias fileQuery: fileSearch.query
+    property alias fileSearchFor: fileSearch.searchingFor
+    property alias fileSearchPending: fileSearch.pending
+    property alias fileHits: fileSearch.hits
 
     readonly property var settingKeys: ["barEnabled", "darkMode", "accent", "fontFamily", "barHeight", "glassOpacity",
         "barStyle", "barGlass", "glassRim", "glassGrain", "glassLiquid", "glassBlur", "barBgOpacity", "glassRealtime", "glassDebug", "wallpaperPath", "use24h", "showDate",
@@ -443,7 +454,7 @@ Scope {
         readonly property color fg2: root.mixc(Qt.rgba(0, 0, 0, 0.68), Qt.rgba(1, 1, 1, 0.62))
         readonly property color fg3: root.mixc(Qt.rgba(0, 0, 0, 0.48), Qt.rgba(1, 1, 1, 0.34))
         readonly property color tile: root.mixc(Qt.rgba(1, 1, 1, 0.42), Qt.rgba(1, 1, 1, 0.10))
-        readonly property color tileBorder: root.mixc(Qt.rgba(1, 1, 1, 0.70), Qt.rgba(1, 1, 1, 0.16))
+        readonly property color tileBorder: root.mixc(Qt.rgba(0, 0, 0, 0.12), Qt.rgba(1, 1, 1, 0.16))
         readonly property color btnOff: root.mixc(Qt.rgba(0, 0, 0, 0.10), Qt.rgba(1, 1, 1, 0.20))
         readonly property color btnHover: root.mixc(Qt.rgba(0, 0, 0, 0.16), Qt.rgba(1, 1, 1, 0.30))
         readonly property color hover: root.mixc(Qt.rgba(0, 0, 0, 0.09), Qt.rgba(1, 1, 1, 0.14))
@@ -476,7 +487,17 @@ Scope {
         property real grain: 0.03
         property real blur: 5               // backdrop blur radius, px (settings slider)
         property bool debug: false
+        property bool material: false
+        property bool fxArmed: false
+        // Reload pauses the declarative `active` binding instead of assigning
+        // it: an assignment made while the slab is hidden would stay false.
+        property bool fxPaused: false
         signal shaderError()
+        function reloadFx() {
+            if (!fxArmed || !fxLoader.active) return;
+            fxPaused = true;
+            Qt.callLater(function () { g.fxPaused = false; });
+        }
 
         MappedRect {
             id: slabMapping
@@ -487,13 +508,17 @@ Scope {
         GlassFallback {
             visible: !g.refracting
             anchors.fill: parent; radius: g.cornerR
-            dark: g.dark; frosting: g.tint; intensity: g.liquid ? g.strength : 0
+            dark: g.dark; material: g.material; frosting: g.tint
+            intensity: g.liquid ? g.strength : 0
             blurAmount: g.blur
             blurEnabled: !root.gaming
         }
+        Timer { interval: 1; running: true; onTriggered: g.fxArmed = true }
+        Connections { target: root; function onGlassLookSigChanged() { g.reloadFx(); } }
         Loader {
+            id: fxLoader
             anchors.fill: parent
-            active: g.refracting && g.backdrop !== null && g.visible
+            active: !g.fxPaused && g.refracting && g.backdrop !== null && slabMapping.effectiveOpacity > 0.01
             sourceComponent: Item {
                 id: lg
                 readonly property real m: 72     // extra backdrop captured around the slab (refraction + blur reach)
@@ -572,7 +597,9 @@ Scope {
                     property real rim: g.rim
                     property real grain: g.grain * 0.2
                     property real blurPx: g.blur > 0 ? 1.5 : 0
-                    property real tintMix: g.dark ? g.tint * 0.55 : GlassTheme.lightTint(g.tint)
+                    property real tintMix: g.material
+                        ? GlassTheme.cardShaderTint(g.dark, g.tint)
+                        : GlassTheme.shaderTint(g.dark, g.tint)
                     property real saturation: 1.25
                     property real dark: g.dark ? 1 : 0
                     property real debug: g.debug ? 1 : 0
@@ -603,6 +630,8 @@ Scope {
         property real rim: 0.45
         property real grain: 0.03
         property bool debug: false
+        // Final shader frosting. <0 means derive from tint (bar popovers / Spotlight).
+        property real tintMix: -1
         signal failed()
     }
 
@@ -616,21 +645,54 @@ Scope {
         property real tintMul: 1.0
         property real shadowAmt: 0.5
         property real flatInner: 0
+        property bool fxArmed: false
+        property bool fxPaused: false
         readonly property real pad: 10
+        function reloadFx() {
+            if (!fxArmed || !fxLoader.active) return;
+            fxPaused = true;
+            Qt.callLater(function () { gg.fxPaused = false; });
+        }
+        // Look values bind to MacBar properties, not gx.*: GlassCtx is a `var`, so
+        // nested gx.tint / gx.blur bindings do not update when a preset is applied.
+        readonly property bool materialLook: gx.tintMix >= 0
+        readonly property bool lookDark: root.effDark
+        readonly property bool lookLiquid: root.liquidActive
+        readonly property bool lookDebug: root.glassDebug
+        readonly property real lookTint: root.glassOpacity
+        readonly property real lookTintMix: materialLook
+            ? GlassTheme.cardShaderTint(root.effDark, root.glassOpacity)
+            : GlassTheme.shaderTint(root.effDark, root.glassOpacity)
+        readonly property real lookStrength: root.glassLiquid
+        readonly property real lookBlur: root.glassBlur + (materialLook ? 4 : 0)
+        readonly property real lookBlurMul: gx.blurMul
+        readonly property real lookLiquidMul: gx.liquidMul
+        readonly property real lookRim: root.glassRim
+        readonly property real lookGrain: root.glassGrain
+        readonly property real lookPane: gx.paneOpacity
 
         MappedRect { id: slabMapping; sourceItem: gg; targetItem: gg.gx.frame }
 
-        readonly property bool refracting: gx.liquid && root.captureGlass(gg)
+        // Same gate as the Dock: shader only when niri gave real window
+        // positions. Otherwise GlassFallback lets the compositor blur live
+        // windows under the slab instead of painting a wallpaper reconstruction.
+        readonly property bool refracting: lookLiquid && root.captureGlass(gg) && gg.gx && gg.gx.src !== null
         GlassFallback {
             visible: !gg.refracting
             anchors.fill: parent; radius: gg.cornerR
-            dark: gg.gx.dark; frosting: gg.gx.tint; intensity: gg.gx.liquid ? gg.gx.strength : 0
-            blurAmount: gg.gx.blur
+            dark: gg.lookDark
+            material: gg.materialLook
+            frosting: gg.lookTint * (gg.materialLook ? 1 : gg.tintMul)
+            intensity: gg.lookLiquid ? gg.lookStrength : 0
+            blurAmount: gg.lookBlur
             blurEnabled: !root.gaming
         }
+        Timer { interval: 1; running: true; onTriggered: gg.fxArmed = true }
+        Connections { target: root; function onGlassLookSigChanged() { gg.reloadFx(); } }
         Loader {
+            id: fxLoader
             anchors.fill: parent
-            active: gg.refracting && gg.gx.src !== null && gg.visible
+            active: !gg.fxPaused && gg.refracting && gg.gx.src !== null && slabMapping.effectiveOpacity > 0.01
             sourceComponent: Item {
                 ShaderEffect {
                     x: -gg.pad; y: -gg.pad
@@ -638,7 +700,7 @@ Scope {
                     height: gg.height + 2 * gg.pad
                     fragmentShader: gg.gx.shaderUrl
                     onStatusChanged: if (status === ShaderEffect.Error) gg.gx.failed()
-                    opacity: gg.gx.paneOpacity
+                    opacity: gg.lookPane
                     property variant src: gg.gx.src
                     property vector2d itemSize: Qt.vector2d(width, height)
                     property vector2d glassSize: Qt.vector2d(gg.width, gg.height)
@@ -649,16 +711,16 @@ Scope {
                     property real pad: gg.pad
                     property real radius: gg.cornerR
                     property real bezel: Math.min(gg.height * 0.36, 26)
-                    property real thickness: gg.thickness * gg.gx.strength * gg.strengthMul * gg.gx.liquidMul * 1.6
-                    property real dispersion: 0.06 * gg.gx.strength * gg.strengthMul * gg.gx.liquidMul * 1.3
-                    property real magnify: 0.05 * gg.gx.strength * gg.strengthMul * gg.gx.liquidMul * 1.6
-                    property real rim: gg.gx.rim
-                    property real grain: gg.gx.grain * 0.2
-                    property real blurPx: gg.gx.blur * gg.gx.blurMul > 0 ? 1.5 : 0
-                    property real tintMix: gg.gx.dark ? gg.gx.tint * 0.55 * gg.tintMul : GlassTheme.lightTint(gg.gx.tint * gg.tintMul)
+                    property real thickness: gg.thickness * gg.lookStrength * gg.strengthMul * gg.lookLiquidMul * 1.6
+                    property real dispersion: 0.06 * gg.lookStrength * gg.strengthMul * gg.lookLiquidMul * 1.3
+                    property real magnify: 0.05 * gg.lookStrength * gg.strengthMul * gg.lookLiquidMul * 1.6
+                    property real rim: gg.lookRim
+                    property real grain: gg.lookGrain * 0.2
+                    property real blurPx: gg.lookBlur * gg.lookBlurMul > 0 ? 1.5 : 0
+                    property real tintMix: gg.lookTintMix * gg.tintMul
                     property real saturation: 1.25
-                    property real dark: gg.gx.dark ? 1 : 0
-                    property real debug: gg.gx.debug ? 1 : 0
+                    property real dark: gg.lookDark ? 1 : 0
+                    property real debug: gg.lookDebug ? 1 : 0
                     property real shadowAmt: gg.shadowAmt
                     property real rimTint: 0
                     property real ringW: 0
@@ -668,13 +730,20 @@ Scope {
         }
     }
 
-    // Control Center tile: its own Liquid Glass slab (children are laid on top of it)
+    // Control Center tile: shared Liquid Glass slab. Compositor glass when
+    // window geometry is unknown; live refraction when captures are ready.
     component CCTile: Item {
         id: tile
         required property var t
         required property var gx
         property real radius: 34
-        GGlass { anchors.fill: parent; gx: tile.gx; cornerR: tile.radius; thickness: 22; shadowAmt: 0; flatInner: 1 }
+        GGlass {
+            objectName: "ccTileGlass"
+            anchors.fill: parent; gx: tile.gx; cornerR: tile.radius; thickness: 22; shadowAmt: 0; flatInner: 0
+            tintMul: root.ccStyle === "macos" ? 0.30 : 1.0
+            strengthMul: root.ccStyle === "macos" ? 0.30 : 1.0
+            visible: root.ccStyle !== "macos"
+        }
     }
 
     // small glass pill button ("Edit Controls", "Done", "Reset")
@@ -1508,46 +1577,11 @@ Scope {
         }
     }
     function pickColor() { Quickshell.execDetached(["sh", decodeURIComponent(Qt.resolvedUrl("niri-color.sh").toString().replace(/^file:\/\//, ""))]); }
-    readonly property string fileSearchHelper: decodeURIComponent(Qt.resolvedUrl("file-search.sh").toString().replace(/^file:\/\//, ""))
-    Process {
-        id: fileSearchProc
-        command: ["sh", root.fileSearchHelper, "--limit", "8", "--", root.fileQuery]
-        stdout: StdioCollector { onStreamFinished: {
-            var a=text.trim().split("\n").filter(function(x){return x!=="";});
-            if (root.fileSearchFor === root.fileQuery) { root.fileHits=a; root.fileSearchPending=false; }
-            else fileDebounce.restart();
-        } }
-        onExited: if (root.fileSearchFor !== root.fileQuery) fileDebounce.restart()
-    }
-    Timer { id: fileDebounce; interval: 260; onTriggered: {
-        if (root.fileQuery.length > 0 && !fileSearchProc.running) { root.fileSearchFor=root.fileQuery; root.fileSearchPending=true; fileSearchProc.running=true; }
-    } }
-    function updateFileSearch(q) { fileQuery=q; fileHits=[]; fileSearchPending=true; fileDebounce.restart(); }
-    function clearFileSearch() {
-        fileDebounce.stop();
-        if (fileSearchProc.running) fileSearchProc.running = false;
-        fileQuery = "";
-        fileSearchFor = "";
-        fileHits = [];
-        fileSearchPending = false;
-    }
-    function skipFileSearch(q) {
-        if (conversion(q)) return true;
-        var expr = String(q || "").replace(/^=\s*/, "");
-        return calcValue(expr) !== null && (String(q).charAt(0) === "=" || /[+*/%xX×÷()]/.test(q));
-    }
-    function syncFileSearch(text) {
-        var parsed = FileSearch.parse(text);
-        if (parsed.exclusive) {
-            if (FileSearch.ready(parsed.query)) updateFileSearch(parsed.query);
-            else clearFileSearch();
-            return;
-        }
-        if (FileSearch.ready(parsed.query) && !skipFileSearch(parsed.query))
-            updateFileSearch(parsed.query);
-        else
-            clearFileSearch();
-    }
+    SpotlightSearch { id: fileSearch }
+    function updateFileSearch(q) { fileSearch.update(q); }
+    function clearFileSearch() { fileSearch.clear(); }
+    function skipFileSearch(q) { return SpotlightRank.skipFileSearch(q); }
+    function syncFileSearch(text) { fileSearch.sync(text); }
 
     // Persist deadlines, never countdown ticks. Restore before enabling idle backends.
     property bool modesMigrated: false
@@ -1681,7 +1715,6 @@ Scope {
         function emoji(): void { root.spotOpen("emoji"); }
         function apps(): void { root.spotOpen("apps"); }
         function preview(path: string): void { root.openQuickLook(path); }
-        function convert(path: string): void { root.openDropTools(path); }
     }
 
     // ═════════════ CLIPBOARD HISTORY + EMOJI (Spotlight panels) ═════════════
@@ -2008,27 +2041,7 @@ Scope {
         for (i = 0; i < catOrder.length; i++) if (map[catOrder[i]]) secs.push({ id: catOrder[i], name: Language.I18n.legacy(catOrder[i]), apps: map[catOrder[i]] });
         return secs;
     }
-    function searchApps(q) {
-        q = (q || "").trim().toLowerCase();
-        if (q === "") return [];
-        var list = appList, hits = [];
-        for (var i = 0; i < list.length; i++) {
-            var e = list[i], n = e.name.toLowerCase(), sc = 0;
-            if (n === q) sc = 100;
-            else if (n.indexOf(q) === 0) sc = 80;
-            else if (n.indexOf(" " + q) >= 0) sc = 60;
-            else if (n.indexOf(q) >= 0) sc = 40;
-            else if ((e.genericName || "").toLowerCase().indexOf(q) >= 0) sc = 25;
-            else if ((e.comment || "").toLowerCase().indexOf(q) >= 0) sc = 10;
-            else {
-                var kw = e.keywords || [];
-                for (var k = 0; k < kw.length; k++) if (String(kw[k]).toLowerCase().indexOf(q) >= 0) { sc = 15; break; }
-            }
-            if (sc > 0) hits.push({ e: e, s: sc + Math.min(appUsage[e.id] || 0, 20) });
-        }
-        hits.sort(function (a, b) { return b.s - a.s; });
-        return hits.map(function (h) { return h.e; });
-    }
+    function searchApps(q) { return SpotlightRank.searchApps(appList, appUsage, q); }
     function appSearchSection(q) {
         var r = searchApps(q);
         return r.length > 0 ? [{ name: Language.I18n.text("ui.t_effd40c768bb"), apps: r }] : [];
@@ -2058,11 +2071,10 @@ Scope {
             { title: Language.I18n.text("ui.t_6b983a81e5e8"), glyph: "restart", confirm: true, run: function () { sh("systemctl reboot"); } },
             { title: Language.I18n.text("ui.t_3e45a33d2260"), glyph: "power", confirm: true, run: function () { sh("systemctl poweroff"); } }
         ];
-        var s = (q || "").trim().toLowerCase(), out = [];
-        for (var i = 0; i < all.length; i++) {
-            if (s !== "" && (all[i].title + " " + (all[i].keywords || "")).toLowerCase().indexOf(s) < 0) continue;
-            out.push({ title: all[i].title, sub: Language.I18n.text("ui.t_64cff1319d2f"), icon: "", glyph: all[i].glyph,
-                       kind: "action", confirm: all[i].confirm === true, run: all[i].run });
+        var found = SpotlightRank.matchActions(all, q), out = [];
+        for (var i = 0; i < found.length; i++) {
+            out.push({ title: found[i].title, sub: Language.I18n.text("ui.t_64cff1319d2f"), icon: "", glyph: found[i].glyph,
+                       kind: "action", confirm: found[i].confirm === true, run: found[i].run });
         }
         return out;
     }
@@ -2077,25 +2089,12 @@ Scope {
         }
         return out;
     }
-    function calcValue(expr) {
-        var t=String(expr || "").replace(/[xX×]/g, "*").replace(/÷/g, "/");
-        if (!/^[0-9+\-*/%.()\s]+$/.test(t) || !/[0-9]/.test(t)) return null;
-        var i=0;
-        function ws(){ while(i<t.length && /\s/.test(t[i])) i++; }
-        function atom(){ ws(); if(t[i]==="+"){i++;return atom();} if(t[i]==="-"){i++;return -atom();} if(t[i]==="("){i++;var v=sum();ws();if(t[i]!==")")throw 0;i++;return v;} var m=t.substring(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);if(!m)throw 0;i+=m[0].length;return Number(m[0]); }
-        function term(){ var v=atom(); for(;;){ws();var op=t[i];if(op!=="*"&&op!=="/"&&op!=="%")break;i++;var r=atom();if((op==="/"||op==="%")&&r===0)throw 0;v=op==="*"?v*r:(op==="/"?v/r:v%r);}return v; }
-        function sum(){var v=term();for(;;){ws();var op=t[i];if(op!=="+"&&op!=="-")break;i++;var r=term();v=op==="+"?v+r:v-r;}return v;}
-        try { var v=sum(); ws(); return i===t.length && isFinite(v) ? v : null; } catch(e){ return null; }
-    }
+    function calcValue(expr) { return SpotlightRank.calcValue(expr); }
     function conversion(q) {
-        var m=(q||"").trim().match(/^(-?\d+(?:\.\d+)?)\s*([a-z°]+)\s+(?:to|in)\s+([a-z°]+)$/i); if(!m)return null;
-        var val=Number(m[1]), a=m[2].toLowerCase(), b=m[3].toLowerCase();
-        var units={mm:["len",.001],cm:["len",.01],m:["len",1],km:["len",1000],in:["len",.0254],ft:["len",.3048],mi:["len",1609.344],g:["mass",.001],kg:["mass",1],lb:["mass",.45359237],oz:["mass",.0283495],ml:["vol",.001],l:["vol",1],gal:["vol",3.78541],ms:["time",.001],s:["time",1],min:["time",60],h:["time",3600],c:["temp",1],"°c":["temp",1],f:["temp",1],"°f":["temp",1]};
-        if(!units[a]||!units[b]||units[a][0]!==units[b][0])return null;
-        var result;
-        if(units[a][0]==="temp") result=(a==="f"||a==="°f")?(val-32)*5/9:val, result=(b==="f"||b==="°f")?result*9/5+32:result;
-        else result=val*units[a][1]/units[b][1];
-        return {title:Number(result.toPrecision(7))+" "+b,sub:Language.I18n.text("spotlight.unit_conversion"),glyph:"link",run:function(){Quickshell.execDetached(["wl-copy",String(result)]);}};
+        var found = SpotlightRank.conversion(q);
+        if (!found) return null;
+        return {title: found.title, sub: Language.I18n.text("spotlight.unit_conversion"), glyph: "link", kind: "conversion",
+            run: function () { Quickshell.execDetached(["wl-copy", String(found.result)]); }};
     }
     function windowItems(q) {
         var out=[], s=(q||"").trim().toLowerCase(); if(!s)return out;
@@ -2109,7 +2108,14 @@ Scope {
         return out;
     }
     function fileItems() {
-        var out=[]; for(var i=0;i<fileHits.length&&out.length<8;i++){var path=fileHits[i];out.push({title:path.substring(path.lastIndexOf("/")+1)||path,sub:path,glyph:"folder",kind:"file",path:path,run:(function(p){return function(){root.openLocalPath(p);};})(path)});} return out;
+        var rows = SpotlightRank.fileRows(fileHits, 8), out = [];
+        for (var i = 0; i < rows.length; i++) {
+            (function (row) {
+                row.run = function () { root.openLocalPath(row.path); };
+                out.push(row);
+            })(rows[i]);
+        }
+        return out;
     }
     function copyText(value) {
         Quickshell.execDetached(["sh", "-c", "printf %s \"$1\" | wl-copy", "sh", String(value)]);
@@ -2128,18 +2134,11 @@ Scope {
         if (!local || !hub || !hub.quickLook) return;
         hub.quickLook.open(local);
     }
-    function openDropTools(path) {
-        if (!hub || !hub.dropTools) return;
-        var local = QuickLook.localPath(path);
-        if (local) hub.dropTools.openFiles([local]);
-        else hub.dropTools.openDrop();
-    }
     function spotlightActionTitle(id, row, item) {
         if (id === "pin") return (row && row.pinned) ? Language.I18n.text("ui.t_0cbc564f2355") : Language.I18n.text("ui.t_eb625dddc8f0");
         if (id === "reveal") return Language.I18n.text("spotlight.show_in_folder");
         if (id === "copyPath") return Language.I18n.text("spotlight.copy_path");
         if (id === "preview") return Language.I18n.text("spotlight.quick_look");
-        if (id === "convert") return Language.I18n.text("spotlight.convert");
         if (id === "info") return Language.I18n.text("appmenu.get_info");
         if (id === "remove") return Language.I18n.text("appmenu.uninstall");
         if (id === "reinstall") return Language.I18n.text("appmenu.reinstall");
@@ -2162,7 +2161,6 @@ Scope {
         if (reason === "missing") return Language.I18n.text("appmenu.reason_missing");
         if (reason === "system-update") return Language.I18n.text("appmenu.reason_system_update");
         if (id === "preview") return Language.I18n.text("spotlight.quick_look_unavailable");
-        if (id === "convert") return Language.I18n.text("spotlight.convert_unavailable");
         if (id === "copyPath") return Language.I18n.text("spotlight.copy_unavailable");
         return Language.I18n.text("spotlight.reveal_unavailable");
     }
@@ -2170,7 +2168,6 @@ Scope {
         if (id === "reveal") return "folder";
         if (id === "copyPath") return "link";
         if (id === "preview" || id === "info") return "search";
-        if (id === "convert") return "restart";
         if (id === "pin") return "appstore";
         if (id === "remove") return "logout";
         if (id === "reinstall") return "restart";
@@ -2217,7 +2214,6 @@ Scope {
                         else if (row.id === "reveal") root.revealLocalPath(item.path);
                         else if (row.id === "copyPath") root.copyText(item.path);
                         else if (row.id === "preview") root.openQuickLook(item.path);
-                        else if (row.id === "convert") root.openDropTools(item.path);
                         else if (row.id === "pin" && item && hub && hub.dock) hub.dock.togglePinById(item.appId);
                         else if (row.id === "info" && item && hub && hub.desktopSource) hub.desktopSource.showInfo(item.title, hub.desktopSource.sourceOf(item.appId));
                         else if ((row.id === "remove" || row.id === "reinstall" || row.id === "update") && item && hub && hub.desktopSource)
@@ -2229,27 +2225,39 @@ Scope {
         return out;
     }
     function homeItems(q) {
-        var out = [], s = (q || "").trim().toLowerCase();
         var parsed = FileSearch.parse(q);
-        if (parsed.exclusive) {
-            out=fileItems(); if(out.length===0) out.push({title:fileSearchPending?Language.I18n.text("ui.t_0d9498215681"):Language.I18n.text("ui.t_7eaa329a4009"),sub:Language.I18n.text("spotlight.home_folder"),glyph:"folder",run:function(){}});
-            return out;
+        var s = (q || "").trim();
+        var cv = conversion(s);
+        var calcRow = null;
+        if (!cv) {
+            var expr = s.replace(/^=\s*/, "");
+            var v = calcValue(expr);
+            if (v !== null && (s.charAt(0) === "=" || /[+*/%xX×÷()]/.test(s)))
+                calcRow = {title: String(Number(v.toPrecision(10))), sub: Language.I18n.text("spotlight.calculator_hint"),
+                    glyph: "search", kind: "calc", run: function () { Quickshell.execDetached(["wl-copy", String(v)]); }};
         }
-        if(s.length>0) out=appItems(q,4);
-        var cv=conversion(s); if(cv) { cv.kind = "conversion"; out.unshift(cv); }
-        else { var expr=s.replace(/^=\s*/,""); var v=calcValue(expr); if(v!==null && (s.charAt(0)==="=" || /[+*/%xX×÷()]/.test(s))) out.unshift({title:String(Number(v.toPrecision(10))),sub:Language.I18n.text("spotlight.calculator_hint"),glyph:"search",kind:"calc",run:function(){Quickshell.execDetached(["wl-copy",String(v)]);}}); }
-        SettingsSearch.appendGroup(out, settingsItems(q), 8, 4);
-        SettingsSearch.appendGroup(out, actionItems(q), 8, 4);
-        SettingsSearch.appendGroup(out, windowItems(q), 8, 4);
-        SettingsSearch.appendGroup(out, fileItems(), 8, 3);
-        if(s.length>0 && out.length<8) out.push({title:Language.I18n.text("ui.t_e4f015d65bd9")+q.trim()+"”",sub:Language.I18n.text("spotlight.web_search_hint"),glyph:"search",kind:"web",run:function(){Quickshell.execDetached(["xdg-open","https://search.brave.com/search?q="+encodeURIComponent(q.trim())]);}});
-        out = out.slice(0,8);
-        if (hub && hub.desktopSource) {
-            for (var p = 0; p < out.length; p++) {
-                if (out[p].kind === "app" && out[p].appId) hub.desktopSource.request(out[p].appId);
-            }
+        var out = SpotlightRank.assembleHome(q, {
+            exclusive: parsed.exclusive, filePending: fileSearchPending,
+            apps: s.length > 0 ? appItems(q, 4) : [], conversion: cv, calc: calcRow,
+            settings: settingsItems(q), actions: actionItems(q), windows: windowItems(q), files: fileItems()
+        }, {
+            searching: Language.I18n.text("ui.t_0d9498215681"), noFiles: Language.I18n.text("ui.t_7eaa329a4009"),
+            homeFolder: Language.I18n.text("spotlight.home_folder"), webPrefix: Language.I18n.text("ui.t_e4f015d65bd9"),
+            webQuote: "”", webHint: Language.I18n.text("spotlight.web_search_hint")
+        });
+        for (var i = 0; i < out.length; i++) {
+            if (out[i].kind === "web" && !out[i].run)
+                out[i].run = function () { Quickshell.execDetached(["xdg-open", "https://search.brave.com/search?q=" + encodeURIComponent(q.trim())]); };
+            if (!out[i].run) out[i].run = function () {};
         }
         return out;
+    }
+    function requestSpotlightSources(items) {
+        if (!hub || !hub.desktopSource || !items) return;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i] && items[i].kind === "app" && items[i].appId)
+                hub.desktopSource.request(items[i].appId);
+        }
     }
 
     function menuModelFor(name) {
@@ -2668,7 +2676,7 @@ Scope {
     }
     function resetSettings() {
         barEnabled = true;
-        darkMode = true; accent = "#0a84ff"; fontFamily = "Inter Variable"; glassOpacity = 0.42; glassBlur = 5; glassLiquid = 1.0; glassRim = 0.45; glassGrain = 0.03; barBgOpacity = 0.10; glassRealtime = false;
+        darkMode = true; accent = "#0a84ff"; fontFamily = "Inter Variable"; glassOpacity = 0.28; glassBlur = 4; glassLiquid = 1.2; glassRim = 0.55; glassGrain = 0.02; barBgOpacity = 0.10; glassRealtime = false;
         barStyle = "liquid"; use24h = true; showDate = true; showSeconds = false; showBatteryPercent = true;
         showTray = true; showSearch = true;
         spotlightEnabled = true; ccEnabled = true; notificationsEnabled = true; clockAppEnabled = true; ccStyle = "tiles";
@@ -2785,6 +2793,7 @@ Scope {
     // window captures are admitted by the shared gate in shell.qml (hub.tlFor): 0.2 s after a window appears, one every 110 ms
 
     Component.onCompleted: {
+        pullDockGlass();
         Quickshell.execDetached(["mkdir", "-p", configDir]);
         refreshBrightness();
         refreshWifi();
@@ -3352,7 +3361,7 @@ Scope {
                 readonly property color fg2: dark ? Qt.rgba(1, 1, 1, 0.62) : Qt.rgba(0, 0, 0, 0.68)
                 readonly property color fg3: dark ? Qt.rgba(1, 1, 1, 0.34) : Qt.rgba(0, 0, 0, 0.48)
                 readonly property color tile: dark ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.42)
-                readonly property color tileBorder: dark ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.70)
+                readonly property color tileBorder: dark ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(0, 0, 0, 0.12)
                 readonly property color btnOff: dark ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(0, 0, 0, 0.10)
                 readonly property color btnHover: dark ? Qt.rgba(1, 1, 1, 0.30) : Qt.rgba(0, 0, 0, 0.16)
                 readonly property color hover: dark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.09)
@@ -3566,10 +3575,27 @@ Scope {
                 property bool spHover: false            // spSel was just changed by the pointer, so lists must not scroll to it
                 readonly property int emCols: 12
                 readonly property bool spFull: spMode === "apps" || spMode === "clip" || spMode === "emoji"
-                property var spResults: spMode === "actions" ? root.actionItems(spQuery)
-                                        : (spMode === "clip" ? root.clipFiltered(spQuery)
-                                        : (spMode === "emoji" ? root.emojiItems(spQuery, emCat)
-                                        : (spQuery.trim() === "" ? [] : root.homeItems(spQuery))))
+                property var spResults: []
+                function rebuildSpResults() {
+                    var next;
+                    if (spMode === "actions") next = root.actionItems(spQuery);
+                    else if (spMode === "clip") next = root.clipFiltered(spQuery);
+                    else if (spMode === "emoji") next = root.emojiItems(spQuery, emCat);
+                    else if (String(spQuery).trim() === "") next = [];
+                    else next = root.homeItems(spQuery);
+                    spResults = next;
+                    Qt.callLater(function () {
+                        if (ui.pop === "spot") root.requestSpotlightSources(next);
+                    });
+                }
+                onSpQueryChanged: rebuildSpResults()
+                onSpModeChanged: rebuildSpResults()
+                onEmCatChanged: if (spMode === "emoji") rebuildSpResults()
+                Connections {
+                    target: root
+                    function onFileHitsChanged() { ui.rebuildSpResults(); }
+                    function onFileSearchPendingChanged() { ui.rebuildSpResults(); }
+                }
 
                 function spSetMode(m) {
                     spCloseActions();
@@ -3831,71 +3857,79 @@ Scope {
                         id: bd
                         property bool hostShown: true      // false while the window hosting this backdrop is hidden (set by its Loader)
                         property rect region: Qt.rect(0, 0, 0, 0)      // the glass that is on screen right now (set by its Loader); windows behind it stay live while recording
+                        // Live windows stay in the backdrop so Control Center and Spotlight refract them.
+                        property bool includeWindows: true
+                        readonly property alias desktopLayer: desktopPane
                         x: 0; y: 0
                         width: win.modelData.width
                         height: win.modelData.height
 
-                        Rectangle {
-                            z: -3
+                        Item {
+                            id: desktopPane
+                            z: -1
                             anchors.fill: parent
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#2f6bff" }
-                                GradientStop { position: 0.5; color: "#b44cff" }
-                                GradientStop { position: 1.0; color: "#ff8a3d" }
+                            Rectangle {
+                                z: -3
+                                anchors.fill: parent
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0.0; color: "#2f6bff" }
+                                    GradientStop { position: 0.5; color: "#b44cff" }
+                                    GradientStop { position: 1.0; color: "#ff8a3d" }
+                                }
                             }
-                        }
-                        Image {
-                            z: -2
-                            anchors.fill: parent
-                            visible: status === Image.Ready
-                            source: root.fileUrl(root.wallpaperFor(win.modelData.name))
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            sourceSize.width: bd.width
-                            smooth: true
-                        }
+                            Image {
+                                z: -2
+                                anchors.fill: parent
+                                visible: status === Image.Ready
+                                source: root.fileUrl(root.wallpaperFor(win.modelData.name))
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                sourceSize.width: bd.width
+                                smooth: true
+                            }
 
-                        // the desktop widgets (they sit on the desktop layer, below every window), drawn from the same
-                        // content as the real ones, so the glass shows them under the live windows
-                        WidgetModel { id: mirrorWidgets; rows: root.hub && root.hub.widgets && root.hub.widgets.widgetsEnabled ? root.hub.widgets.rowsForOutput(win.modelData.name) : [] }
-                        Repeater {
-                            model: mirrorWidgets
-                            delegate: Item {
-                                id: mw
-                                required property string wid
-                                required property string wtype
-                                required property string wstyle
-                                required property string wsize
-                                required property string wmode
-                                required property string wappearance
-                                required property string wactivity
-                                required property string wbatteries
-                                required property string wtimer
-                                required property string wimage
-                                required property real wx
-                                required property real wy
-                                z: -1
-                                x: wx; y: wy
-                                width: root.hub.widgets.dims(wsize)[0]
-                                height: root.hub.widgets.dims(wsize)[1]
-                                WidgetVisual {
-                                    objectName: "widgetMirror_" + mw.wid
-                                    anchors.fill: parent
-                                    host: root.hub.widgets
-                                    instanceId: mw.wid; mirror: true
-                                    renderActive: animationsEnabled && root.hub.widgets.outputActive(win.modelData.name)
-                                    animationsEnabled: bd.hostShown && bd.region.width > 0
-                                        && mw.x < bd.region.x + bd.region.width && mw.x + mw.width > bd.region.x
-                                        && mw.y < bd.region.y + bd.region.height && mw.y + mw.height > bd.region.y
-                                    wtype: mw.wtype; wstyle: mw.wstyle; wsize: mw.wsize; wmode: mw.wmode
-                                    wappearance: mw.wappearance
-                                    wactivity: mw.wactivity
-                                    wbatteries: mw.wbatteries
-                                    wtimer: mw.wtimer
-                                    wimage: mw.wimage
-                                    sx: mw.x; sy: mw.y
-                                    sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
+                            // the desktop widgets (they sit on the desktop layer, below every window), drawn from the same
+                            // content as the real ones, so the glass shows them under the live windows
+                            WidgetModel { id: mirrorWidgets; rows: root.hub && root.hub.widgets && root.hub.widgets.widgetsEnabled ? root.hub.widgets.rowsForOutput(win.modelData.name) : [] }
+                            Repeater {
+                                model: mirrorWidgets
+                                delegate: Item {
+                                    id: mw
+                                    required property string wid
+                                    required property string wtype
+                                    required property string wstyle
+                                    required property string wsize
+                                    required property string wmode
+                                    required property string wappearance
+                                    required property string wactivity
+                                    required property string wbatteries
+                                    required property string wtimer
+                                    required property string wimage
+                                    required property real wx
+                                    required property real wy
+                                    z: -1
+                                    x: wx; y: wy
+                                    width: root.hub.widgets.dims(wsize)[0]
+                                    height: root.hub.widgets.dims(wsize)[1]
+                                    WidgetVisual {
+                                        objectName: "widgetMirror_" + mw.wid
+                                        anchors.fill: parent
+                                        host: root.hub.widgets
+                                        instanceId: mw.wid; mirror: true
+                                        renderActive: animationsEnabled && root.hub.widgets.outputActive(win.modelData.name)
+                                        animationsEnabled: bd.hostShown && bd.region.width > 0
+                                            && mw.x < bd.region.x + bd.region.width && mw.x + mw.width > bd.region.x
+                                            && mw.y < bd.region.y + bd.region.height && mw.y + mw.height > bd.region.y
+                                        wtype: mw.wtype; wstyle: mw.wstyle; wsize: mw.wsize; wmode: mw.wmode
+                                        wappearance: mw.wappearance
+                                        wactivity: mw.wactivity
+                                        wbatteries: mw.wbatteries
+                                        wtimer: mw.wtimer
+                                        wimage: mw.wimage
+                                        sx: mw.x; sy: mw.y
+                                        sname: win.modelData.name; sw: win.modelData.width; sh: win.modelData.height
+                                    }
                                 }
                             }
                         }
@@ -3959,6 +3993,10 @@ Scope {
                         }
 
                         function sync() {
+                            if (!bd.includeWindows) {
+                                for (var q = wm.count - 1; q >= 0; q--) wm.remove(q);
+                                return;
+                            }
                             var mon = null, i;
                             for (i = 0; i < root.monData.length; i++)
                                 if (root.monData[i].name === win.modelData.name) mon = root.monData[i];
@@ -3994,7 +4032,8 @@ Scope {
                             function onGlassClientsChanged() { bd.sync(); }
                             function onMonDataChanged() { bd.sync(); }
                         }
-                        Component.onCompleted: sync()
+                        onIncludeWindowsChanged: bd.sync()
+                        Component.onCompleted: Qt.callLater(function () { bd.sync(); })
                     }
                 }
 
@@ -6039,10 +6078,10 @@ Scope {
                         liquid: root.liquidActive
                         shaderUrl: root.glassShaderUrl
                         dark: root.effDark
-                        // macOS style: the panel is the glass, so each control only keeps a faint shape on top of it
-                        tint: root.ccStyle === "macos" ? root.glassOpacity * 0.30 : root.glassOpacity
-                        strength: root.ccStyle === "macos" ? root.glassLiquid * 0.30 : root.glassLiquid
-                        rim: root.ccStyle === "macos" ? root.glassRim * 0.45 : root.glassRim
+                        // Tiles keep a little extra blur, but stay a lens rather than a frosted card.
+                        tint: root.glassOpacity
+                        strength: root.glassLiquid
+                        rim: root.glassRim
                         grain: root.glassGrain
                         blur: root.glassBlur
                         debug: root.glassDebug
@@ -6448,14 +6487,28 @@ Scope {
                         }
                     }
 
-                    // macOS Control Center: one frosted slab behind everything (the tiles sit on it, instead of each
-                    // control being its own piece of glass)
                     Loader {
                         active: root.ccStyle === "macos"
                         x: -12; y: -12
                         width: cc.width + 24; height: ccCol.height + 24
                         sourceComponent: Item {
-                            GGlass { anchors.fill: parent; gx: ccg; cornerR: 24; thickness: 26; strengthMul: 1.0; shadowAmt: 0.6 }
+                            LGlass {
+                                anchors.fill: parent
+                                backdrop: ui.glassSrc
+                                shaderUrl: root.glassShaderUrl
+                                liquid: root.liquidActive
+                                dark: root.effDark
+                                cornerR: 24
+                                tint: root.glassOpacity
+                                material: false
+                                thickness: 26
+                                strength: root.glassLiquid
+                                rim: root.glassRim
+                                grain: root.glassGrain
+                                blur: root.glassBlur
+                                debug: root.glassDebug
+                                onShaderError: root.glassState = "failed"
+                            }
                         }
                     }
 
@@ -6744,7 +6797,8 @@ Scope {
                     id: swBackdrop
                     active: root.liquidActive
                     sourceComponent: backdropComp
-                    onLoaded: { item.hostShown = Qt.binding(function () { return swWin.visible; });
+                    onLoaded: { item.includeWindows = true;
+                                item.hostShown = Qt.binding(function () { return swWin.visible; });
                                 item.region = Qt.binding(function () { return Qt.rect(swPanel.x - 96, swPanel.y - 96, swPanel.width + 192, swPanel.height + 192); }); }
                 }
                 MouseArea { anchors.fill: parent; onPressed: root.swCancel() }      // click outside cancels
@@ -7290,7 +7344,8 @@ Scope {
                     id: spotBackdrop
                     active: root.liquidActive
                     sourceComponent: backdropComp
-                    onLoaded: { item.hostShown = Qt.binding(function () { return !root.gaming && spotWin.openish; });
+                    onLoaded: { item.includeWindows = true;
+                                item.hostShown = Qt.binding(function () { return !root.gaming && spotWin.openish; });
                                 item.region = Qt.binding(function () { return Qt.rect(spot.x - 128, spot.y - 128, spot.width + 256, spot.height + 256); }); }
                 }
 
@@ -7375,9 +7430,9 @@ Scope {
                     sourceItem: spot; targetItem: spotBackdrop.item
                     localRect: Qt.rect(-128, -128, spot.width + 256, 684)
                 }
-                ShaderEffectSource {
+                    ShaderEffectSource {
                     id: spSrc
-                    sourceItem: spotBackdrop.item     // wallpaper + live windows, captured inside this layer
+                    sourceItem: spotBackdrop.item
                     hideSource: true
                     live: spotWin.openish
                     visible: false
@@ -7388,8 +7443,8 @@ Scope {
                     source: spSrc
                     width: spSrc.sourceRect.width; height: spSrc.sourceRect.height
                     blurEnabled: spg.blur * spg.blurMul > 0
-                    blurMax: 6
-                    blur: Math.min(1.0, (spg.blur * spg.blurMul) * 1.4 / 6.0)
+                    blurMax: 64
+                    blur: Math.min(1.0, (spg.blur * spg.blurMul) * 1.4 / 64.0)
                     autoPaddingEnabled: false
                     visible: false
                 }
@@ -7405,7 +7460,7 @@ Scope {
                     id: spBlur2Fx
                     source: spBlur
                     width: spSrc.sourceRect.width; height: spSrc.sourceRect.height
-                    blurEnabled: true
+                    blurEnabled: (spg.blur * spg.blurMul) * 1.4 / 64.0 > 1.0
                     blurMax: 64
                     blur: Math.max(0.0, Math.min(1.0, (spg.blur * spg.blurMul) * 1.4 / 64.0 - 1.0))
                     autoPaddingEnabled: false
@@ -7414,24 +7469,23 @@ Scope {
                 // second Gaussian pass: stacks on the first one so Spotlight can blur past a single pass's 64 px limit
                 ShaderEffectSource {
                     id: spBlur2
-                    sourceItem: spBlur2Fx
+                    sourceItem: (spg.blur * spg.blurMul) * 1.4 / 64.0 > 1.0 ? spBlur2Fx : null
                     live: spotWin.openish
                     visible: false
                 }
                 GlassCtx {
                     id: spg
-                    src: spBlur2
+                    src: (blur * blurMul) * 1.4 / 64.0 > 1.0 ? spBlur2 : spBlur
                     srcRect: spSrc.sourceRect
                     frame: spotRoot
                     liquid: root.liquidActive
                     shaderUrl: root.glassShaderUrl
                     dark: root.effDark
                     tint: root.glassOpacity
-                    strength: root.glassLiquid * 0.6        // Spotlight: gentler refraction than the Dock
-                    rim: root.glassRim * 0.4                 // and a subtle rim (no heavy outline)
+                    strength: root.glassLiquid
+                    rim: root.glassRim
                     grain: root.glassGrain
                     blur: root.glassBlur
-                    blurMul: 12.0                   // Spotlight: strong smooth blur (two stacked Gaussian passes); lower to soften, raise to blur more
                     debug: root.glassDebug
                     onFailed: root.glassState = "failed"
                 }

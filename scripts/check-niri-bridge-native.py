@@ -60,7 +60,11 @@ def child(directory, parent_display, parent_socket, binary, crash):
         raise RuntimeError('Nested niri socket does not belong to the test compositor')
     root = Path(directory); shell = root / 'shell'
     shutil.copytree(ROOT / 'MacShell', shell)
-    if binary != 'python':
+    if binary == 'python':
+        stub = shell / 'niri-bridge-rust'
+        stub.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo macshell-niri-bridge 1; exit 0; fi\nexec python3 "$(dirname "$0")/niri_ipc.py" "$@"\n')
+        stub.chmod(0o755)
+    else:
         shutil.copy2(binary, shell / 'niri-bridge-rust')
     path = shell / 'shell.qml'
     source = path.read_text().replace('import QtQuick\n', 'import QtQuick\nimport QtQuick.Window\n', 1)
@@ -74,7 +78,7 @@ def child(directory, parent_display, parent_socket, binary, crash):
         XDG_DATA_HOME=str(root / 'data'), MACSHELL_SETTINGS_HOME=str(root / 'settings'),
         QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_QUICK_CONTROLS_STYLE='Basic',
         DBUS_SESSION_BUS_ADDRESS='unix:path=' + str(root / 'no-bus'), DBUS_SYSTEM_BUS_ADDRESS='unix:path=' + str(root / 'no-bus'),
-        MACSHELL_NIRI_BRIDGE_BACKEND='python' if binary == 'python' else 'rust',
+        MACSHELL_NIRI_BRIDGE_BACKEND='rust',
         MACSHELL_TEST_BRIDGE_CRASH='1' if crash == 'crash' else '0',
         MACSHELL_TEST_BRIDGE_MEASURE='1' if crash == 'measure' else '0')
     try:

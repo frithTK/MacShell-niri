@@ -1,6 +1,7 @@
 // One view of Clock's shared timer. It never owns or starts a clock service.
 import QtQuick
 import QtQuick.Controls
+import "GlassTheme.js" as GlassTheme
 import QtQuick.Effects
 import "Locale" as Language
 import "WidgetCatalog.js" as Catalog
@@ -34,7 +35,7 @@ Item {
     signal openClock()
     readonly property bool dark: darkGlass
     readonly property real radiusPx: 28
-    readonly property real tint: Math.min(.92, dark ? .25 + glassOpacity * .8 : .45 + glassOpacity * .9)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
     readonly property bool glassOn: style === "liquid" && glassReady && !preview && wallUrl != ""
     readonly property color fg: dark ? "#f5f5f7" : "#202025"
     readonly property color fgSub: dark ? "#b9b9c4" : "#60606c"

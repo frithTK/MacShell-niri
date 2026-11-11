@@ -14,6 +14,7 @@
 // The item's own x / y are its position on the screen, which is how the glass knows which part of the wallpaper
 // sits behind it (it follows the widget while it is dragged).
 import QtQuick
+import "GlassTheme.js" as GlassTheme
 import "Locale" as Language
 import QtQuick.Effects
 
@@ -46,6 +47,7 @@ Item {
     property bool preview: false        // inside the Settings gallery: no wallpaper, simplified glass
     property bool active: true
     property bool managedClock: false
+    property var markedDays: []
 
     // ── desktop edit mode ──
     property bool editing: false
@@ -69,7 +71,7 @@ Item {
     readonly property color red: dark ? "#FF453A" : "#FF3B30"
     readonly property color line: dark ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(0, 0, 0, 0.12)
     // glass tint: stronger than the Weather widget's, so black (light mode) / white (dark mode) text stays readable on any wallpaper
-    readonly property real tint: Math.min(0.92, dark ? 0.25 + glassOpacity * 0.8 : 0.45 + glassOpacity * 0.9)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
 
     // ── date ──
     property var now: new Date()
@@ -280,6 +282,7 @@ Item {
                 readonly property int day: index - w.cal.lead + 1
                 readonly property bool valid: day >= 1 && day <= w.cal.days
                 readonly property bool isToday: valid && day === w.cal.today
+                readonly property bool marked: valid && w.markedDays && w.markedDays.indexOf(day) >= 0
                 visible: valid
                 x: Math.round((index % 7 + 0.5) * grid.cw) - grid.circ / 2
                 y: grid.wdH + Math.floor(index / 7) * grid.rowH + Math.round((grid.rowH - grid.circ) / 2)
@@ -301,6 +304,16 @@ Item {
                     font.family: w.fam
                     font.pixelSize: grid.dayPx * w.textScale
                     font.weight: cell.isToday ? Font.Bold : Font.DemiBold
+                }
+                Rectangle {
+                    visible: cell.marked && !cell.isToday
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    width: Math.max(3, Math.round(parent.width * 0.18))
+                    height: width
+                    radius: width / 2
+                    color: w.red
+                    opacity: 0.85
                 }
             }
         }

@@ -257,12 +257,23 @@ impl Service {
         if let Some(name) = self.owned_virtual.take() {
             niri::remove_virtual(&name);
         }
-        if let Some(name) = self.owned_dummy.take() {
-            let _ = drm_dummy::disable(&name);
-        }
+        self.release_leftover_dummy();
         self.extend_target.clear();
         self.extend_capture.clear();
         self.extend_cast_tries = 0;
+    }
+    fn release_leftover_dummy(&mut self) {
+        let mut names = Vec::new();
+        if let Some(name) = self.owned_dummy.take() {
+            names.push(name);
+        }
+        names.extend(drm_dummy::connected_ours());
+        names.sort();
+        names.dedup();
+        for name in names {
+            let _ = drm_dummy::disable(&name);
+            niri::turn_off_output(&name);
+        }
     }
     fn release_extend_if_idle(&mut self) {
         if ["starting", "connecting", "pin_required", "streaming"]
@@ -560,20 +571,8 @@ impl Service {
                         "The AirPlay display is no longer in the discovered list. Search again.",
                     )?
                     .clone();
-                if self.layout == "extend" {
-                    let target = niri::ensure_extend()?;
-                    self.extend_target = target.name.clone();
-                    self.extend_capture.clear();
-                    self.extend_cast_tries = 0;
-                    self.next_cast = Instant::now();
-                    if target.owned {
-                        self.owned_virtual = Some(target.name.clone());
-                    }
-                    if target.dummy {
-                        self.owned_dummy = Some(target.name);
-                    }
-                    self.refresh_caps();
-                }
+                // Extend is temporarily disabled: always mirror, and drop a leftover dummy.
+                self.release_leftover_dummy();
                 self.sender_error.clear();
                 if let Err(error) = self.enqueue(
                     json!({"cmd":"connect","target":device["address"],"port":device["port"]}),
@@ -652,13 +651,8 @@ impl Service {
             if value != "mirror" && value != "extend" {
                 return Err("AirPlay layout must be mirror or extend.".into());
             }
-            if self.sender.is_some()
-                && ["connecting", "pin_required", "streaming"].contains(&self.sender_state.as_str())
-                && self.layout != value
-            {
-                return Err("Stop Screen Mirroring before changing display mode.".into());
-            }
-            self.layout = value.into();
+            // Extend is temporarily disabled; keep accepting the key so old clients do not error.
+            self.layout = "mirror".into();
         }
         Ok(())
     }

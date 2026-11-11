@@ -8,6 +8,7 @@ Rectangle {
     id: glass
     property bool dark: true
     property real frosting: .42
+    property bool material: false
     property real intensity: 1
     property real blurAmount: 5
     property bool blurEnabled: true
@@ -24,11 +25,12 @@ Rectangle {
         radius: Math.round(glass.radius * Math.min(geometry.scaleX, geometry.scaleY))
     }
     // Light material needs enough white over dark windows for dark text/icons.
-    color: dark ? Qt.rgba(.09, .095, .11, .15 + frosting * .65)
-                : Qt.rgba(1, 1, 1, GlassTheme.lightTint(frosting))
+    // Control Center tiles opt into `material` so Clear vs Frosted is readable.
+    color: dark ? Qt.rgba(.09, .095, .11, GlassTheme.compositorAlpha(true, frosting, material))
+                : Qt.rgba(1, 1, 1, GlassTheme.compositorAlpha(false, frosting, material))
     border.width: 1
     border.color: dark ? Qt.rgba(1, 1, 1, .12 + Math.min(intensity, 2.5) * .055)
-                       : Qt.rgba(1, 1, 1, .32 + Math.min(intensity, 2.5) * .09)
+                       : Qt.rgba(0, 0, 0, .10 + Math.min(intensity, 2.5) * .03)
     function register() {
         if (registeredHost && registeredHost.glassSurfaces !== undefined)
             registeredHost.glassSurfaces = registeredHost.glassSurfaces.filter(s => s !== glass);
@@ -60,6 +62,6 @@ Rectangle {
         anchors.fill: parent; anchors.margins: 1
         radius: Math.max(0, glass.radius - 1)
         color: "transparent"; border.width: 1
-        border.color: glass.dark ? Qt.rgba(0, 0, 0, .16) : Qt.rgba(0, 0, 0, .07)
+        border.color: glass.dark ? Qt.rgba(0, 0, 0, .16) : Qt.rgba(0, 0, 0, .14)
     }
 }

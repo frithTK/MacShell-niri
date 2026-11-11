@@ -17,6 +17,15 @@ Version 1.0.0 starts from one initial release commit. If you have a checkout fro
 
 Use four-space indentation for QML and Python, and match the surrounding shell code. Keep niri integration in the shared adapter and helpers. Preserve the upstream MIT notices. Do not add a Hyprland dependency or restore the upstream automatic updater.
 
+Hyprland-only upstream surfaces are nongoals and must not be copied into this port:
+
+- `Desktop.qml` / `DesktopSheet` / `PictureSheet` — a pointer layer over the wallpaper, not a niri window
+- `MinimizeFx` and genie shaders — `NiriWindow.minimized` is always `false`
+- `WindowDecor` and `Quickshell.Hyprland` — foreign client-side decorations
+- `GlassCapture` / `SafeCapture` — Hyprland frame capture; this tree uses `GlassPolicy` and `NiriCapture`
+
+Do not sketch niri stand-ins for those (desktop icons, genie minimize, decorating other apps) in ordinary patches. Own title bars stay on `AppTitlebar.qml`.
+
 Changes in a checkout do not update the installed desktop. Keep installation, activation, session selection and package installation separate from development checks.
 
 ## Portable checks
@@ -75,7 +84,7 @@ The full suite includes both check scripts above, niri configuration validation,
 
 `python3 scripts/check-batteries-widget-native.py` tests Batteries through the real desktop, editor and writer in niri with isolated laptop/Bluetooth inputs. It covers unknown/zero/full charge, duplicate addresses/names, device Apply/Cancel/conflict, independent duplication, mirror sharing, device/adapter/service loss and recovery, disabled desktop editing, fullscreen/overview and 20 mount cycles. Pairing discovery attempts fail the fixture; it does not touch real devices. The native input check separately confirms Batteries is click-through outside Arrange. `bash scripts/preview-batteries-widget.sh` captures both themes with sample data. `python3 scripts/measure-batteries-widget.py --output /tmp/batteries-cost.json` measures four Large cards against a static existing Calendar, using synthetic shared data rather than devices.
 
-AirPods/Beats charge is unit-tested without hardware: `tests/test_bluetooth.py` (Apple manufacturer data, nearby ads and AACP frames), `cargo test --locked --offline --manifest-path native/bluez-snapshot/Cargo.toml` (BLE and AACP parsers), `cargo test --locked --offline --manifest-path native/bluetooth-core/Cargo.toml` (discovery `hold` while pairing search stays off), and `tests/qml/tst_BatteriesWidget.qml` (`test_apple_parts_are_shown_only_while_connected`). Connected headphones report charge over AACP; the widget also listens for LE advertisements while the card is visible. Control Center `discovering` stays false.
+AirPods/Beats charge is unit-tested without hardware: `tests/test_bluetooth.py` (Apple manufacturer data, nearby ads and AACP frames), `cargo test --locked --offline --manifest-path native/bluez-snapshot/Cargo.toml` (BLE and AACP parsers), `cargo test --locked --offline --manifest-path native/bluetooth-core/Cargo.toml` (discovery `hold` while pairing search stays off), and `tests/qml/tst_BatteriesWidget.qml` (`test_apple_parts_stay_when_advertised_in_the_case`). Connected headphones report charge over AACP; advertisements while the card is visible keep in-case AirPods on automatic cards, including the small size. Control Center `discovering` stays false.
 
 For optional real-Wayland menu geometry checks with Qt Test available, run `python3 scripts/check-bar-native.py`. It opens temporary panels, uses isolated settings and unavailable D-Bus/niri endpoints, and clicks only its own controls. It checks menus across three zones and compact application-menu navigation; it does not establish hardware availability or physical multi-monitor behavior. Do not run it as an idle background check on someone else's active desktop.
 

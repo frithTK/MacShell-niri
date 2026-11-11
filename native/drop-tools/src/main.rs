@@ -61,6 +61,13 @@ fn run() -> io::Result<()> {
         println!("{PROTOCOL}");
         return Ok(());
     }
+    if args.first().map(String::as_str) == Some("--convert") {
+        let code = macshell_drop_tools::convert_from_args(&args[1..])?;
+        if code != 0 {
+            std::process::exit(code);
+        }
+        return Ok(());
+    }
     if !args.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,

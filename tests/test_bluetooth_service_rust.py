@@ -167,7 +167,7 @@ class BluetoothServiceRustTests(unittest.TestCase):
         self.bus.name('RequestName')
         self.client.wait(lambda m: m.get('type') == 'state' and m.get('pairingAvailable'))
 
-    def test_launcher_selects_rust_and_falls_back(self):
+    def test_launcher_selects_rust_and_refuses_missing(self):
         with tempfile.TemporaryDirectory(prefix='macshell-bt-launcher-') as temp:
             root = Path(temp)
             shutil.copy(ROOT / 'MacShell/bluetooth-service.sh', root / 'bluetooth-service.sh')
@@ -175,14 +175,19 @@ class BluetoothServiceRustTests(unittest.TestCase):
             binary = root / 'bluetooth-service-rust'
             binary.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo "macshell-bluetooth 1"; else echo rust; fi\n')
             binary.chmod(0o755)
-            def launch():
+            def launch(check=True):
                 return subprocess.run(['sh', str(root / 'bluetooth-service.sh')], capture_output=True,
-                                      text=True, timeout=5, check=True).stdout.strip()
-            self.assertEqual(launch(), 'rust')
+                                      text=True, timeout=5, check=check)
+            self.assertEqual(launch().stdout.strip(), 'rust')
             binary.write_text('#!/bin/sh\necho incompatible\n')
-            self.assertEqual(launch(), 'legacy')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
+            self.assertIn('Rust', incompatible.stderr)
             binary.unlink()
-            self.assertEqual(launch(), 'legacy')
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
 
     @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
     def test_qml_controller_with_private_bluez(self):

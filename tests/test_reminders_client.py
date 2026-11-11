@@ -10,6 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.install_niri import quickshell
+from tests.service_launchers import point_copied_launchers_at_python
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -18,6 +19,7 @@ class RemindersClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); shell = root / 'shell'
             shutil.copytree(ROOT / 'MacShell', shell)
+            point_copied_launchers_at_python(shell)
             shutil.copy(ROOT / 'tests/reminders-client.qml', shell / 'shell.qml')
             service = shell / 'reminders_service.py'
             service.rename(shell / 'reminders_service_impl.py')

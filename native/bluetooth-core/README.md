@@ -2,8 +2,7 @@
 
 This crate contains the pairing and discovery state machines used by
 `macshell-bluetooth` (`native/bluez-session`). Python `bluetooth_service.py`
-remains only as a fallback when the Rust binary is missing or reports an
-incompatible protocol version.
+remains for comparison tests.
 
 The transport must use the unique BlueZ owner provided by the bus, register
 the agent for that owner, validate the selected device and carry operation

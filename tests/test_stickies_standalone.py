@@ -12,6 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.install_niri import quickshell
+from tests.service_launchers import copy_macshell_with_python_launchers
 
 
 @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
@@ -29,7 +30,7 @@ class StickiesStandaloneTests(unittest.TestCase):
                        NIRI_SOCKET=str(root / 'no-session'),
                        DBUS_SESSION_BUS_ADDRESS='unix:path=' + str(root / 'no-bus'))
             env.pop('DISPLAY', None); env.pop('WAYLAND_DISPLAY', None)
-            config = str(ROOT / 'MacShell/stickies-standalone.qml')
+            config = str(copy_macshell_with_python_launchers(ROOT / 'MacShell', root / 'shell') / 'stickies-standalone.qml')
             process = subprocess.Popen([quickshell(), '-p', config], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             try:
                 deadline = time.monotonic() + 10

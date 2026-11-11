@@ -150,11 +150,11 @@ Scope {
     property bool darkMode: true
     property string dockStyle: "liquid"   // "blur" = Normal Blur, "liquid" = Apple Liquid Glass
     // Liquid Glass tuning (settings.json): rim = edge highlight, grain = noise, liquid = refraction depth
-    property real glassRim: 0.45
-    property real glassGrain: 0.03
-    property real glassLiquid: 1.0
+    property real glassRim: 0.55
+    property real glassGrain: 0.02
+    property real glassLiquid: 1.2
     readonly property bool glassRT: bar ? bar.glassRealtime : true     // real-time glass (Menu Bar settings)
-    property real glassBlur: 5            // shared blur level: shader radius and niri Kawase strength
+    property real glassBlur: 4            // shared blur level: shader radius and niri Kawase strength
     property bool glassAdvancedOpen: false
     // Named look is the slider source of truth. Hold the tick while dragging and
     // while the five fields apply, so nearestIndex cannot snap the knob back.
@@ -180,16 +180,30 @@ Scope {
         Qt.callLater(() => { if (root.glassLookHeld === GlassLook.indexOf(look.id)) root.glassLookHeld = -1; });
     }
     function applyGlassPreset(name) { applyGlassLook(GlassLook.byId(name)); }
+    function setShellStyle(mode) {
+        if (mode !== "liquid" && mode !== "blur") return;
+        dockStyle = mode;
+        if (bar) bar.barStyle = mode;
+    }
     function glassLookLabel(id) {
         if (id === "clear") return Language.I18n.text("appearance.glass_clear");
         if (id === "standard") return Language.I18n.text("appearance.glass_standard");
         if (id === "vibrant") return Language.I18n.text("appearance.glass_vibrant");
+        if (id === "tinted") return Language.I18n.text("appearance.glass_tinted");
         if (id === "frosted") return Language.I18n.text("appearance.glass_frosted");
         return Language.I18n.text("appearance.glass_custom");
     }
+    function glassLookAbout(id) {
+        if (id === "clear") return Language.I18n.text("appearance.glass_clear_hint");
+        if (id === "standard") return Language.I18n.text("appearance.glass_standard_hint");
+        if (id === "vibrant") return Language.I18n.text("appearance.glass_vibrant_hint");
+        if (id === "tinted") return Language.I18n.text("appearance.glass_tinted_hint");
+        if (id === "frosted") return Language.I18n.text("appearance.glass_frosted_hint");
+        return "";
+    }
     property bool glassDebug: false       // settings.json only: draw the raw Liquid Glass backdrop texture
     property string wallpaperPath: ""    // optional override for the wallpaper the Liquid Glass refracts
-    property real glassOpacity: 0.42     // 0 = fully clear; below the layerrule's ignore_alpha (0.2) the blur turns off
+    property real glassOpacity: 0.28     // 0 = fully clear; below the layerrule's ignore_alpha (0.2) the blur turns off
     // "smart"  = hide while a non-floating window is open on that monitor's workspace
     // "always" = always auto-hide, "never" = always visible and reserves space
     property string hideMode: "smart"
@@ -483,7 +497,8 @@ Scope {
             title: Language.I18n.text("appearance.glass_look")
             subtitle: root.glassLookId === "custom"
                       ? Language.I18n.text("appearance.glass_custom_hint")
-                      : Language.I18n.text("appearance.glass_look_hint", {look: root.glassLookLabel(root.glassLookId)})
+                      : Language.I18n.text("appearance.glass_look_hint", {look: root.glassLookLabel(root.glassLookId),
+                                                                          about: root.glassLookAbout(root.glassLookId)})
         }
         Item {
             width: parent.width
@@ -494,12 +509,7 @@ Scope {
                 anchors.verticalCenter: parent.verticalCenter
                 t: gl.t
                 segWidth: Math.max(56, (gl.width - 32) / Math.max(1, GlassLook.count()))
-                model: [
-                    Language.I18n.text("appearance.glass_clear"),
-                    Language.I18n.text("appearance.glass_standard"),
-                    Language.I18n.text("appearance.glass_vibrant"),
-                    Language.I18n.text("appearance.glass_frosted")
-                ]
+                model: GlassLook.ids().map(id => root.glassLookLabel(id))
                 current: root.glassLookName === "custom" ? -1 : Math.max(0, GlassLook.indexOf(root.glassLookName))
                 onPicked: i => root.applyGlassLook(GlassLook.at(i))
             }
@@ -743,8 +753,8 @@ Scope {
             { id: "general",    sec: 2, name: Language.I18n.text("ui.t_c910d474dcd7"), searchName: Language.I18n.english("ui.t_c910d474dcd7"),         glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "enable disable dock menu bar panel show hide off on widgets sound game" },
             { id: "updates",    sec: 2, name: Language.I18n.text("updates.title"), searchName: Language.I18n.english("updates.title"), glyph: "behavior", c1: "#8E8E93", c2: "#636366", keys: "update upgrade version packages pacman обновление обновления версия пакеты система" },
             { id: "language", sec: 2, name: Language.I18n.text("language.title"), searchName: Language.I18n.english("language.title"), glyph: "behavior", c1: "#3D9BFF", c2: "#0A6CFF", keys: "language locale region russian english system язык языки перевод русский английский регион локаль система" },
-            { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font preset look clear standard vibrant frosted advanced стекло прозрачное обычное живое матовое пресет вид" },
-             { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls" },
+            { id: "appearance", sec: 2, name: Language.I18n.text("ui.t_3907fa7f8072"), searchName: Language.I18n.english("ui.t_3907fa7f8072"),      glyph: "appearance", c1: "#3A3A3C", c2: "#1C1C1E", keys: "theme dark light mode accent color glass liquid apple style translucency blur corner radius font preset look clear standard vibrant frosted advanced стекло прозрачное обычное живое матовое пресет вид пункт управления dock menu bar widgets" },
+             { id: "controlcenter", sec: 2, name: Language.I18n.text("ui.t_d76f90b52444"), searchName: Language.I18n.english("ui.t_d76f90b52444"), wg: "cc",       c1: "#8E8E93", c2: "#636366", keys: "modules tiles controls layout panel glass пункт управления плитки панель макет" },
              { id: "airplay",     sec: 2, name: Language.I18n.text("ui.t_a72c5d7ed939"), searchName: Language.I18n.english("ui.t_a72c5d7ed939"), wg: "mirroring", c1: "#BF5AF2", c2: "#8E44AD", keys: "airplay screen mirroring fps frame rate volume television tv дублирование экран телевизор частота громкость" },
             { id: "dock",       sec: 2, name: Language.I18n.text("ui.t_7517ffc8943c"), searchName: Language.I18n.english("ui.t_7517ffc8943c"),  glyph: "dock",     c1: "#2C2C2E", c2: "#1C1C1E", keys: "size icon magnification zoom spacing margin distance edge hide auto labels indicators bounce trash monitor preview" },
             { id: "widgets", sec: 2, name: Language.I18n.text("ui.t_1fda79ffb659"), searchName: Language.I18n.english("ui.t_1fda79ffb659"), glyph: "apps", c1: "#9A7BF8", c2: "#6B48C8", keys: "desktop widgets gallery weather calendar clock player activity batteries timer notes reminders image picture charge cpu memory network disk size style forecast temperature city виджеты галерея погода календарь часы плеер батареи таймер заметки напоминания изображение фото заряд устройства нагрузка процессор память сеть диск размер стиль город" },
@@ -756,7 +766,7 @@ Scope {
             { id: "notifications", sec: 3, name: Language.I18n.text("ui.t_788011833a5a"), searchName: Language.I18n.english("ui.t_788011833a5a"), wg: "bell",      c1: "#FF5E57", c2: "#E8342A", keys: "alerts banners popups do not disturb" },
             { id: "sound",      sec: 3, name: Language.I18n.text("ui.t_46124e023603"), searchName: Language.I18n.english("ui.t_46124e023603"),           wg: "speaker",    c1: "#FF5E7E", c2: "#E8344F", keys: "volume output input microphone speakers headphones effects" },
             { id: "focus",      sec: 3, name: Language.I18n.text("ui.t_9d3cab2b5efe"), searchName: Language.I18n.english("ui.t_9d3cab2b5efe"),           wg: "moon",       c1: "#7D7AFF", c2: "#5856D6", keys: "do not disturb keep awake sleep" },
-            { id: "security", sec: 4, name: Language.I18n.text("security.title"), searchName: Language.I18n.english("security.title"), wg: "lock", c1: "#3A3A3C", c2: "#1C1C1E", keys: "security unlock fingerprint biometric face безопасность разблокировка отпечаток палец лицо биометрия" },
+            { id: "security", sec: 4, name: Language.I18n.text("security.title"), searchName: Language.I18n.english("security.title"), wg: "lock", c1: "#3A3A3C", c2: "#1C1C1E", keys: "security unlock fingerprint biometric безопасность разблокировка отпечаток палец биометрия" },
             { id: "lockscreen", sec: 4, name: Language.I18n.text("ui.t_91a007b58b9d"), searchName: Language.I18n.english("ui.t_91a007b58b9d"),     wg: "lock",       c1: "#3A3A3C", c2: "#1C1C1E", keys: "lock password album lyrics media clock" },
             { id: "users",      sec: 4, name: Language.I18n.text("ui.t_81847824f6de"), searchName: Language.I18n.english("ui.t_81847824f6de"),  wg: "smile",      c1: "#3D9BFF", c2: "#0A6CFF", keys: "account user name picture avatar" },
             { id: "keyboard",   sec: 5, name: Language.I18n.text("ui.t_2316810a5de3"), searchName: Language.I18n.english("ui.t_2316810a5de3"),        wg: "keyboard",   c1: "#A7A7AD", c2: "#7C7C82", keys: "repeat rate delay layout typing" },
@@ -776,6 +786,11 @@ Scope {
             return out;
         }
 
+        function openPane(id) {
+            for (var i = 0; i < panes.length; i++) {
+                if (panes[i].id === id) { go(i); return; }
+            }
+        }
         function go(i) {
             if (i === cur) return;
             backStack = backStack.concat([cur]);
@@ -1429,47 +1444,8 @@ Scope {
                         subtitle: Language.I18n.text("ui.t_6b7c86a28adf")
                         SButton {
                             t: pal; text: Language.I18n.text("ui.t_530a849a5475")
-                            onClicked: { for (var i = 0; i < prefsWindow.panes.length; i++) if (prefsWindow.panes[i].id === "widgets") { prefsWindow.go(i); break; } }
+                            onClicked: prefsWindow.openPane("widgets")
                         }
-                    }
-                }
-
-                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_46124e023603") }
-                SCard {
-                    t: pal
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_7783e704ea11")
-                        subtitle: Language.I18n.text("ui.t_6df4a25cd12a")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.uiSounds : true; onToggled: v => { if (root.bar) root.bar.uiSounds = v; } }
-                    }
-                }
-
-                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_91a007b58b9d") }
-                SCard {
-                    t: pal
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_b87058fe430e")
-                        subtitle: Language.I18n.text("ui.t_4ddee6809fc1")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.lockArtBackground : true; onToggled: v => { if (root.bar) root.bar.lockArtBackground = v; } }
-                    }
-                }
-
-                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_1311d7944778") }
-                SCard {
-                    t: pal
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_1311d7944778")
-                        subtitle: Language.I18n.text("ui.t_cccce91dc5d8")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.gamingMode : false; onToggled: v => { if (root.bar) root.bar.gamingMode = v; } }
-                    }
-                    SRow {
-                        t: pal
-                        title: Language.I18n.text("ui.t_426f5e8ed5ee")
-                        subtitle: root.bar && root.bar.gamingAutoActive ? Language.I18n.text("ui.t_32af3efbd6b4") : Language.I18n.text("ui.t_667358355c4b")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.gamingAuto : true; onToggled: v => { if (root.bar) root.bar.gamingAuto = v; } }
                     }
                 }
             }
@@ -1486,20 +1462,6 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: Language.I18n.text("ui.t_a4e20effd27f")
-                        subtitle: (root.bar && root.bar.barStyle === "liquid" && root.bar.glassState === "failed")
-                                  ? Language.I18n.text("ui.t_ec37543bcfd2")
-                                  : Language.I18n.text("ui.t_f0ad7fef4b83")
-                        SSegmented {
-                            t: pal
-                            model: [Language.I18n.text("ui.t_4fd27086d9ad"), Language.I18n.text("ui.t_6ba6253e385a")]
-                            segWidth: 128
-                            current: (root.bar && root.bar.barStyle === "liquid") ? 1 : 0
-                            onPicked: i => { if (root.bar) root.bar.barStyle = (i === 1 ? "liquid" : "blur"); }
-                        }
-                    }
-                    SRow {
-                        t: pal
                         title: Language.I18n.text("ui.t_083f44fa73c1")
                         subtitle: Language.I18n.text("ui.t_f6e5c33f6504")
                         SSwitch {
@@ -1508,19 +1470,11 @@ Scope {
                             onToggled: v => { if (root.bar) root.bar.barGlass = v; }
                         }
                     }
-                }
-
-                SCard {
-                    t: pal
-                    GlassLookRows {
+                    SRow {
                         t: pal
-                        glassStyle: root.bar ? root.bar.barStyle : "blur"
-                        glassShader: root.bar ? root.bar.glassState : ""
-                        lookName: "menuGlassLook"
-                        advancedName: "menuGlassAdvanced"
-                        blurName: "menuGlassBlur"
-                        intensityName: "menuGlassIntensity"
-                        frostingName: "menuGlassFrosting"
+                        title: Language.I18n.text("appearance.glass_look")
+                        subtitle: Language.I18n.text("settings.glass_from_appearance")
+                        SButton { t: pal; text: Language.I18n.text("settings.open_appearance"); onClicked: prefsWindow.openPane("appearance") }
                     }
                 }
                 SCard {
@@ -1694,51 +1648,6 @@ Scope {
                         t: pal; title: Language.I18n.text("ui.t_d24a581a1ed9"); subtitle: Language.I18n.text("ui.t_bd03ad051b78")
                         SSwitch { t: pal; enabled: root.bar && root.bar.barLayout.ready && !root.bar.barLayout.pending && !root.bar.barLayout.readOnly; checked: root.bar ? root.bar.barWidgetEnabled("monitoring") : true; onToggled: v => { if (root.bar) root.bar.setBarWidget("monitoring", v); } }
                     }
-                    Repeater {
-                        model: ["cpu", "memory", "network", "disk"]
-                        delegate: SRow {
-                            required property string modelData
-                            t: pal; title: ({cpu: "CPU", memory: "Memory", network: Language.I18n.text("ui.t_09dd03f13877"), disk: Language.I18n.text("ui.t_24c36879cbe9")})[modelData]
-                            SSwitch {
-                                t: pal; checked: root.bar ? root.bar.statsMetrics.indexOf(modelData) >= 0 : true
-                                onToggled: v => { if (root.bar) { var next = root.bar.statsMetrics.filter(k => k !== modelData); if (v) next.push(modelData); root.bar.statsMetrics = next; } }
-                            }
-                        }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_198eed5d435e"); subtitle: Language.I18n.text("ui.t_3624bd1bf731")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.statsMemoryPercent : false; onToggled: v => { if (root.bar) root.bar.statsMemoryPercent = v; } }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_87441a4c567b")
-                        SSegmented { t: pal; model: ["1 s", "2 s", "5 s"]; segWidth: 48; current: root.bar ? [1,2,5].indexOf(root.bar.statsInterval) : 0; onPicked: i => { if (root.bar) root.bar.statsInterval = [1,2,5][i]; } }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_db77ffdbbe85"); subtitle: Language.I18n.text("ui.t_5647da7ea3fc")
-                        SButton { t: pal; text: Language.I18n.text("ui.t_1f1d592bdd1a"); onClicked: { prefsWindow.visible = false; if (root.bar) root.bar.showMonitoring(); } }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_b55b195120ed"); subtitle: root.bar ? (root.bar.statsInterface || Language.I18n.text("ui.t_bf7e5488e725")) : Language.I18n.text("ui.t_d461a493a375")
-                        ControlComboBox {
-                            width: 200
-                            palette.buttonText: pal.text; palette.text: pal.text; palette.base: pal.dark ? "#303035" : "#ffffff"; palette.window: pal.dark ? "#303035" : "#ffffff"
-                            model: [Language.I18n.text("ui.t_d461a493a375")].concat(root.bar ? root.bar.stats.sample.interfaces || [] : [])
-                            currentIndex: !root.bar || root.bar.statsInterface === "" ? 0 : model.indexOf(root.bar.statsInterface)
-                            displayText: currentIndex < 0 ? Language.I18n.text("ui.t_859bb20bb8d5") + root.bar.statsInterface : currentText
-                            onActivated: i => { if (root.bar) root.bar.statsInterface = i === 0 ? "" : model[i]; }
-                        }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_a30bcbfd7f1d"); subtitle: root.bar ? (root.bar.statsDevice || Language.I18n.text("ui.t_a9045f457df6")) : Language.I18n.text("ui.t_d461a493a375")
-                        ControlComboBox {
-                            width: 200
-                            palette.buttonText: pal.text; palette.text: pal.text; palette.base: pal.dark ? "#303035" : "#ffffff"; palette.window: pal.dark ? "#303035" : "#ffffff"
-                            model: [Language.I18n.text("ui.t_63dbe4ded22e")].concat(root.bar ? root.bar.stats.sample.devices || [] : [])
-                            currentIndex: !root.bar || root.bar.statsDevice === "" ? 0 : model.indexOf(root.bar.statsDevice)
-                            displayText: currentIndex < 0 ? Language.I18n.text("ui.t_859bb20bb8d5") + root.bar.statsDevice : currentText
-                            onActivated: i => { if (root.bar) root.bar.statsDevice = i === 0 ? "" : model[i]; }
-                        }
-                    }
                 }
 
                 SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_a73484fbbf67") }
@@ -1747,7 +1656,7 @@ Scope {
                     SRow {
                         t: pal; title: Language.I18n.text("ui.t_94d9d0db9fdd")
                         subtitle: Language.I18n.text("ui.t_a693bb976894")
-                        SButton { t: pal; text: Language.I18n.text("ui.t_a8515544675c"); onClicked: { for (var i = 0; i < prefsWindow.panes.length; i++) if (prefsWindow.panes[i].id === "barlayout") { prefsWindow.go(i); break; } } }
+                        SButton { t: pal; text: Language.I18n.text("ui.t_a8515544675c"); onClicked: prefsWindow.openPane("barlayout") }
                     }
                 }
 
@@ -1917,9 +1826,9 @@ Scope {
                         height: pv.base + 14
                         radius: root.cornerRadius * 0.6
                         color: root.darkMode ? Qt.rgba(0.10, 0.10, 0.11, root.glassOpacity)
-                                             : Qt.rgba(1, 1, 1, root.glassOpacity * 0.55)
+                                             : Qt.rgba(1, 1, 1, 0.42 + root.glassOpacity * 0.35)
                         border.width: 1
-                        border.color: root.darkMode ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.45)
+                        border.color: root.darkMode ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(0, 0, 0, 0.16)
                     }
                     Row {
                         id: prow
@@ -2104,7 +2013,7 @@ Scope {
                             model: [Language.I18n.text("ui.t_4fd27086d9ad"), Language.I18n.text("ui.t_6ba6253e385a")]
                             segWidth: 128
                             current: root.dockStyle === "liquid" ? 1 : 0
-                            onPicked: i => root.dockStyle = (i === 1 ? "liquid" : "blur")
+                            onPicked: i => root.setShellStyle(i === 1 ? "liquid" : "blur")
                         }
                     }
                 }
@@ -2144,6 +2053,7 @@ Scope {
                         }
                     }
                 }
+                SLabel { t: pal; text: Language.I18n.text("appearance.glass_applies") }
                 SLabel { t: pal; text: root.dockStyle === "liquid"
                                        ? Language.I18n.text("ui.t_c82e8cb3af00")
                                        : Language.I18n.text("ui.t_fb9edb267ee9") }
@@ -2712,6 +2622,33 @@ Scope {
                 SLabel { t: pal; text: Language.I18n.text("ui.t_efefeed7b435") }
                 SCard {
                     t: pal
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("settings.cc_enabled")
+                        subtitle: Language.I18n.text("settings.cc_enabled_hint")
+                        SSwitch { t: pal; checked: root.bar ? root.bar.ccEnabled : true; onToggled: v => { if (root.bar) root.bar.ccEnabled = v; } }
+                    }
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("settings.cc_style")
+                        subtitle: Language.I18n.text("settings.cc_style_hint")
+                        SSegmented {
+                            t: pal
+                            model: [Language.I18n.text("settings.cc_style_tiles"), Language.I18n.text("settings.cc_style_panel")]
+                            segWidth: 88
+                            current: root.bar && root.bar.ccStyle === "macos" ? 1 : 0
+                            onPicked: i => { if (root.bar) root.bar.ccStyle = i === 1 ? "macos" : "tiles"; }
+                        }
+                    }
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("appearance.glass_look")
+                        subtitle: Language.I18n.text("settings.glass_from_appearance")
+                        SButton { t: pal; text: Language.I18n.text("settings.open_appearance"); onClicked: prefsWindow.openPane("appearance") }
+                    }
+                }
+                SCard {
+                    t: pal
                     Repeater {
                         model: root.bar ? root.bar.ccCatalog : []
                         delegate: SRow {
@@ -2742,19 +2679,6 @@ Scope {
                 SLabel { t: pal; text: Language.I18n.text("ui.t_airplay_settings_intro") }
                 SCard {
                     t: pal
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_airplay_layout")
-                        subtitle: root.bar && root.bar.airplayLayout === "extend" && root.bar.mirroring.extendMethod === "dummy"
-                                  ? Language.I18n.text("ui.t_airplay_extend_hint_dummy", {name: root.bar.mirroring.extendOutput || "HDMI-A-1"})
-                                  : root.bar && root.bar.airplayLayout === "extend" && !root.bar.mirroring.extendAvailable
-                                  ? Language.I18n.text("ui.t_airplay_extend_hint_blocked")
-                                  : Language.I18n.text("ui.t_airplay_layout_subtitle")
-                        SSegmented {
-                            t: pal; model: [Language.I18n.text("ui.t_airplay_mirror"), Language.I18n.text("ui.t_airplay_extend")]; segWidth: 110
-                            current: root.bar && root.bar.airplayLayout === "extend" ? 1 : 0
-                            onPicked: i => { if (root.bar) root.bar.airplayLayout = i === 1 ? "extend" : "mirror"; }
-                        }
-                    }
                     SRow {
                         t: pal; title: Language.I18n.text("ui.t_airplay_fps")
                         subtitle: Language.I18n.text("ui.t_airplay_fps_subtitle")
@@ -2953,17 +2877,9 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
-                        t: pal; title: Language.I18n.text("ui.t_19a74ee03455")
-                        subtitle: Language.I18n.text("ui.t_52c30be164ea")
-                        SSwitch { t: pal; checked: root.bar ? !root.bar.notifDnd : true; onToggled: v => { if (root.bar) root.bar.notifDnd = !v; } }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_6676660e775a")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.uiSounds : true; onToggled: v => { if (root.bar) root.bar.uiSounds = v; } }
-                    }
-                    SRow {
-                        t: pal; title: Language.I18n.text("ui.t_3517311519e8")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.screenshotNotify : true; onToggled: v => { if (root.bar) root.bar.screenshotNotify = v; } }
+                        t: pal; title: Language.I18n.text("ui.t_9d3cab2b5efe")
+                        subtitle: Language.I18n.text("settings.dnd_in_focus")
+                        SButton { t: pal; text: Language.I18n.text("settings.open_focus"); onClicked: prefsWindow.openPane("focus") }
                     }
                 }
                 Row {
@@ -3089,8 +3005,8 @@ Scope {
                     }
                     SRow {
                         t: pal; title: Language.I18n.text("ui.t_2d26371afbeb")
-                        subtitle: Language.I18n.text("ui.t_29b8de718637")
-                        SSwitch { t: pal; checked: root.bar ? root.bar.use24h : true; onToggled: v => { if (root.bar) root.bar.use24h = v; } }
+                        subtitle: Language.I18n.text("settings.clock_in_menubar")
+                        SButton { t: pal; text: Language.I18n.text("ui.t_0db85de8b72f"); onClicked: prefsWindow.openPane("menubar") }
                     }
                 }
                 // ── Clock ──
@@ -3870,7 +3786,7 @@ Scope {
         Quickshell.execDetached(["sh", "-c", "rm -f \"${MACSHELL_SETTINGS_HOME:-$HOME/.config}/maclock/settings.json\""]);
         iconSize = 52; magnification = 1.7; magnificationEnabled = true;
         spacing = 6; margin = 6; cornerRadius = 18;
-        darkMode = true; glassOpacity = 0.42; glassBlur = 5; glassLiquid = 1.0; glassRim = 0.45; glassGrain = 0.03; glassLookName = "standard"; dockStyle = "blur"; accent = "#0a84ff"; fontFamily = "Inter Variable";
+        darkMode = true; glassOpacity = 0.28; glassBlur = 4; glassLiquid = 1.2; glassRim = 0.55; glassGrain = 0.02; glassLookName = "standard"; dockStyle = "liquid"; accent = "#0a84ff"; fontFamily = "Inter Variable";
         hideMode = "smart"; hideDelay = 450; monitor = "";
         showTrash = true; showLabels = true; showIndicators = true; bounceOnLaunch = true; showThumbs = true; windowCapture = true;
     }
@@ -5142,7 +5058,7 @@ Scope {
                                 property real rim: root.glassRim
                                 property real grain: root.glassGrain
                                 property real blurPx: root.glassBlur > 0 ? 1.5 : 0
-                                property real tintMix: root.darkMode ? root.glassOpacity * 0.55 : GlassTheme.lightTint(root.glassOpacity)
+                                property real tintMix: GlassTheme.shaderTint(root.darkMode, root.glassOpacity)
                                 property real saturation: 1.25
                                 property real dark: root.darkMode ? 1 : 0
                                 property real debug: root.glassDebug ? 1 : 0

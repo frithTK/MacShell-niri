@@ -9,7 +9,7 @@ Writes use the existing lock, token and backup conventions.
 
 The installer builds the binary before replacing files. The separate-session
 installation also places a copy beside `session-locale.sh`; that wrapper
-checks the protocol and falls back to the prior Python helper if needed. An
+checks the protocol and fails if the Rust binary is missing or incompatible. An
 existing generated login script is refreshed when installing with `--session`.
 
 ```sh

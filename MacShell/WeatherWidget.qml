@@ -70,7 +70,7 @@ Item {
     readonly property bool dark: style === "normal" || darkGlass
     readonly property color fg: dark ? "#ffffff" : "#1d1d1f"
     function ink(alpha) { return Qt.rgba(fg.r, fg.g, fg.b, alpha); }
-    readonly property real tint: dark ? glassOpacity * .55 : GlassTheme.lightTint(glassOpacity)
+    readonly property real tint: GlassTheme.cardShaderTint(dark, glassOpacity)
 
     // The cloud glyphs are not shown: only the sun / moon get an icon.
     function showIcon(k) { return k === "sun" || k === "moon"; }

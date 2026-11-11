@@ -61,14 +61,19 @@ class RustSystemStatsTests(unittest.TestCase):
             binary = shell / 'system-stats-rust'
             binary.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo "macshell-system-stats 1"; else echo rust; fi\n')
             binary.chmod(0o755)
-            def launch():
+            def launch(check=True):
                 return subprocess.run(['sh', str(shell / 'system-stats.sh')], capture_output=True,
-                                      text=True, timeout=5, check=True).stdout.strip()
-            self.assertEqual(launch(), 'rust')
+                                      text=True, timeout=5, check=check)
+            self.assertEqual(launch().stdout.strip(), 'rust')
             binary.write_text('#!/bin/sh\necho incompatible\n')
-            self.assertEqual(launch(), 'legacy')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
+            self.assertIn('Rust', incompatible.stderr)
             binary.unlink()
-            self.assertEqual(launch(), 'legacy')
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
 
     def test_closed_output_exits_cleanly(self):
         process = subprocess.Popen([BINARY], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

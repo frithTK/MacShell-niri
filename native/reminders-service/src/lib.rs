@@ -15,6 +15,10 @@ pub struct Repeat {
     pub due_ms: i64,
 }
 
+pub fn occurrence_instant(zone: Tz, date: NaiveDate, hour: u32, minute: u32) -> Option<i64> {
+    resolve(zone, date, hour, minute)
+}
+
 fn resolve(zone: Tz, date: NaiveDate, hour: u32, minute: u32) -> Option<i64> {
     let local = date.and_hms_opt(hour, minute, 0)?;
     let choose = |time| match zone.from_local_datetime(&time) {

@@ -228,12 +228,18 @@ class TimedModesRustTests(unittest.TestCase):
             binary = folder / 'timed-modes-rust'
             binary.write_text('#!/bin/sh\nif [ "${1-}" = --protocol-version ]; then echo "macshell-timed-modes 1"; else echo rust; fi\n')
             binary.chmod(0o755)
-            def launch():
-                return subprocess.run(['sh', str(folder / 'timed-modes.sh')], capture_output=True, text=True, timeout=5, check=True).stdout.strip()
-            self.assertEqual(launch(), 'rust')
+            def launch(check=True):
+                return subprocess.run(['sh', str(folder / 'timed-modes.sh')], capture_output=True, text=True, timeout=5, check=check)
+            self.assertEqual(launch().stdout.strip(), 'rust')
             binary.write_text('#!/bin/sh\necho incompatible\n')
-            self.assertEqual(launch(), 'legacy')
-            binary.unlink(); self.assertEqual(launch(), 'legacy')
+            incompatible = launch(check=False)
+            self.assertNotEqual(incompatible.returncode, 0)
+            self.assertNotIn('legacy', incompatible.stdout)
+            self.assertIn('Rust', incompatible.stderr)
+            binary.unlink()
+            missing = launch(check=False)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertNotIn('legacy', missing.stdout)
 
     @unittest.skipUnless(shutil.which(quickshell()), 'Quickshell is required')
     def test_qml_restore_and_changes_use_rust(self):

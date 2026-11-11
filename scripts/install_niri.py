@@ -116,8 +116,7 @@ def launcher(lock=False):
         return text + f'exec sh {shlex.quote(str(LOCK / "lock-via-ipc.sh"))} "$@"\n'
     text += 'if [[ $# -eq 0 && ${MACSHELL_MANAGED_SHELL:-} == 1 && ${MACSHELL_SERVICE_CHILD:-} != 1 ]]; then\n'
     supervisor = shlex.quote(str(PROFILE / "shell-supervisor.sh"))
-    legacy = shlex.quote(str(PROFILE / "shell-supervisor.py"))
-    text += f'    if [[ -f {supervisor} ]]; then\n        exec sh {supervisor} start\n    fi\n    exec python3 {legacy} start\nfi\n'
+    text += f'    if [[ -f {supervisor} ]]; then\n        exec sh {supervisor} start\n    fi\n    echo \'Shell supervisor Rust helper is missing or incompatible\' >&2\n    exit 1\nfi\n'
     return text + 'unset MACSHELL_SERVICE_CHILD\nexec "$MACSHELL_QS_BIN" -c MacShell-niri "$@"\n'
 
 

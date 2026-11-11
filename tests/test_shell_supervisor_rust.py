@@ -78,8 +78,11 @@ class ShellSupervisorRustTests(unittest.TestCase):
         binary = folder / 'session-preflight-rust'
         binary.write_text('#!/bin/sh\nif [ "$1" = --supervisor-protocol-version ]; then echo "macshell-shell-supervisor 1"; else echo "rust $*"; fi\n')
         binary.chmod(0o755)
-        def launch():
-            return subprocess.run(['sh', str(folder / 'shell-supervisor.sh'), 'check', 'qs path'], capture_output=True, text=True, check=True).stdout.strip()
-        self.assertEqual(launch(), 'rust --supervisor-check qs path')
+        def launch(check=True):
+            return subprocess.run(['sh', str(folder / 'shell-supervisor.sh'), 'check', 'qs path'], capture_output=True, text=True, check=check)
+        self.assertEqual(launch().stdout.strip(), 'rust --supervisor-check qs path')
         binary.write_text('#!/bin/sh\necho "macshell-session-preflight 1"\n')
-        self.assertEqual(launch(), 'legacy check qs path')
+        refused = launch(check=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertNotIn('legacy', refused.stdout)
+        self.assertIn('Rust', refused.stderr)

@@ -9,9 +9,10 @@ service reports unavailability and exits; closing its connection releases any
 holds owned by that connection, as described by the [power-profiles-daemon API](https://upower.pages.freedesktop.org/power-profiles-daemon/gdbus-org.freedesktop.UPower.PowerProfiles.html). The same happens if the daemon owner disappears
 while a hold or operation is outstanding; an idle service can reconnect.
 
-The Python implementation remains the fallback when the Rust executable is
-missing or has an incompatible protocol version. The build needs Rust 1.85+ and
-the system Gio/GLib linker libraries; no separate D-Bus crate is used.
+The launcher fails when the Rust executable is missing or has an incompatible
+protocol version. The Python implementation remains for comparison tests. The
+build needs Rust 1.85+ and the system Gio/GLib linker libraries; no separate
+D-Bus crate is used.
 
 ```sh
 cargo build --locked --offline --manifest-path native/power-profiles/Cargo.toml

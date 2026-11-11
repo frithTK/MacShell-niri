@@ -6,6 +6,7 @@ Scope {
     property bool enabled: false
     property string storePath: ""
     property var events: []
+    property var occurrences: []
     property var deleted: []
     property var pending: null
     property bool refreshPending: false
@@ -27,8 +28,8 @@ Scope {
         error = ""; return true;
     }
     function load() { return send("load", {}); }
-    function save(event, title, allDay, day, start, end) {
-        var data = {id: event ? event.id : uuid(), title: title, allDay: allDay, date: day, start: start, end: end};
+    function save(event, title, allDay, day, start, end, repeat) {
+        var data = {id: event ? event.id : uuid(), title: title, allDay: allDay, date: day, start: start, end: end, repeat: repeat || "none"};
         if (event) data.revision = event.revision;
         return send(event ? "update" : "create", data);
     }
@@ -50,6 +51,7 @@ Scope {
             root.error = "";
             if (operation.action === "load") {
                 root.events = message.result.events || []; root.deleted = message.result.deleted || [];
+                root.occurrences = message.result.occurrences || [];
                 if (root.refreshPending) { root.refreshPending = false; root.load(); return; }
                 root.settled(); return;
             }

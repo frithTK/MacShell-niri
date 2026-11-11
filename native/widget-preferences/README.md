@@ -8,8 +8,8 @@ it commits under a lock with a token check and keeps the original backup.
 Unsupported future documents and damaged records remain read-only. Resetting a
 recoverable document requires an explicit request and saves a recovery copy.
 
-The launcher checks the protocol version and retains the Python implementation
-as a temporary fallback. Tests must use a temporary settings directory.
+The launcher checks the protocol version and fails if the Rust binary is missing
+or incompatible. Tests must use a temporary settings directory.
 
 ```sh
 cargo build --locked --offline --manifest-path native/widget-preferences/Cargo.toml

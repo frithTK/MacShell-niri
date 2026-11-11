@@ -6,7 +6,7 @@ The bridge connects to the `NIRI_SOCKET` Unix socket, requests outputs, subscrib
 
 Each connection gets a random `bridgeSession`; QML includes it in commands and rejects updates from an old session. Commands from a different session are discarded. Action connections also verify Linux `SO_PEERCRED` and process start time against the event-stream peer before sending, so a replaced compositor cannot receive a command meant for the old one. Commands are never automatically retried; if niri executes a command but its response is lost, its result remains unknown. The `--replay` argument is a test-only JSON-lines interface for synthetic state cases.
 
-The installed `MacShell/niri-bridge.sh` verifies the Rust protocol and fails if the binary is unavailable or incompatible. The source launcher retains fallback for historical unmarked profiles. Once a bridge has started, it is restarted rather than silently switching implementations. Build failure occurs before the installer replaces user files, and rollback restores the previous shell directory and its bridge.
+The installed `MacShell/niri-bridge.sh` verifies the Rust protocol and fails if the binary is unavailable or incompatible. `MACSHELL_NIRI_BRIDGE_BACKEND` accepts `auto` or `rust`; other values are invalid. Once a bridge has started, it is restarted rather than silently switching implementations. Build failure occurs before the installer replaces user files, and rollback restores the previous shell directory and its bridge.
 
 ## Build and check
 
@@ -42,4 +42,4 @@ python3 scripts/check-niri-bridge-native.py python --measure /tmp/niri-python-sh
 python3 scripts/check-niri-bridge-native.py /tmp/macshell-niri-rust-build/release/macshell-niri-bridge --measure /tmp/niri-rust-shell.json
 ```
 
-The measurements above refer to the earlier prototype, before the session protocol was added. Physical monitor hotplug, several physical monitors and more niri versions still need hardware/version coverage; Python remains available as a transition fallback while those cases are evaluated.
+The measurements above refer to the earlier prototype, before the session protocol was added. Physical monitor hotplug, several physical monitors and more niri versions still need hardware/version coverage. The `python` argument of `check-niri-bridge-native.py` still wraps `niri_ipc.py` for comparison; the runtime launcher does not.

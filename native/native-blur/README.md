@@ -9,9 +9,8 @@ created atomically, and rollback is attempted only while the files still match
 the expected contents. A failed sync after a rename is treated as an uncertain result rather
 than blindly undoing the other half of the change.
 
-The launcher falls back to the Python service when the Rust binary is missing or
-has an incompatible protocol version. Both implementations must remain while
-the rest of the migration is in progress.
+The launcher fails when the Rust binary is missing or has an incompatible
+protocol version. The Python service remains for comparison tests.
 
 ```sh
 cargo test --locked --offline --manifest-path native/native-blur/Cargo.toml

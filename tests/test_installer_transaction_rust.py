@@ -257,7 +257,7 @@ printf '#!/bin/sh\\nexit 0\\n' > "$target/release/macshell-session-preflight"
         self.assertIn('clock-audio-worker', artifacts)
         self.assertIn('macshell-screen-mirroring', artifacts)
         calls = [json.loads(line) for line in log.read_text().splitlines()]
-        self.assertEqual(len(calls), 30)
+        self.assertEqual(len(calls), 37)
         self.assertTrue(all('--locked' in call['args'] and '--offline' in call['args'] and '--release' in call['args'] for call in calls))
         self.assertTrue(all(call['currency'] is None and call['widget'] is None for call in calls))
         result = subprocess.run(command, env=dict(env, FAKE_CARGO_BAD_PROTOCOL='fingerprint-operation'), text=True, capture_output=True, timeout=30)
@@ -348,15 +348,17 @@ printf '#!/bin/sh\\nexit 0\\n' > "$target/release/macshell-session-preflight"
         self.assertFalse((self.data / 'latest').exists())
         self.assertFalse((config / 'systemd/user/niri-macshell.service').exists())
 
-    def test_plain_install_launcher_works_with_existing_legacy_session(self):
+    def test_plain_install_launcher_requires_supervisor_helper(self):
         profile = self.root / 'legacy profile'; profile.mkdir()
         legacy = profile / 'shell-supervisor.py'
         legacy.write_text('import sys\nprint("legacy supervisor:", *sys.argv[1:])\n')
         bin_dir = self.root / 'bin'
         self.call('launchers', profile, bin_dir, self.root / 'cache', self.root / 'lock', self.root / 'qs')
         env = dict(os.environ, MACSHELL_MANAGED_SHELL='1')
-        result = subprocess.run([str(bin_dir / 'macshell-niri')], env=env, capture_output=True, text=True, timeout=10, check=True)
-        self.assertEqual(result.stdout.strip(), 'legacy supervisor: start')
+        missing = subprocess.run([str(bin_dir / 'macshell-niri')], env=env, capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertNotIn('legacy supervisor', missing.stdout)
+        self.assertIn('Shell supervisor Rust helper is missing', missing.stderr)
         (profile / 'shell-supervisor.sh').write_text('#!/bin/sh\nprintf "new supervisor: %s\\n" "$1"\n')
         result = subprocess.run([str(bin_dir / 'macshell-niri')], env=env, capture_output=True, text=True, timeout=10, check=True)
         self.assertEqual(result.stdout.strip(), 'new supervisor: start')

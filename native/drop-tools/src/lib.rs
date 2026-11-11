@@ -4,10 +4,10 @@ use image::codecs::png::PngEncoder;
 use serde_json::{json, Value};
 use std::env;
 use std::fs::{self, File};
-use std::io::Read;
+use std::io::{self, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub const PROTOCOL: &str = "macshell-drop-tools 1";
@@ -139,6 +139,233 @@ pub fn valid_path(path: &str) -> bool {
         && !path.contains('\0')
         && !path.contains('\n')
         && !path.contains('\r')
+}
+
+pub fn parse_file_arg(raw: &str) -> Option<String> {
+    let value = raw.trim();
+    if value.is_empty() {
+        return None;
+    }
+    let decoded = if let Some(rest) = value.strip_prefix("file://") {
+        let path = if rest.starts_with('/') {
+            rest
+        } else {
+            let slash = rest.find('/')?;
+            &rest[slash..]
+        };
+        percent_decode(path)?
+    } else {
+        value.to_string()
+    };
+    valid_path(&decoded).then_some(decoded)
+}
+
+fn percent_decode(input: &str) -> Option<String> {
+    let mut bytes = Vec::with_capacity(input.len());
+    let raw = input.as_bytes();
+    let mut i = 0;
+    while i < raw.len() {
+        match raw[i] {
+            b'%' if i + 2 < raw.len() => {
+                let hi = from_hex(raw[i + 1])?;
+                let lo = from_hex(raw[i + 2])?;
+                bytes.push((hi << 4) | lo);
+                i += 3;
+            }
+            byte => {
+                bytes.push(byte);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8(bytes).ok()
+}
+
+fn from_hex(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'a'..=b'f' => Some(value - b'a' + 10),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
+    }
+}
+
+pub fn resolve_op(kind: Kind, op: &str) -> Option<&'static str> {
+    match (kind, op) {
+        (Kind::Image, "png") => Some("png"),
+        (Kind::Image, "jpeg") => Some("jpeg"),
+        (Kind::Image, "pdf") => Some("pdf"),
+        (Kind::Image, "rotate90") => Some("rotate90"),
+        (Kind::Pdf, "png" | "pdf-png") => Some("pdf-png"),
+        (Kind::Pdf, "jpeg" | "pdf-jpeg") => Some("pdf-jpeg"),
+        _ => None,
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConvertArgs {
+    pub op: String,
+    pub notify: bool,
+    pub paths: Vec<String>,
+}
+
+pub fn parse_convert_args(args: &[String]) -> Result<ConvertArgs, &'static str> {
+    let mut op = String::new();
+    let mut notify = false;
+    let mut paths = Vec::new();
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--notify" {
+            notify = true;
+        } else if arg == "--op" {
+            index += 1;
+            op = args.get(index).cloned().ok_or("missing_op")?;
+        } else if let Some(value) = arg.strip_prefix("--op=") {
+            op = value.to_string();
+        } else if arg == "--" {
+            for raw in &args[index + 1..] {
+                if let Some(path) = parse_file_arg(raw) {
+                    paths.push(path);
+                }
+            }
+            break;
+        } else if arg.starts_with('-') {
+            return Err("unknown_flag");
+        } else if let Some(path) = parse_file_arg(arg) {
+            paths.push(path);
+        }
+        index += 1;
+    }
+    if !known_op(&op) {
+        return Err("unknown_op");
+    }
+    if paths.is_empty() {
+        return Err("missing_path");
+    }
+    Ok(ConvertArgs { op, notify, paths })
+}
+
+pub fn convert_from_args(args: &[String]) -> io::Result<i32> {
+    let parsed = match parse_convert_args(args) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            eprintln!("macshell-drop-tools: {error}");
+            if parsed_notify(args) {
+                notify_convert(false, 0, 1, error);
+            }
+            return Ok(1);
+        }
+    };
+    let env = ToolEnv::from_os();
+    let payload = handle(
+        "run",
+        &json!({"op": parsed.op, "paths": parsed.paths}),
+        &env,
+        &AtomicBool::new(false),
+    );
+    let ok = payload.get("ok").and_then(Value::as_u64).unwrap_or(0);
+    let failed = payload.get("failed").and_then(Value::as_u64).unwrap_or(0);
+    let mut stdout = io::stdout();
+    if let Some(results) = payload.get("results").and_then(Value::as_array) {
+        for row in results {
+            if let Some(dest) = row.get("dest").and_then(Value::as_str) {
+                if !dest.is_empty() {
+                    writeln!(stdout, "{dest}")?;
+                }
+            }
+            if let Some(error) = row.get("error").and_then(Value::as_str) {
+                if !error.is_empty() {
+                    let path = row.get("path").and_then(Value::as_str).unwrap_or("");
+                    eprintln!("macshell-drop-tools: {path}: {error}");
+                }
+            }
+        }
+    }
+    stdout.flush()?;
+    if parsed.notify {
+        let summary = if failed == 0 {
+            "done"
+        } else if ok > 0 {
+            "partial"
+        } else {
+            payload
+                .get("results")
+                .and_then(Value::as_array)
+                .and_then(|rows| rows.first())
+                .and_then(|row| row.get("error"))
+                .and_then(Value::as_str)
+                .unwrap_or("failed")
+        };
+        notify_convert(failed == 0, ok, failed, summary);
+    }
+    Ok(if failed == 0 { 0 } else { 1 })
+}
+
+fn parsed_notify(args: &[String]) -> bool {
+    args.iter().any(|arg| arg == "--notify")
+}
+
+fn notify_convert(ok: bool, saved: u64, failed: u64, summary: &str) {
+    let russian = env::var("LANG")
+        .unwrap_or_default()
+        .to_lowercase()
+        .starts_with("ru");
+    let title = if russian { "Конвертер" } else { "Convert" };
+    let body = if ok {
+        if russian {
+            "Сохранено рядом с оригиналом"
+        } else {
+            "Saved next to the original"
+        }
+        .to_string()
+    } else if saved > 0 {
+        if russian {
+            format!("Часть файлов преобразовать не удалось ({saved} ок, {failed} нет)")
+        } else {
+            format!("Some files could not be converted ({saved} ok, {failed} failed)")
+        }
+    } else if russian {
+        notify_error_ru(summary).to_string()
+    } else {
+        notify_error_en(summary).to_string()
+    };
+    let _ = Command::new("notify-send")
+        .args(["-a", "MacShell Convert", "-i", "image-x-generic", title, &body])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+fn notify_error_en(code: &str) -> &'static str {
+    match code {
+        "pdftoppm" => "PDF conversion needs pdftoppm",
+        "unsupported" => "This file type cannot be converted",
+        "missing" => "This file is not available",
+        "denied" => "This file cannot be read",
+        "too_large" => "This file is too large to convert",
+        "invalid" | "missing_path" => "This location cannot be converted",
+        "unknown_op" | "missing_op" | "unknown_flag" => "Unknown convert option",
+        "decode" => "This file could not be decoded",
+        "encode" => "Could not write the converted file",
+        _ => "Conversion failed",
+    }
+}
+
+fn notify_error_ru(code: &str) -> &'static str {
+    match code {
+        "pdftoppm" => "Для PDF нужен pdftoppm",
+        "unsupported" => "Этот тип файла нельзя преобразовать",
+        "missing" => "Файл недоступен",
+        "denied" => "Файл нельзя прочитать",
+        "too_large" => "Файл слишком большой для преобразования",
+        "invalid" | "missing_path" => "Это расположение нельзя преобразовать",
+        "unknown_op" | "missing_op" | "unknown_flag" => "Неизвестная команда преобразования",
+        "decode" => "Файл не удалось прочитать",
+        "encode" => "Не удалось записать результат",
+        _ => "Преобразование не удалось",
+    }
 }
 
 pub fn inspect(path: &str, env: &ToolEnv) -> Inspect {
@@ -295,6 +522,7 @@ fn convert_one(path: &str, op: &str, env: &ToolEnv, cancel: &AtomicBool) -> Resu
         Kind::Unsupported => return Err("unsupported"),
         Kind::Image | Kind::Pdf => {}
     }
+    let op = resolve_op(info.kind, op).ok_or("unsupported")?;
     let action = info
         .actions
         .iter()
@@ -873,6 +1101,61 @@ mod tests {
         assert!(dest.file_name().unwrap().to_str().unwrap().starts_with("doc-pdf-png"));
         assert!(image::open(&dest).is_ok());
         assert!(pdf.exists());
+
+        let aliased = handle(
+            "run",
+            &json!({"path": pdf.to_str().unwrap(), "op": "png"}),
+            &env,
+            &idle(),
+        );
+        assert_eq!(aliased["ok"], 1);
+        let aliased_dest = PathBuf::from(aliased["results"][0]["dest"].as_str().unwrap());
+        assert!(aliased_dest
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("doc-pdf-png"));
+    }
+
+    #[test]
+    fn cli_paths_decode_file_uris_and_map_pdf_ops() {
+        assert_eq!(
+            parse_file_arg("file:///tmp/Notes%201.png").as_deref(),
+            Some("/tmp/Notes 1.png")
+        );
+        assert_eq!(parse_file_arg("/tmp/файл.jpg").as_deref(), Some("/tmp/файл.jpg"));
+        assert_eq!(parse_file_arg("relative.png"), None);
+        assert_eq!(resolve_op(Kind::Pdf, "jpeg"), Some("pdf-jpeg"));
+        assert_eq!(resolve_op(Kind::Image, "png"), Some("png"));
+        assert_eq!(resolve_op(Kind::Pdf, "rotate90"), None);
+        let parsed = parse_convert_args(&[
+            "--notify".into(),
+            "--op".into(),
+            "png".into(),
+            "file:///tmp/a.png".into(),
+            "/tmp/b.jpg".into(),
+        ])
+        .unwrap();
+        assert_eq!(parsed.op, "png");
+        assert!(parsed.notify);
+        assert_eq!(parsed.paths, vec!["/tmp/a.png", "/tmp/b.jpg"]);
+        assert_eq!(
+            parse_convert_args(&["--op".into(), "webp".into(), "/tmp/a.png".into()]),
+            Err("unknown_op")
+        );
+
+        let dir = Temp::new("cli");
+        let source = dir.path().join("shot.png");
+        save_png(&source, 3, 4, 5);
+        let code = convert_from_args(&[
+            "--op".into(),
+            "jpeg".into(),
+            source.to_str().unwrap().into(),
+        ])
+        .unwrap();
+        assert_eq!(code, 0);
+        assert!(dir.path().join("shot-jpeg.jpg").is_file());
     }
 
     #[test]

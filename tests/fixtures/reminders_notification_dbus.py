@@ -17,6 +17,7 @@ from gi.repository import Gio, GLib
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from scripts.install_niri import quickshell
+from tests.service_launchers import copy_macshell_with_python_launchers
 
 XML = '''<node><interface name="org.freedesktop.Notifications">
 <method name="GetCapabilities"><arg type="as" direction="out"/></method>
@@ -58,7 +59,7 @@ def main():
                        MACSHELL_REMINDERS_DATA_HOME=str(root / 'data'), QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
                        QT_QUICK_CONTROLS_STYLE='Basic', NIRI_SOCKET=str(root / 'no-niri'))
             env.pop('DISPLAY', None); env.pop('WAYLAND_DISPLAY', None)
-            config = str(ROOT / 'MacShell/reminders-standalone.qml')
+            config = str(copy_macshell_with_python_launchers(ROOT / 'MacShell', root / 'shell') / 'reminders-standalone.qml')
             store = root / 'data/macshell/reminders/tasks.sqlite3'
             process = None
             def ipc(method):

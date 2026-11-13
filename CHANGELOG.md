@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.6
 
 - MacLock unlocks with any enrolled fingerprint through fprintd, in parallel with the password field. The field reads “Fingerprint or password”; an unrecognized finger shakes it without clearing typed characters. After 5 unrecognized scans only the password unlocks that lock. A busy or disconnected reader (for example after sleep) is retried with backoff. System PAM files are not changed; login after a restart still uses the password. Settings → Security & Unlock has a switch for it and no longer calls fingerprint unlock “in development”.
 - Settings → Storage shows volumes immediately, collapses same-disk btrfs subvolumes, and splits used space into Apps, Photos, Videos, Documents, Downloads, Music, Desktop, Trash, Cache, Other and System. Trash is measured across home and volume trashes before the folder walk, so the visit limit cannot hide it, and its items are listed. Cache is walked last.

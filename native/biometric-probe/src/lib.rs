@@ -5,7 +5,11 @@ pub enum Action {
     Enroll,
     Verify,
     Delete,
+    Unlock,
 }
+
+/// Rejected scans before the lock screen stops listening and requires the password.
+pub const UNLOCK_ATTEMPTS: u32 = 5;
 
 pub fn valid_finger(finger: &str) -> bool {
     let Some((side, name)) = finger.split_once('-') else {
@@ -29,6 +33,7 @@ pub enum Phase {
     Scanning,
     Deleting,
     Disconnected,
+    Restarting,
     Stopping,
     Releasing,
     Finished,
@@ -166,7 +171,7 @@ impl Operation {
         if !found {
             return self.finish(false, "device_gone");
         }
-        if authorize && self.action != Action::Verify {
+        if authorize && matches!(self.action, Action::Enroll | Action::Delete) {
             self.phase = Phase::Authorization;
             return vec![Effect::Authorize];
         }
@@ -230,7 +235,11 @@ impl Operation {
         if let Some(effects) = self.cancelled() {
             return effects;
         }
-        self.total = total.min(100);
+        self.total = if self.action == Action::Unlock {
+            UNLOCK_ATTEMPTS
+        } else {
+            total.min(100)
+        };
         if !self.presence_seen {
             self.presence = presence;
         }
@@ -308,6 +317,22 @@ impl Operation {
             self.claimed = false;
             return self.pending(Phase::Disconnected, Effect::GetDevices);
         }
+        if done && self.action == Action::Unlock && code == "verify-no-match" {
+            self.stage = self.stage.saturating_add(1);
+            let status = Effect::Status {
+                code: code.into(),
+                stage: self.stage,
+                total: self.total,
+            };
+            let mut effects = vec![status];
+            if self.stage >= UNLOCK_ATTEMPTS {
+                effects.extend(self.finish(false, "too_many_attempts"));
+            } else {
+                self.active = false;
+                effects.extend(self.pending(Phase::Restarting, Effect::Stop));
+            }
+            return effects;
+        }
         if done {
             return self.finish(matches!(code, "enroll-completed" | "verify-match"), code);
         }
@@ -343,6 +368,21 @@ impl Operation {
             Some(code) => self.finish(false, code),
             None => self.finish(true, "deleted"),
         }
+    }
+
+    /// The rejected verification has stopped; listen for the next scan unless the run ended meanwhile.
+    pub fn restarted(&mut self, failed: bool) -> Vec<Effect> {
+        if self.phase != Phase::Restarting {
+            return vec![];
+        }
+        self.pending = false;
+        if let Some(effects) = self.cancelled() {
+            return effects;
+        }
+        if failed {
+            return self.finish(false, "driver_error");
+        }
+        self.pending(Phase::Starting, Effect::Start)
     }
 
     pub fn cleaned(&mut self, failed: bool) -> Vec<Effect> {
@@ -513,6 +553,79 @@ mod tests {
             matches!(&op.owner_lost()[0], Effect::Result(r) if r.success && r.code == "deleted" && r.cleanup_failed)
         );
         assert!(op.cleaned(false).is_empty());
+    }
+
+    fn scanning_unlock() -> Operation {
+        let mut op = Operation::new(Action::Unlock);
+        assert_eq!(op.devices(true, None, true), vec![Effect::Claim]);
+        assert_eq!(op.claimed(None), vec![Effect::ListFingers]);
+        assert_eq!(op.fingers(true, None), vec![Effect::GetProperties]);
+        assert_eq!(op.properties(15, None), vec![Effect::Start]);
+        assert!(matches!(&op.started(None)[0], Effect::Status { code, stage: 0, total } if code == "scan" && *total == UNLOCK_ATTEMPTS));
+        op
+    }
+
+    #[test]
+    fn unlock_never_asks_for_authorization_and_requires_any_enrolled_finger() {
+        let mut op = Operation::new(Action::Unlock);
+        assert_eq!(op.devices(true, None, true), vec![Effect::Claim]);
+        op.claimed(None);
+        assert_eq!(op.fingers(false, None), vec![Effect::Release]);
+        assert!(matches!(&op.cleaned(false)[0], Effect::Result(r) if !r.success && r.code == "no_finger"));
+    }
+
+    #[test]
+    fn unlock_restarts_after_a_rejected_scan_and_succeeds_on_match() {
+        let mut op = scanning_unlock();
+        let effects = op.signal("verify-no-match", true);
+        assert!(matches!(&effects[0], Effect::Status { code, stage: 1, .. } if code == "verify-no-match"));
+        assert_eq!(effects[1], Effect::Stop);
+        assert_eq!(op.phase, Phase::Restarting);
+        assert!(op.signal("verify-match", true).is_empty());
+        assert_eq!(op.restarted(false), vec![Effect::Start]);
+        assert!(matches!(&op.started(None)[0], Effect::Status { code, stage: 1, .. } if code == "scan"));
+        assert!(matches!(&op.signal("verify-retry-scan", false)[0], Effect::Status { code, .. } if code == "verify-retry-scan"));
+        assert_eq!(op.signal("verify-match", true), vec![Effect::Stop]);
+        assert_eq!(op.cleaned(false), vec![Effect::Release]);
+        assert!(matches!(&op.cleaned(false)[0], Effect::Result(r) if r.success && r.code == "verify-match"));
+    }
+
+    #[test]
+    fn unlock_stops_listening_after_the_attempt_limit() {
+        let mut op = scanning_unlock();
+        for attempt in 1..UNLOCK_ATTEMPTS {
+            let effects = op.signal("verify-no-match", true);
+            assert!(matches!(&effects[0], Effect::Status { stage, .. } if *stage == attempt));
+            op.restarted(false);
+            op.started(None);
+        }
+        let effects = op.signal("verify-no-match", true);
+        assert!(matches!(&effects[0], Effect::Status { stage, .. } if *stage == UNLOCK_ATTEMPTS));
+        assert_eq!(effects[1], Effect::Stop);
+        assert_eq!(op.cleaned(false), vec![Effect::Release]);
+        assert!(matches!(&op.cleaned(false)[0], Effect::Result(r) if !r.success && r.code == "too_many_attempts"));
+    }
+
+    #[test]
+    fn unlock_cancel_while_restarting_releases_without_starting_again() {
+        let mut op = scanning_unlock();
+        op.signal("verify-no-match", true);
+        assert!(op.cancel("cancelled").is_empty());
+        assert_eq!(op.restarted(false), vec![Effect::Release]);
+        assert!(matches!(&op.cleaned(false)[0], Effect::Result(r) if r.code == "cancelled"));
+        let mut failed = scanning_unlock();
+        failed.signal("verify-no-match", true);
+        assert_eq!(failed.restarted(true), vec![Effect::Release]);
+        assert!(matches!(&failed.cleaned(false)[0], Effect::Result(r) if r.code == "driver_error"));
+    }
+
+    #[test]
+    fn plain_verify_still_finishes_on_the_first_rejection() {
+        let mut op = claimed(Action::Verify);
+        op.fingers(true, None);
+        op.properties(0, None);
+        op.started(None);
+        assert_eq!(op.signal("verify-no-match", true), vec![Effect::Stop]);
     }
 
     #[test]

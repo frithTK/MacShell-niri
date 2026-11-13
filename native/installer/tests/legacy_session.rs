@@ -329,6 +329,7 @@ done
         (&shell, "network-service.sh", "network-service-rust"),
         (&shell, "niri-bridge.sh", "niri-bridge-rust"),
         (&lock, "boot-clock.sh", "boot-clock-rust"),
+        (&lock, "fingerprint-unlock.sh", "fingerprint-operation-rust"),
     ] {
         let binary = dir.join(binary);
         let saved = binary.with_extension("saved");

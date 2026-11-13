@@ -24,7 +24,7 @@ A macOS-inspired desktop for **niri**, with a Dock, Spotlight, Liquid Glass and 
 - **Calendar:** a local month view with all-day and timed events, daily/weekly/monthly repeats, `notify-send` alerts (09:00 local for all-day) and recovery of deleted events. CalDAV/ICS sync is not available.
 - **Calculator:** basic and scientific modes, unit and currency conversion.
 - **Convert:** local images and PDF next to the original (PNG/JPEG/PDF/rotate; PDF first page via `pdftoppm`). Right-click a file in Nautilus, Nemo, Caja, Dolphin or Thunar — Wayland has no global Shift+drag.
-- **Settings and lock screen:** Russian and English interface, regional formats, Storage (volumes and a cancellable folder scan) and a separate MacLock screen locker.
+- **Settings and lock screen:** Russian and English interface, regional formats, Storage (volumes and a cancellable folder scan) and a separate MacLock screen locker that unlocks with the password or an fprintd fingerprint.
 
 See the [utilities guide](docs/UTILITIES.md) for details.
 

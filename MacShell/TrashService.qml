@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import "TrashItems.js" as TrashItems
 
 Scope {
     id: root
@@ -58,22 +59,22 @@ Scope {
         onReceived: message => {
             if (!message || message.type !== "result")
                 return;
-            if (message.id === root.listId) {
-                root.items = Array.isArray(message.items) ? message.items : [];
+            if (message.id !== undefined && Number(message.id) === Number(root.listId)) {
+                root.items = TrashItems.asList(message.items);
                 root.count = Number(message.count || root.items.length);
                 root.full = message.full === true || root.count > 0;
                 root.loading = false;
                 root.changed();
                 return;
             }
-            if (message.id !== root.mutateId)
+            if (message.id !== undefined && Number(message.id) !== Number(root.mutateId))
                 return;
             root.mutating = false;
             root.mutateId = 0;
             var ok = message.success === true;
             if (message.removed !== undefined) {
                 root.lastError = ok ? "" : String(message.error || "");
-                root.emptied(ok, Number(message.removed || 0), Array.isArray(message.failed) ? message.failed : []);
+                root.emptied(ok, Number(message.removed || 0), TrashItems.asList(message.failed));
                 root.refresh();
                 return;
             }

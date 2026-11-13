@@ -17,8 +17,9 @@ pub const DEFAULT_MAX_APPS: usize = 16;
 
 const SKIP_FS: &[&str] = &[
     "autofs", "binfmt_misc", "bpf", "cgroup", "cgroup2", "configfs", "debugfs", "devpts",
-    "devtmpfs", "efivarfs", "fusectl", "hugetlbfs", "mqueue", "nsfs", "overlay", "proc",
-    "pstore", "ramfs", "rpc_pipefs", "securityfs", "squashfs", "sysfs", "tmpfs", "tracefs",
+    "devtmpfs", "efivarfs", "fuse.gvfsd-fuse", "fuse.portal", "fusectl", "hugetlbfs", "mqueue",
+    "nsfs", "overlay", "proc", "pstore", "ramfs", "rpc_pipefs", "securityfs", "squashfs",
+    "sysfs", "tmpfs", "tracefs",
 ];
 
 const SKIP_APP: &[&str] = &[
@@ -180,6 +181,7 @@ pub fn volumes_payload(env: &StorageEnv) -> Value {
 
 pub fn scan_payload(env: &StorageEnv, cancel: &AtomicBool, progress: &dyn Fn(u64)) -> Value {
     let report = scan(env, cancel, progress);
+    let volumes = volumes_from_mountinfo(&env.mountinfo, statvfs_path);
     json!({
         "success": true,
         "action": "scan",
@@ -191,6 +193,7 @@ pub fn scan_payload(env: &StorageEnv, cancel: &AtomicBool, progress: &dyn Fn(u64
         "visited": report.visited,
         "denied": report.denied,
         "skippedMounts": report.skipped_mounts,
+        "volumes": volumes.iter().map(Volume::to_json).collect::<Vec<_>>(),
         "folders": report.folders.iter().map(Entry::to_json).collect::<Vec<_>>(),
         "large": report.large.iter().map(Entry::to_json).collect::<Vec<_>>(),
         "apps": report.apps.iter().map(Entry::to_json).collect::<Vec<_>>(),
@@ -321,14 +324,16 @@ fn unescape_mount(value: &str) -> String {
 }
 
 fn volume_name(path: &str) -> String {
-    if path == "/" {
-        return "System".into();
+    match path {
+        "/" => "System".into(),
+        "/home" => "Home".into(),
+        "/boot/efi" | "/efi" | "/boot" => "EFI".into(),
+        _ => Path::new(path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(path)
+            .to_string(),
     }
-    Path::new(path)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(path)
-        .to_string()
 }
 
 fn statvfs_path(path: &Path) -> Option<(u64, u64, u64)> {
@@ -370,41 +375,38 @@ pub fn scan(env: &StorageEnv, cancel: &AtomicBool, progress: &dyn Fn(u64)) -> Sc
         progress,
     };
     let mut folders = Vec::new();
+    let trash = measure_trash(env, cancel, progress);
+    if trash.incomplete {
+        state.incomplete = true;
+        if state.reason.is_empty() {
+            state.reason = "limit".into();
+        }
+    }
+    let mut cache = None;
     for (id, name, path) in user_folders(env) {
-        if !path.is_dir() {
+        if id == "cache" {
+            cache = Some((id, name, path));
             continue;
         }
-        let mut folder = Entry {
-            id,
-            name,
-            path: path_string(&path),
-            bytes: 0,
-            incomplete: false,
-        };
-        let before = state.incomplete;
-        folder.bytes = walk(&path, &mut state);
-        folder.incomplete = state.incomplete && !before;
-        folders.push(folder);
+        if let Some(folder) = measure_folder(id, name, &path, &mut state) {
+            folders.push(folder);
+        }
         if state.cancel.load(Ordering::Relaxed) {
             break;
         }
-    }
-    let mut trash = Entry {
-        id: "trash".into(),
-        name: "Trash".into(),
-        path: path_string(&env.data_home.join("Trash")),
-        bytes: 0,
-        incomplete: false,
-    };
-    if Path::new(&trash.path).is_dir() && !state.cancel.load(Ordering::Relaxed) {
-        let before = state.incomplete;
-        trash.bytes = walk(Path::new(&trash.path), &mut state);
-        trash.incomplete = state.incomplete && !before;
     }
     let mut apps = Vec::new();
     if !state.cancel.load(Ordering::Relaxed) {
         apps = app_entries(env, &mut state);
     }
+    if let Some((id, name, path)) = cache {
+        if !state.cancel.load(Ordering::Relaxed) && state.visited < state.max_entries {
+            if let Some(folder) = measure_folder(id, name, &path, &mut state) {
+                folders.push(folder);
+            }
+        }
+    }
+    folders.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.name.cmp(&b.name)));
     let cancelled = state.cancel.load(Ordering::Relaxed);
     if cancelled {
         state.incomplete = true;
@@ -424,6 +426,89 @@ pub fn scan(env: &StorageEnv, cancel: &AtomicBool, progress: &dyn Fn(u64)) -> Sc
         apps,
         trash,
     }
+}
+
+fn measure_trash(env: &StorageEnv, cancel: &AtomicBool, progress: &dyn Fn(u64)) -> Entry {
+    let skip_mounts = HashSet::new();
+    let mut state = WalkState {
+        cancel,
+        skip_mounts: &skip_mounts,
+        max_entries: env.max_entries,
+        max_large: env.max_large,
+        seen: HashSet::new(),
+        large: Vec::new(),
+        visited: 0,
+        denied: 0,
+        skipped_mounts: 0,
+        incomplete: false,
+        reason: String::new(),
+        progress,
+    };
+    let roots = trash_roots(env);
+    let path = roots
+        .first()
+        .cloned()
+        .unwrap_or_else(|| env.data_home.join("Trash"));
+    let mut trash = Entry {
+        id: "trash".into(),
+        name: "Trash".into(),
+        path: path_string(&path),
+        bytes: 0,
+        incomplete: false,
+    };
+    for root in roots {
+        if !root.is_dir() || cancel.load(Ordering::Relaxed) {
+            continue;
+        }
+        let before = state.incomplete;
+        trash.bytes = trash.bytes.saturating_add(walk(&root, &mut state));
+        if state.incomplete && !before {
+            trash.incomplete = true;
+        }
+    }
+    trash
+}
+
+fn trash_roots(env: &StorageEnv) -> Vec<PathBuf> {
+    let uid = unsafe { libc::getuid() };
+    let mut roots = Vec::new();
+    let home_trash = env.data_home.join("Trash");
+    roots.push(home_trash.clone());
+    let dot = env.home.join(".Trash");
+    if dot.is_dir() && dot != home_trash {
+        roots.push(dot);
+    }
+    for mount in parse_mountinfo(&env.mountinfo) {
+        let top = PathBuf::from(&mount.path);
+        if top == Path::new("/") {
+            continue;
+        }
+        let shared = top.join(".Trash").join(uid.to_string());
+        let numbered = top.join(format!(".Trash-{uid}"));
+        for candidate in [shared, numbered] {
+            if candidate.is_dir() && !roots.iter().any(|have| *have == candidate) {
+                roots.push(candidate);
+            }
+        }
+    }
+    roots
+}
+
+fn measure_folder(id: String, name: String, path: &Path, state: &mut WalkState) -> Option<Entry> {
+    if !path.is_dir() {
+        return None;
+    }
+    let mut folder = Entry {
+        id,
+        name,
+        path: path_string(path),
+        bytes: 0,
+        incomplete: false,
+    };
+    let before = state.incomplete;
+    folder.bytes = walk(path, state);
+    folder.incomplete = state.incomplete && !before;
+    Some(folder)
 }
 
 fn user_folders(env: &StorageEnv) -> Vec<(String, String, PathBuf)> {
@@ -746,6 +831,26 @@ mod tests {
     }
 
     #[test]
+    fn same_device_subvolumes_are_bind_not_extra_disks() {
+        let mounts = "\
+22 1 0:37 /@ / rw - btrfs /dev/nvme0n1p2 rw\n\
+30 22 0:37 /@home /home rw - btrfs /dev/nvme0n1p2 rw\n\
+31 22 0:37 /@log /var/log rw - btrfs /dev/nvme0n1p2 rw\n\
+40 22 0:38 / /boot/efi rw - vfat /dev/nvme0n1p1 rw\n";
+        let stats = |path: &Path| match path.to_str() {
+            Some("/") | Some("/home") | Some("/var/log") => Some((1000, 400, 500)),
+            Some("/boot/efi") => Some((50, 1, 49)),
+            _ => None,
+        };
+        let volumes = volumes_from_mountinfo(mounts, stats);
+        let primary: Vec<_> = volumes.iter().filter(|row| !row.bind).map(|row| row.path.as_str()).collect();
+        assert_eq!(primary, vec!["/", "/boot/efi"]);
+        assert_eq!(volumes.iter().find(|row| row.path == "/").unwrap().name, "System");
+        assert_eq!(volumes.iter().find(|row| row.path == "/home").unwrap().bind, true);
+        assert_eq!(volumes.iter().find(|row| row.path == "/boot/efi").unwrap().name, "EFI");
+    }
+
+    #[test]
     fn unavailable_mount_stays_listed() {
         let mounts = "22 1 8:2 / / rw - ext4 /dev/sda2 rw\n23 22 8:20 / /media/usb rw - vfat /dev/sdb1 rw\n";
         let stats = |path: &Path| {
@@ -831,6 +936,63 @@ mod tests {
         assert!(documents.bytes < 80);
         let folder_sum: u64 = report.folders.iter().map(|row| row.bytes).sum();
         assert!(folder_sum < 80);
+    }
+
+    #[test]
+    fn cache_does_not_starve_trash_or_user_folders() {
+        let dir = Temp::new("cache-last");
+        let home = dir.path();
+        let docs = home.join("Documents");
+        let cache = home.join(".cache");
+        let trash = home.join(".local/share/Trash/files");
+        fs::create_dir_all(&docs).unwrap();
+        fs::create_dir_all(&cache).unwrap();
+        fs::create_dir_all(&trash).unwrap();
+        fs::write(docs.join("note.txt"), vec![b'd'; 40]).unwrap();
+        fs::write(trash.join("old.txt"), vec![b't'; 30]).unwrap();
+        for i in 0..12 {
+            fs::write(cache.join(format!("c{i}.bin")), vec![b'c'; 8]).unwrap();
+        }
+        let mut env = env_at(home);
+        env.max_entries = 4;
+        let report = scan(&env, &AtomicBool::new(false), &|_| {});
+        assert!(report.incomplete);
+        assert_eq!(report.reason, "limit");
+        assert_eq!(report.trash.bytes, 30);
+        let documents = report.folders.iter().find(|row| row.id == "documents").unwrap();
+        assert_eq!(documents.bytes, 40);
+        let cache_row = report.folders.iter().find(|row| row.id == "cache");
+        assert!(cache_row.is_none() || cache_row.unwrap().bytes < 96);
+    }
+
+    #[test]
+    fn volume_and_home_trash_are_both_measured() {
+        let dir = Temp::new("vol-trash");
+        let home = dir.path();
+        let vol = home.join("mnt");
+        let uid = unsafe { libc::getuid() };
+        let home_files = home.join(".local/share/Trash/files");
+        let vol_files = vol.join(format!(".Trash-{uid}/files"));
+        fs::create_dir_all(&home_files).unwrap();
+        fs::create_dir_all(&vol_files).unwrap();
+        fs::write(home_files.join("home.bin"), vec![b'h'; 40]).unwrap();
+        fs::write(vol_files.join("vol.bin"), vec![b'v'; 70]).unwrap();
+        let mut env = env_at(home);
+        env.mountinfo = format!(
+            "22 1 8:20 / {} rw - ext4 /dev/sdb1 rw\n",
+            vol.display()
+        );
+        let report = scan(&env, &AtomicBool::new(false), &|_| {});
+        assert_eq!(report.trash.bytes, 110);
+    }
+
+    #[test]
+    fn scan_payload_includes_volumes() {
+        let payload = scan_payload(&env_at(Path::new("/")), &AtomicBool::new(false), &|_| {});
+        assert_eq!(payload["action"], "scan");
+        assert!(payload["volumes"].is_array());
+        assert!(payload["folders"].is_array());
+        assert!(payload["trash"].is_object());
     }
 
     #[test]

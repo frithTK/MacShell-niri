@@ -57,6 +57,8 @@ Timer {
                 biometricCheck(enrollment && enrollment.text === "Зарегистрировано пальцев: 2", "Russian enrollment count");
                 var choice = biometricFind(win.contentItem, "fingerSelection");
                 biometricCheck(choice && choice.contentItem.text === "Правый указательный" && pane.selectedFinger === "right-index-finger", "visible choice agrees with operation finger");
+                var unlockSwitch = biometricFind(win.contentItem, "fingerprintUnlockSwitch");
+                biometricCheck(unlockSwitch && unlockSwitch.visible && unlockSwitch.checked === macBar.lockFingerprint, "unlock switch mirrors the MacLock setting");
                 biometricCapture("biometric-ru-dark");
             } else if (biometricPhase === 2) {
                 macDock.darkMode = false;

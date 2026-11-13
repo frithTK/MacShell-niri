@@ -1,4 +1,8 @@
 //! One asynchronous, current-user fprintd operation.
+//!
+//! `unlock` listens on the first reader for any enrolled finger until a match,
+//! the attempt limit, cancellation or an error. MacLock owns the decision to
+//! end the session lock; this process only reports fprintd's result.
 use macshell_biometric_probe::{valid_finger, Action, Effect, Operation, Phase};
 use macshell_gio_bridge::{self as gio, c, Ptr, Variant};
 use serde_json::json;
@@ -66,6 +70,9 @@ unsafe fn call(
         .map(|s| gio::tuple(&[gio::string(s)]))
         .unwrap_or(ptr::null_mut());
     let request = Box::into_raw(Box::new((data, ctx.op.phase))).cast();
+    // fprintd exits when idle; only the manager lookup may activate it. A daemon that
+    // vanishes while a device is claimed must surface as an error, not as a fresh instance.
+    let flags = if path == MANAGER { 0 } else { 1 };
     gio::g_dbus_connection_call(
         ctx.bus,
         c(BUS).as_ptr(),
@@ -74,7 +81,7 @@ unsafe fn call(
         c(method).as_ptr(),
         params,
         ptr::null_mut(),
-        1,
+        flags,
         10_000,
         ptr::null_mut(),
         Some(completed),
@@ -105,7 +112,7 @@ unsafe fn apply(data: Ptr, effects: Vec<Effect>) {
                 let finger = ctx.finger.clone();
                 let action = match ctx.op.action {
                     Action::Enroll => "Enroll",
-                    Action::Verify => "Verify",
+                    Action::Verify | Action::Unlock => "Verify",
                     Action::Delete => "Delete",
                 };
                 let method;
@@ -217,12 +224,23 @@ extern "C" fn completed(bus: Ptr, result: Ptr, data: Ptr) {
                     .as_ref()
                     .filter(|r| r.kind() == "(ao)")
                     .and_then(|r| r.child(0));
-                let found = devices.as_ref().is_some_and(|a| {
-                    (0..a.len()).any(|i| {
-                        a.child(i).and_then(|v| v.object_path()).as_deref()
-                            == Some(ctx.device.as_str())
-                    })
-                });
+                if phase == Phase::Devices && ctx.device.is_empty() {
+                    if let Some(first) = devices
+                        .as_ref()
+                        .filter(|a| a.len() > 0)
+                        .and_then(|a| a.child(0))
+                        .and_then(|v| v.object_path())
+                    {
+                        ctx.device = first;
+                    }
+                }
+                let found = !ctx.device.is_empty()
+                    && devices.as_ref().is_some_and(|a| {
+                        (0..a.len()).any(|i| {
+                            a.child(i).and_then(|v| v.object_path()).as_deref()
+                                == Some(ctx.device.as_str())
+                        })
+                    });
                 if phase == Phase::Devices {
                     ctx.op.devices(
                         found,
@@ -243,9 +261,15 @@ extern "C" fn completed(bus: Ptr, result: Ptr, data: Ptr) {
                     .as_ref()
                     .filter(|r| r.kind() == "(as)")
                     .and_then(|r| r.child(0));
+                let any = ctx.op.action == Action::Unlock;
                 let enrolled = fingers.as_ref().is_some_and(|a| {
                     (0..a.len()).any(|i| {
-                        a.child(i).and_then(|v| v.string()).as_deref() == Some(ctx.finger.as_str())
+                        let name = a.child(i).and_then(|v| v.string());
+                        if any {
+                            name.as_deref().is_some_and(valid_finger)
+                        } else {
+                            name.as_deref() == Some(ctx.finger.as_str())
+                        }
                     })
                 });
                 ctx.op.fingers(
@@ -271,9 +295,19 @@ extern "C" fn completed(bus: Ptr, result: Ptr, data: Ptr) {
                     .as_ref()
                     .and_then(|v| v.lookup("finger-present"))
                     .and_then(|v| v.boolean());
+                if ctx.op.action == Action::Unlock {
+                    let scan_type = properties
+                        .as_ref()
+                        .and_then(|v| v.lookup("scan-type"))
+                        .and_then(|v| v.string())
+                        .filter(|v| v == "swipe" || v == "press")
+                        .unwrap_or_default();
+                    emit(json!({"type":"device","scanType":scan_type}));
+                }
                 ctx.op.properties(total, presence)
             }
             Phase::Starting => ctx.op.started(code),
+            Phase::Restarting => ctx.op.restarted(error.is_some()),
             Phase::Deleting => ctx.op.deleted(code),
             Phase::Stopping | Phase::Releasing => ctx.op.cleaned(error.is_some()),
             _ => vec![],
@@ -285,7 +319,7 @@ extern "C" fn completed(bus: Ptr, result: Ptr, data: Ptr) {
 extern "C" fn signal(
     _bus: Ptr,
     _sender: *const c_char,
-    _path: *const c_char,
+    path: *const c_char,
     interface: *const c_char,
     name: *const c_char,
     params: Ptr,
@@ -295,6 +329,11 @@ extern "C" fn signal(
         let ctx = &mut *(data as *mut Context);
         let interface = gio::text(interface);
         let name = gio::text(name);
+        if (interface == DEVICE || interface == PROPS)
+            && (ctx.device.is_empty() || gio::text(path) != ctx.device)
+        {
+            return;
+        }
         let signature = gio::text(gio::g_variant_get_type_string(params));
         // The signal's variant is borrowed; take owned children only.
         let child = |i| Variant::from(gio::g_variant_get_child_value(params, i));
@@ -392,17 +431,18 @@ unsafe fn subscribe(
     sender: &str,
     interface: &str,
     signal_name: &str,
-    path: &str,
+    path: Option<&str>,
     arg: Option<&str>,
     data: Ptr,
 ) {
     let arg = arg.map(c);
+    let path = path.map(c);
     let id = gio::g_dbus_connection_signal_subscribe(
         ctx.bus,
         c(sender).as_ptr(),
         c(interface).as_ptr(),
         c(signal_name).as_ptr(),
-        c(path).as_ptr(),
+        path.as_ref().map_or(ptr::null(), |v| v.as_ptr()),
         arg.as_ref().map_or(ptr::null(), |v| v.as_ptr()),
         0,
         Some(signal),
@@ -418,32 +458,41 @@ fn main() {
         println!("macshell-fingerprint-operation 1");
         return;
     }
-    if args.len() != 3
-        || !valid_finger(&args[2])
-        || !args[1].starts_with('/')
-        || args[1].contains('\0')
-    {
-        eprintln!("invalid fingerprint operation arguments");
-        std::process::exit(2);
+    if args == ["--unlock-protocol-version"] {
+        println!("macshell-fingerprint-unlock 1");
+        return;
     }
-    let action = match args[0].as_str() {
-        "enroll" => Action::Enroll,
-        "verify" => Action::Verify,
-        "delete" => Action::Delete,
-        _ => {
-            eprintln!("invalid fingerprint action");
+    let (action, device, finger) = if args == ["unlock"] {
+        (Action::Unlock, String::new(), "any".to_string())
+    } else {
+        if args.len() != 3
+            || !valid_finger(&args[2])
+            || !args[1].starts_with('/')
+            || args[1].contains('\0')
+        {
+            eprintln!("invalid fingerprint operation arguments");
             std::process::exit(2);
         }
+        let action = match args[0].as_str() {
+            "enroll" => Action::Enroll,
+            "verify" => Action::Verify,
+            "delete" => Action::Delete,
+            _ => {
+                eprintln!("invalid fingerprint action");
+                std::process::exit(2);
+            }
+        };
+        // Device paths must be valid D-Bus object paths, not arbitrary strings.
+        if !args[1]
+            .split('/')
+            .skip(1)
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+        {
+            eprintln!("invalid device path");
+            std::process::exit(2);
+        }
+        (action, args[1].clone(), args[2].clone())
     };
-    // Device paths must be valid D-Bus object paths, not arbitrary strings.
-    if !args[1]
-        .split('/')
-        .skip(1)
-        .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
-    {
-        eprintln!("invalid device path");
-        std::process::exit(2);
-    }
     unsafe {
         let mut error = ptr::null_mut();
         let address = gio::g_dbus_address_get_for_bus_sync(1, ptr::null_mut(), &mut error);
@@ -471,24 +520,24 @@ fn main() {
             bus,
             loop_,
             op: Operation::new(action),
-            device: args[1].clone(),
-            finger: args[2].clone(),
+            device,
+            finger,
             input: Vec::new(),
             authorizer: None,
             subscriptions: Vec::new(),
         });
         let data = (&mut *ctx as *mut Context).cast();
-        let device = ctx.device.clone();
+        let device = (!ctx.device.is_empty()).then(|| ctx.device.clone());
         subscribe(
             &mut ctx,
             BUS,
             DEVICE,
-            if action == Action::Verify {
+            if matches!(action, Action::Verify | Action::Unlock) {
                 "VerifyStatus"
             } else {
                 "EnrollStatus"
             },
-            &device,
+            device.as_deref(),
             None,
             data,
         );
@@ -497,7 +546,7 @@ fn main() {
             BUS,
             PROPS,
             "PropertiesChanged",
-            &device,
+            device.as_deref(),
             Some(DEVICE),
             data,
         );
@@ -506,12 +555,14 @@ fn main() {
             "org.freedesktop.DBus",
             "org.freedesktop.DBus",
             "NameOwnerChanged",
-            "/org/freedesktop/DBus",
+            Some("/org/freedesktop/DBus"),
             Some(BUS),
             data,
         );
         gio::g_unix_fd_add(0, 1 | 8 | 16 | 32, Some(input_ready), data);
-        gio::g_timeout_add_seconds(120, Some(timeout), data);
+        if action != Action::Unlock {
+            gio::g_timeout_add_seconds(120, Some(timeout), data);
+        }
         emit(json!({"type":"status","code":"checking"}));
         call(
             &mut ctx,

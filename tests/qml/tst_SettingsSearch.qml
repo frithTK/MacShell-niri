@@ -94,6 +94,9 @@ TestCase {
         compare(SettingsSearch.parentDir("/file"), "/")
         compare(SettingsSearch.parentDir("/"), "")
         compare(SettingsSearch.parentDir("relative/path"), "")
+        compare(SettingsSearch.fileUri("/tmp/a b"), "file:///tmp/a%20b")
+        compare(SettingsSearch.fileUri("/tmp/файл.txt").indexOf("file:///tmp/") === 0, true)
+        compare(SettingsSearch.fileUri("relative"), "")
     }
 
     function test_file_actions_enable_preview_for_local_paths() {

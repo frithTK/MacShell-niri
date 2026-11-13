@@ -65,6 +65,16 @@ ShellRoot {
         // Settings → Lock Screen → Clock (MACLOCK_CLOCK='{"f":"serif",...}' overrides it, for previews)
         property var clockCfg: { try { return JSON.parse(Quickshell.env("MACLOCK_CLOCK") || "{}"); } catch (e) { return {}; } }
         property bool artBg: true           // blurred album art behind everything while the cover is enlarged (MacShell setting)
+        property bool fingerprintEnabled: false   // Settings → Security; known once the settings lookup finishes
+        readonly property bool fingerprintListening: fingerprint.listening
+        readonly property bool fingerprintLockedOut: fingerprint.lockedOut
+        readonly property string fingerprintScanType: fingerprint.scanType
+        readonly property string idleHint: fingerprintListening
+            ? Language.I18n.text(fingerprintScanType === "press" ? "auth.fingerprint_press_or_password" : "auth.fingerprint_swipe_or_password")
+            : (fingerprintLockedOut ? Language.I18n.text("auth.fingerprint_password_required") : Language.I18n.text("ui.t_bb25ff970f65"))
+        readonly property string placeholder: fingerprintListening
+            ? Language.I18n.text("auth.fingerprint_or_password")
+            : Language.I18n.text("ui.t_3d81652794e5")
         property bool sounds: false         // MacShell's "Play user interface sound effects" (and not in Game Mode)
         function sound(name) {
             if (sounds) Quickshell.execDetached(["pw-play", "--volume=0.7", Quickshell.env("HOME") + "/.local/share/sounds/macshell/" + name + ".wav"]);
@@ -97,10 +107,50 @@ ShellRoot {
             msgTimer.restart();
         }
         function unlock() {
+            if (unlocking) return;
             unlocking = true;
             sound("unlock");
             unlockTimer.start();
         }
+        function fingerprintMatched() {
+            if (unlocking) return;
+            message = "";
+            busy = false;
+            unlock();
+        }
+        function fingerprintRejected() {
+            if (unlocking) return;
+            message = Language.I18n.text("auth.fingerprint_no_match");
+            fails++;
+            msgTimer.restart();
+        }
+        function fingerprintExhausted() {
+            if (unlocking) return;
+            engaged = true;
+            idleTimer.restart();
+            message = Language.I18n.text("auth.fingerprint_too_many");
+            msgTimer.restart();
+        }
+    }
+
+    // Read on its own: the profile lookup below waits on nmcli, which can take seconds.
+    FileView {
+        path: (Quickshell.env("MACSHELL_SETTINGS_HOME") || Quickshell.env("HOME") + "/.config") + "/macbar/settings.json"
+        preload: true; watchChanges: false; printErrors: false
+        onLoaded: {
+            try { lockState.fingerprintEnabled = JSON.parse(text()).lockFingerprint !== false; }
+            catch (e) { lockState.fingerprintEnabled = true; }
+        }
+        onLoadFailed: lockState.fingerprintEnabled = true
+    }
+    FingerprintUnlock {
+        id: fingerprint
+        active: lockState.fingerprintEnabled && !lockState.unlocking
+                && ((root.lockRequested && !root.preview && lock.secure)
+                    || (root.preview && Quickshell.env("MACLOCK_PREVIEW_FINGERPRINT") === "1"))
+        onMatched: lockState.fingerprintMatched()
+        onRejected: lockState.fingerprintRejected()
+        onExhausted: lockState.fingerprintExhausted()
     }
 
     KeyboardLayout { id: keyboardLayout; active: root.preview || root.lockRequested }
@@ -169,11 +219,13 @@ ShellRoot {
         }
         onCompleted: result => {
             lockState.busy = false;
+            if (lockState.unlocking) return;
             if (result === PamResult.Success) lockState.unlock();
             else lockState.fail(result === PamResult.MaxTries ? Language.I18n.text("ui.t_46517f2ed9bc") : Language.I18n.text("auth.incorrect_password"));
         }
         onError: err => {
             lockState.busy = false;
+            if (lockState.unlocking) return;
             lockState.fail(Language.I18n.text("ui.t_be6e6b8db7e6"));
         }
     }

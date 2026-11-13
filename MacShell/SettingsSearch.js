@@ -80,6 +80,15 @@ function isLocalPath(path) {
     return true;
 }
 
+function fileUri(path) {
+    if (!isLocalPath(path)) return "";
+    var parts = path.split("/");
+    var out = [];
+    for (var i = 0; i < parts.length; i++)
+        out.push(encodeURIComponent(parts[i]));
+    return "file://" + out.join("/");
+}
+
 function parentDir(path) {
     if (!isLocalPath(path) || path === "/") return "";
     var trimmed = path.length > 1 && path.charAt(path.length - 1) === "/"

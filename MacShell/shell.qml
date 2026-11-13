@@ -27,12 +27,14 @@ ShellRoot {
         property var calendar: calendarApp
         property var desktopSource: desktopSourceService
         property var storage: storageService
+        property var about: aboutService
         property var quickLook: quickLookApp
         property var trash: trashApp.service
         property var trashUi: trashApp
         property var appMenu: appMenuService
         DesktopSource { id: desktopSourceService }
         StorageControl { id: storageService }
+        AboutControl { id: aboutService }
         AppMenuService { id: appMenuService }
         readonly property var translations: Language.I18n
         function openUtility(key) { if (key === "clock") clockApp.open(); else if (key === "calculator") calculatorApp.open(); else if (key === "notes") notesApp.open(); else if (key === "reminders") remindersApp.open(); else if (key === "stickies") stickiesApp.open(); else if (key === "calendar") calendarApp.open(); }

@@ -190,6 +190,7 @@ Scope {
         stdout: StdioCollector { onStreamFinished: root.acceptTone(text) }
     }
     property bool lockArtBackground: true     // lock screen: blurred album art as the background while the cover is enlarged
+    property bool lockFingerprint: true       // MacLock listens on fprintd beside the password field
     // lock screen clock (Settings → Lock Screen → Clock); MacLock reads these when it starts
     property string lockClockStyle: "glass"   // preset last picked: glass | classic | serif | liquid | thin | custom
     property string lockClockFont: "condensed"   // condensed | rounded | serif | inter
@@ -280,7 +281,7 @@ Scope {
         "barStyle", "barGlass", "glassRim", "glassGrain", "glassLiquid", "glassBlur", "barBgOpacity", "glassRealtime", "glassDebug", "wallpaperPath", "use24h", "showDate",
         "showSeconds", "showBatteryPercent", "showTray", "showSearch",
         "spotlightEnabled", "ccEnabled", "notificationsEnabled", "clockAppEnabled", "ccStyle", "barLogoMode", "barCustomLogoPath", "barWidgets", "weekStartsMonday", "terminal", "launcher",
-        "filesCmd", "clipboardCmd", "appUsage", "clipHistory", "clipAutoPaste", "emojiRecent", "screenshotDir", "screenshotSave", "screenshotClipboard", "screenshotNotify", "nightTemp", "ccControls", "ccMigRec", "wallpaperDir", "wallpaperFavs", "wallpaperCmd", "wallpaperVideo", "uiSounds", "gamingMode", "gamingAuto", "ccMigGame", "lockArtBackground",
+        "filesCmd", "clipboardCmd", "appUsage", "clipHistory", "clipAutoPaste", "emojiRecent", "screenshotDir", "screenshotSave", "screenshotClipboard", "screenshotNotify", "nightTemp", "ccControls", "ccMigRec", "wallpaperDir", "wallpaperFavs", "wallpaperCmd", "wallpaperVideo", "uiSounds", "gamingMode", "gamingAuto", "ccMigGame", "lockArtBackground", "lockFingerprint",
         "lockClockStyle", "switcherStyle", "lockClockFont", "lockClockWeight", "lockClockMaterial", "lockClockIntensity", "lockClockTint", "lockClockTall", "lockClockDate", "autoContrast", "wallpaperAppearance", "wpPairLight", "wpPairDark",
         "notifDnd", "dnd", "nightOn", "keepAwake",
         "kbRepeatRate", "kbRepeatDelay", "mouseSens", "mouseNatural", "tpNatural", "tpTap", "tpDwt", "tpScroll", "statsMigrated", "statsMetrics", "statsInterval", "statsInterface", "statsDevice", "statsMemoryPercent", "modesMigrated", "modeState", "nightDesired", "recordOutput", "recordMicrophone", "recordSink", "recordAudio", "ccMirroringMigrated", "ccAirDropMigrated", "airplayReceiverName", "airplayFps", "airplayVolumePercent", "airplayLayout", "airdropReceiverName"]

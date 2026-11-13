@@ -10,7 +10,7 @@ Include the affected commit, niri/Quickshell/Qt versions, a minimal reproduction
 
 ## Runtime boundaries
 
-MacLock uses an existing PAM service; the installer does not modify system PAM files. Wi-Fi credentials are handled through NetworkManager. IPC and D-Bus helpers run in the user's session. Test lock/unlock behavior in your own configured session before relying on a new PAM or runtime configuration.
+MacLock uses an existing PAM service for the password; the installer does not modify system PAM files. Fingerprint unlock talks to fprintd on the system bus from the locked session (signals are accepted only from the `net.reactivated.Fprint` owner and the claimed device path), stops after 5 unrecognized scans until the password is entered, and never applies to login after a restart. Wi-Fi credentials are handled through NetworkManager. IPC and D-Bus helpers run in the user's session. Test lock/unlock behavior in your own configured session before relying on a new PAM or runtime configuration.
 
 A visible Batteries card asks the Bluetooth helper to listen for Apple LE advertisements; that is not Control Center pairing search and does not list unpaired devices in the picker. Connected AirPods also use the existing A2DP link's AACP control channel (L2CAP 0x1001) for live charge; the helper does not enable `bluetoothd --experimental` or change DeviceID. Screen Mirroring Extend may prompt for a password (pkexec) to write an HDMI/DisplayPort DRM dummy; it does not force the laptop panel (`eDP`).
 

@@ -22,5 +22,7 @@ TestCase {
         compare(TrashItems.visibleItems(items, "/home/b").length, 1)
         compare(TrashItems.visibleItems(items, "фото").length, 1)
         compare(TrashItems.visibleItems(items, "missing").length, 0)
+        compare(TrashItems.asList({0: items[0], 1: items[1], length: 2}).length, 2)
+        compare(TrashItems.visibleItems({0: items[0], length: 1}, "notes").length, 1)
     }
 }

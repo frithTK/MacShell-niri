@@ -530,6 +530,10 @@ pub fn install(p: &Paths, mode: Mode) -> io::Result<PathBuf> {
             artifact(&artifacts, "macshell-boot-clock")?,
             &p.lock().join("boot-clock-rust"),
         )?;
+        deploy_binary(
+            artifact(&artifacts, "fingerprint-operation")?,
+            &p.lock().join("fingerprint-operation-rust"),
+        )?;
         fs::copy(p.source.join("VERSION"), p.shell().join("VERSION"))?;
         fs::create_dir_all(p.profile().join("settings"))?;
         session::launchers(&p.profile(), &p.bin, &p.cache, &p.lock(), &p.qs)?;

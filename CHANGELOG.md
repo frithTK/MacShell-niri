@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- MacLock unlocks with any enrolled fingerprint through fprintd, in parallel with the password field. The field reads “Fingerprint or password”; an unrecognized finger shakes it without clearing typed characters. After 5 unrecognized scans only the password unlocks that lock. A busy or disconnected reader (for example after sleep) is retried with backoff. System PAM files are not changed; login after a restart still uses the password. Settings → Security & Unlock has a switch for it and no longer calls fingerprint unlock “in development”.
+- Settings → Storage shows volumes immediately, collapses same-disk btrfs subvolumes, and splits used space into Apps, Photos, Videos, Documents, Downloads, Music, Desktop, Trash, Cache, Other and System. Trash is measured across home and volume trashes before the folder walk, so the visit limit cannot hide it, and its items are listed. Cache is walked last.
+- “Show in Folder” opens a graphical file manager (FileManager1, then Dolphin/Nautilus/Nemo/Thunar/PCManFM/Caja) instead of `xdg-open`, which could open a terminal file manager.
+- Settings → About lists the computer model, chip, memory, graphics, displays, startup disk, OS, kernel, niri and MacShell versions read from the running system, instead of a fixed version string and joke cards.
+- The Trash window no longer shows an empty list when the helper returns its items as an array-like value.
+
 ## 1.2.5
 
 - Liquid Glass looks are Clear / Standard / Vibrant / Tinted / Frosted. Named looks keep a see-through centre and a refracting rim; Tinted and Frosted thicken the film instead of trading refraction for frosting. Changing the look while Control Center is closed no longer leaves its shader off.

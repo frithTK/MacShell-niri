@@ -49,9 +49,9 @@ Scope {
             onRead: line => {
                 try {
                     var m = JSON.parse(line);
-                    if (m.generation !== undefined && m.generation !== root.generation) return;
+                    if (m.generation !== undefined && Number(m.generation) !== Number(root.generation)) return;
                     if (m.type === "ready") { root.ready = true; root.failures = 0; root.error = ""; root.connected(); return; }
-                    if (m.id !== undefined && m.id === root.sequence) {
+                    if (m.id !== undefined && Number(m.id) === Number(root.sequence)) {
                         root.busy = false;
                         if (m.success === false) root.lastError = String(m.error || "Service request failed");
                     }

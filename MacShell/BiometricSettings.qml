@@ -19,7 +19,11 @@ ControlMenu {
     property bool cancelling: false
     property bool cleanupFailed: false
     property string operationAction: ""
+    property bool replaceThenEnroll: false
     property var fingerPresent: null
+    property bool unlockEnabled: true
+    signal unlockToggled(bool enabled)
+    readonly property bool anyEnrolled: devices.some(device => device.enrollment === "ok" && device.fingers.length > 0)
     readonly property var selectedDevice: devices.length > selectedDeviceIndex ? devices[selectedDeviceIndex] : null
     readonly property bool selectedEnrolled: selectedDevice && selectedDevice.enrollment === "ok" && selectedDevice.fingers.indexOf(selectedFinger) >= 0
     readonly property var fingers: ["left-thumb", "left-index-finger", "left-middle-finger", "left-ring-finger", "left-little-finger", "right-thumb", "right-index-finger", "right-middle-finger", "right-ring-finger", "right-little-finger"]
@@ -49,6 +53,7 @@ ControlMenu {
         if (action !== "enroll" && action !== "verify" && action !== "delete") return;
         confirmAction = ""; gotResult = false; cancelling = false; cleanupFailed = false; operationCode = "checking"; operationAction = action; fingerPresent = null; stage = 0; total = 0;
         operation.command = ["sh", decodeURIComponent(Qt.resolvedUrl("fingerprint-operation.sh").toString().replace(/^file:\/\//, "")), action, selectedDevice.path, selectedFinger];
+        operationTimeout.interval = action === "enroll" ? 600000 : 145000;
         operation.running = true; operationTimeout.restart();
     }
     function message() {
@@ -121,6 +126,12 @@ ControlMenu {
         onExited: {
             operationTimeout.stop();
             if (!root.gotResult) root.operationCode = "service_error";
+            if (root.replaceThenEnroll && root.operationAction === "delete" && root.operationCode === "deleted") {
+                root.replaceThenEnroll = false;
+                root.startOperation("enroll");
+                return;
+            }
+            root.replaceThenEnroll = false;
             root.refresh();
         }
     }
@@ -152,13 +163,17 @@ ControlMenu {
         Row {
             visible: root.status === "ok" && root.confirmAction === "" && !operation.running; spacing: 8
             ControlButton { objectName: "fingerAdd"; text: Language.I18n.text("security.add"); enabled: root.selectedDevice && root.selectedDevice.enrollment === "ok" && !root.selectedEnrolled; onClicked: root.confirmAction = "enroll" }
+            ControlButton { objectName: "fingerReplace"; text: Language.I18n.text("security.record_again"); enabled: !!root.selectedEnrolled; onClicked: root.confirmAction = "replace" }
             ControlButton { objectName: "fingerTest"; text: Language.I18n.text("security.test"); enabled: !!root.selectedEnrolled; onClicked: root.startOperation("verify") }
             ControlButton { objectName: "fingerDelete"; text: Language.I18n.text("security.delete"); enabled: !!root.selectedEnrolled; onClicked: root.confirmAction = "delete" }
         }
-        Text { objectName: "fingerConfirmation"; visible: root.confirmAction !== ""; width: parent.width; text: root.confirmAction === "enroll" ? Language.I18n.text("security.confirm_enroll") : Language.I18n.text("security.confirm_delete"); color: root.warning; wrapMode: Text.Wrap; font: root.font }
+        Text { objectName: "fingerConfirmation"; visible: root.confirmAction !== ""; width: parent.width; text: root.confirmAction === "enroll" ? Language.I18n.text("security.confirm_enroll") : root.confirmAction === "replace" ? Language.I18n.text("security.confirm_replace") : Language.I18n.text("security.confirm_delete"); color: root.warning; wrapMode: Text.Wrap; font: root.font }
         Row {
             visible: root.confirmAction !== ""; spacing: 8
-            ControlButton { objectName: "fingerConfirm"; text: Language.I18n.text("security.confirm"); primary: true; onClicked: root.startOperation(root.confirmAction) }
+            ControlButton { objectName: "fingerConfirm"; text: Language.I18n.text("security.confirm"); primary: true; onClicked: {
+                if (root.confirmAction === "replace") { root.replaceThenEnroll = true; root.startOperation("delete"); }
+                else root.startOperation(root.confirmAction);
+            } }
             ControlButton { text: Language.I18n.text("common.cancel"); onClicked: root.confirmAction = "" }
         }
         Text { objectName: "fingerOperationStatus"; visible: root.operationCode !== ""; width: parent.width; text: root.operationText(root.operationCode); color: root.foreground; wrapMode: Text.Wrap; font: root.font }
@@ -169,11 +184,23 @@ ControlMenu {
             running: visible; dark: root.dark; family: root.font.family; fingerPresent: root.fingerPresent
             stage: root.stage; total: root.total
             statusText: Language.I18n.text(root.fingerPresent === true ? "security.finger_present" : root.fingerPresent === false ? "security.finger_wait" : "security.finger_unknown")
-            progressText: Language.I18n.text("security.progress", {stage: root.stage, total: root.total})
+            progressText: {
+                var shown = root.total > 1 ? root.total - 1 : root.total;
+                return Language.I18n.text("security.progress", {stage: Math.min(root.stage, shown), total: shown});
+            }
         }
         ControlButton { objectName: "fingerCancel"; visible: operation.running; enabled: !root.cancelling; text: Language.I18n.text("common.cancel"); onClicked: { root.cancelling = true; root.operationCode = "cancelling"; operation.write("cancel\n"); } }
-        Text { width: parent.width; text: Language.I18n.text("security.unlock_pending"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         ControlButton { text: Language.I18n.text("security.refresh"); enabled: !probe.running && !operation.running; onClicked: root.refresh() }
+        Rectangle { width: parent.width; height: 1; color: root.separator }
+        ControlSwitch {
+            objectName: "fingerprintUnlockSwitch"; width: parent.width
+            text: Language.I18n.text("security.unlock_title")
+            checked: root.unlockEnabled
+            onClicked: root.unlockToggled(checked)
+        }
+        Text { width: parent.width; text: Language.I18n.text("security.unlock_hint"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
+        Text { objectName: "fingerprintUnlockAddFinger"; width: parent.width; visible: root.unlockEnabled && root.status === "ok" && !root.anyEnrolled; text: Language.I18n.text("security.unlock_add_finger"); color: root.warning; wrapMode: Text.Wrap; font: root.font }
+        Text { width: parent.width; text: Language.I18n.text("security.unlock_login"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Rectangle { width: parent.width; height: 1; color: root.separator }
         Text { text: Language.I18n.text("security.face"); color: root.foreground; font.family: root.font.family; font.pixelSize: root.font.pixelSize; font.bold: true }
         Text { width: parent.width; text: Language.I18n.text("security.face_pending"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }

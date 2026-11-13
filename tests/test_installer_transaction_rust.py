@@ -329,6 +329,7 @@ printf '#!/bin/sh\\nexit 0\\n' > "$target/release/macshell-session-preflight"
         result = subprocess.run([str(self.binary), 'install-profile', *common, 'session'], env=env, capture_output=True, text=True, check=True, timeout=60)
         backup = Path(json.loads(result.stdout)['directory'])
         self.assertTrue((shell / 'fingerprint-operation-rust').exists())
+        self.assertTrue((config / 'quickshell/MacLock-niri/fingerprint-operation-rust').exists())
         self.assertTrue((shell / '.macshell-rust-only').is_file())
         self.assertTrue((config / 'quickshell/MacLock-niri/.macshell-rust-only').is_file())
         self.assertTrue((config / 'macshell-niri/.macshell-rust-only').is_file())

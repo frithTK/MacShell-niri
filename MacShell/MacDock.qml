@@ -5,6 +5,7 @@ import "Utilities.js" as Utilities
 import "GlassTheme.js" as GlassTheme
 import "GlassLook.js" as GlassLook
 import "SettingsSearch.js" as SettingsSearch
+import "AboutState.js" as AboutState
 import "AppMenu.js" as AppMenu
 import "PreferenceFields.js" as PreferenceFields
 import QtQuick.Effects
@@ -773,7 +774,7 @@ Scope {
             { id: "mouse",      sec: 5, name: Language.I18n.text("ui.t_55c1520824a8"), searchName: Language.I18n.english("ui.t_55c1520824a8"),           wg: "mouse",      c1: "#A7A7AD", c2: "#7C7C82", keys: "tracking speed scroll natural" },
             { id: "trackpad",   sec: 5, name: Language.I18n.text("ui.t_2fb10776286d"), searchName: Language.I18n.english("ui.t_2fb10776286d"),        wg: "trackpad",   c1: "#A7A7AD", c2: "#7C7C82", keys: "tap click natural scroll touchpad gestures" },
             { id: "apps",       sec: 6, name: Language.I18n.text("ui.t_98e33b0f3104"), searchName: Language.I18n.english("ui.t_98e33b0f3104"),    glyph: "apps",     c1: "#FFB340", c2: "#FF9500", keys: "pinned apps keep remove reset dock" },
-            { id: "about",      sec: 6, name: Language.I18n.text("ui.t_4efca0d10c5f"), searchName: Language.I18n.english("ui.t_4efca0d10c5f"),           glyph: "about",    c1: "#A7A7AD", c2: "#7C7C82", keys: "version reset config folder macdock macbar macshell" }
+            { id: "about",      sec: 6, name: Language.I18n.text("ui.t_4efca0d10c5f"), searchName: Language.I18n.english("ui.t_4efca0d10c5f"),           glyph: "about",    c1: "#A7A7AD", c2: "#7C7C82", keys: "version reset config folder macdock macbar macshell about system hostname cpu memory kernel niri processor graphics display os модель процессор память ядро экран графика хост" }
         ]
 
         readonly property var filtered: {
@@ -1247,7 +1248,11 @@ Scope {
 
         Component {
             id: paneSecurity
-            BiometricSettings { width: parent.width; foreground: pal.text; font.family: pal.fam }
+            BiometricSettings {
+                width: parent.width; foreground: pal.text; font.family: pal.fam
+                unlockEnabled: root.bar ? root.bar.lockFingerprint : true
+                onUnlockToggled: enabled => { if (root.bar) root.bar.lockFingerprint = enabled; }
+            }
         }
 
         Component {
@@ -2471,47 +2476,97 @@ Scope {
                 id: storagePane
                 spacing: 10
                 readonly property var storage: root.hub && root.hub.storage ? root.hub.storage : null
-                Component.onCompleted: if (storage) storage.refresh()
+                Component.onCompleted: {
+                    if (!storage) return;
+                    storage.refresh();
+                    storage.scanIfNeeded();
+                }
                 SLabel { t: pal; header: true; text: Language.I18n.text("storage.volumes") }
                 SLabel {
                     t: pal
-                    text: storage && storage.measuredAt
-                          ? Language.I18n.text("storage.measured", {when: Qt.formatDateTime(new Date(storage.measuredAt * 1000), "yyyy-MM-dd HH:mm")})
-                          : Language.I18n.text("storage.loading")
+                    text: storage ? storage.statusText(storage.measuredAt ? Qt.formatDateTime(new Date(Number(storage.measuredAt) * 1000), "yyyy-MM-dd HH:mm") : "") : Language.I18n.text("storage.loading")
                 }
                 SCard {
                     t: pal
                     Repeater {
-                        model: storage ? storage.volumes : []
+                        model: storage ? storage.visibleVolumes : []
                         delegate: Column {
                             required property var modelData
                             width: parent ? parent.width : 0
+                            property var cats: storage && storage.categorySegments && modelData && modelData.path
+                                              ? (storage.categorySegments[modelData.path] || []) : []
                             SRow {
                                 t: pal
-                                title: modelData.name + (modelData.bind ? Language.I18n.text("storage.bind_suffix") : "")
-                                subtitle: storage ? storage.volumeLine(modelData) : ""
+                                title: storage ? storage.volumeTitle(modelData) : modelData.name
+                                subtitle: (storage ? storage.volumeLine(modelData) : "") + (modelData.path ? "\n" + modelData.path : "")
                                 Text {
                                     text: modelData.fstype || ""
                                     color: pal.text2; font.family: pal.fam; font.pixelSize: 12
                                 }
                             }
                             Item {
-                                width: parent.width; height: 16
+                                width: parent.width; height: 18
                                 Rectangle {
-                                    x: 14; y: 4; height: 6; radius: 3
+                                    x: 14; y: 5; height: 8; radius: 4
                                     width: Math.max(0, parent.width - 28)
                                     color: pal.sep
+                                    clip: true
                                     Rectangle {
+                                        visible: !(cats && cats.length)
                                         width: parent.width * (storage ? storage.usedRatio(modelData) : 0)
-                                        height: parent.height; radius: 3
+                                        height: parent.height
                                         color: pal.accent
+                                    }
+                                    Row {
+                                        visible: !!(cats && cats.length)
+                                        anchors.fill: parent
+                                        Repeater {
+                                            model: cats
+                                            Rectangle {
+                                                required property var modelData
+                                                width: parent ? parent.width * Number(modelData.ratio || 0) : 0
+                                                height: parent ? parent.height : 0
+                                                color: modelData.color || pal.accent
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Item {
+                                visible: !!(cats && cats.length)
+                                width: parent.width
+                                height: visible ? legendFlow.implicitHeight + 8 : 0
+                                Flow {
+                                    id: legendFlow
+                                    x: 14
+                                    width: Math.max(0, parent.width - 28)
+                                    spacing: 12
+                                    Repeater {
+                                        model: cats
+                                        Row {
+                                            required property var modelData
+                                            spacing: 6
+                                            Rectangle {
+                                                width: 8; height: 8; radius: 2
+                                                color: modelData.color || pal.accent
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                            Text {
+                                                text: (storage ? storage.categoryTitle(modelData.id) : modelData.id)
+                                                      + "  " + (storage ? storage.formatBytes(modelData.bytes) : "")
+                                                color: pal.text2
+                                                font.family: pal.fam
+                                                font.pixelSize: 11
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     SLabel {
-                        visible: !(storage && storage.volumes && storage.volumes.length)
+                        visible: !!(storage && !storage.loading && storage.ready && !(storage.visibleVolumes && storage.visibleVolumes.length) && !storage.helperError)
                         t: pal; text: Language.I18n.text("storage.volumes_empty")
                     }
                 }
@@ -2526,6 +2581,7 @@ Scope {
                                   : Language.I18n.text("storage.scan_hint")
                         SButton {
                             t: pal
+                            opacity: storage && (storage.ready || storage.scanning) ? 1 : 0.45
                             text: storage && storage.scanning ? Language.I18n.text("storage.cancel") : Language.I18n.text("storage.scan")
                             onClicked: {
                                 if (!storage) return;
@@ -2535,6 +2591,11 @@ Scope {
                     }
                 }
                 SLabel { t: pal; text: storage ? storage.note : "" }
+                SLabel {
+                    visible: !!(storage && storage.scanned && !storage.scanning && !(storage.folders && storage.folders.length))
+                    t: pal
+                    text: Language.I18n.text("storage.folders_empty")
+                }
                 SCard {
                     visible: !!(storage && storage.folders && storage.folders.length)
                     t: pal
@@ -2573,11 +2634,26 @@ Scope {
                     SRow {
                         t: pal
                         title: Language.I18n.text("storage.trash")
-                        subtitle: storage && storage.trash && storage.trash.bytes !== undefined
-                                  ? storage.formatBytes(storage.trash.bytes) : Language.I18n.text("storage.scan_needed")
+                        subtitle: {
+                            var line = storage ? storage.trashLine() : Language.I18n.text("storage.scan_needed");
+                            var count = root.hub && root.hub.trash ? Number(root.hub.trash.count || 0) : 0;
+                            if (count > 0)
+                                return line ? (line + " · " + Language.I18n.text("trash.count", {count: count})) : Language.I18n.text("trash.count", {count: count});
+                            return line;
+                        }
                         SButton {
                             t: pal; text: Language.I18n.text("storage.open_trash")
                             onClicked: { if (root.hub && root.hub.trashUi) root.hub.trashUi.open(); }
+                        }
+                    }
+                    Repeater {
+                        model: storage && root.hub && root.hub.trash ? storage.trashPreview(root.hub.trash.items) : []
+                        delegate: SRow {
+                            required property var modelData
+                            t: pal
+                            title: modelData.name || modelData.trashName || ""
+                            subtitle: (storage ? storage.formatBytes(Number(modelData.size || modelData.bytes || 0)) : "")
+                                      + (modelData.originalPath ? "\n" + modelData.originalPath : "")
                         }
                     }
                 }
@@ -3517,34 +3593,60 @@ Scope {
                 id: aboutCol
                 spacing: 10
                 property bool armed: false
+                readonly property var info: root.hub && root.hub.about ? root.hub.about.snapshot : ({})
+                readonly property string display: AboutState.displayLine(Niri.monitorData)
+                readonly property var volume: {
+                    var storage = root.hub && root.hub.storage ? root.hub.storage : null;
+                    var vols = storage && storage.visibleVolumes ? storage.visibleVolumes : [];
+                    return vols && vols.length ? vols[0] : null;
+                }
                 Timer { id: disarm; interval: 3000; onTriggered: aboutCol.armed = false }
+                Component.onCompleted: {
+                    if (root.hub && root.hub.storage)
+                        root.hub.storage.refresh();
+                }
+                function revealConfig() {
+                    var path = decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "")).replace(/\/$/, "");
+                    var uri = SettingsSearch.fileUri(path);
+                    if (!path || !uri)
+                        return;
+                    Quickshell.execDetached(["sh", decodeURIComponent(Qt.resolvedUrl("reveal-folder.sh").toString().replace(/^file:\/\//, "")), path, uri, "open"]);
+                }
 
                 SCard {
                     t: pal
                     Item {
                         width: parent.width
-                        height: 176
+                        height: 132
                         SGlyph {
                             x: (parent.width - width) / 2
-                            y: 44
-                            kind: "dock"
-                            scale: 3.4
+                            y: 18
+                            kind: "about"
+                            scale: 2.2
                         }
                         Text {
-                            y: 108
+                            y: 72
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
-                            text: "macshell"
+                            text: aboutCol.info.computer || "MacShell"
                             color: pal.text
                             font.family: pal.fam
                             font.pixelSize: 21
                             font.weight: Font.DemiBold
+                            elide: Text.ElideRight
                         }
                         Text {
-                            y: 138
+                            y: 100
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
-                            text: Language.I18n.text("ui.t_de34bb4f080b")
+                            text: {
+                                var bits = [];
+                                if (aboutCol.info.hostname && aboutCol.info.hostname !== aboutCol.info.computer)
+                                    bits.push(aboutCol.info.hostname);
+                                if (aboutCol.info.version)
+                                    bits.push("MacShell " + aboutCol.info.version);
+                                return bits.join(" · ");
+                            }
                             color: pal.text2
                             font.family: pal.fam
                             font.pixelSize: 12
@@ -3555,22 +3657,112 @@ Scope {
                 SCard {
                     t: pal
                     SRow {
+                        visible: !!(aboutCol.info.chip)
                         t: pal
-                        title: Language.I18n.text("ui.t_b332c3492d5e")
+                        title: Language.I18n.text("about.chip")
+                        subtitle: aboutCol.info.cores
+                                  ? Language.I18n.text("about.processors", {count: aboutCol.info.cores})
+                                  : ""
                         Text {
-                            text: "~/.config/macdock"
+                            text: aboutCol.info.chip || ""
+                            color: pal.text2
+                            font.family: pal.fam
+                            font.pixelSize: 13
+                            width: Math.min(implicitWidth, 220)
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                    SRow {
+                        visible: !!(aboutCol.info.memory)
+                        t: pal
+                        title: Language.I18n.text("about.memory")
+                        Text {
+                            text: aboutCol.info.memory
                             color: pal.text2
                             font.family: pal.fam
                             font.pixelSize: 13
                         }
                     }
                     SRow {
+                        visible: !!(aboutCol.info.gpu)
                         t: pal
-                        title: Language.I18n.text("ui.t_3d3aa27e265f")
+                        title: Language.I18n.text("about.graphics")
+                        Text {
+                            text: aboutCol.info.gpu
+                            color: pal.text2
+                            font.family: pal.fam
+                            font.pixelSize: 13
+                            width: Math.min(implicitWidth, 220)
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                    SRow {
+                        visible: !!(aboutCol.display)
+                        t: pal
+                        title: Language.I18n.text("about.display")
+                        subtitle: aboutCol.display
                         SButton {
                             t: pal
-                            text: Language.I18n.text("ui.t_ed077f3d8125")
-                            onClicked: Quickshell.execDetached(["xdg-open", root.configDir])
+                            text: Language.I18n.text("about.open_displays")
+                            onClicked: prefsWindow.openPane("displays")
+                        }
+                    }
+                    SRow {
+                        visible: !!(aboutCol.volume)
+                        t: pal
+                        title: Language.I18n.text("about.startup_disk")
+                        subtitle: aboutCol.volume && root.hub && root.hub.storage
+                                  ? root.hub.storage.volumeLine(aboutCol.volume)
+                                  : ""
+                        SButton {
+                            t: pal
+                            text: Language.I18n.text("storage.title")
+                            onClicked: prefsWindow.openPane("storage")
+                        }
+                    }
+                    SRow {
+                        visible: !!(aboutCol.info.os)
+                        t: pal
+                        title: Language.I18n.text("about.os")
+                        Text {
+                            text: aboutCol.info.os
+                            color: pal.text2
+                            font.family: pal.fam
+                            font.pixelSize: 13
+                        }
+                    }
+                    SRow {
+                        visible: !!(aboutCol.info.kernel)
+                        t: pal
+                        title: Language.I18n.text("about.kernel")
+                        Text {
+                            text: aboutCol.info.kernel
+                            color: pal.text2
+                            font.family: pal.fam
+                            font.pixelSize: 13
+                            width: Math.min(implicitWidth, 240)
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                    SRow {
+                        visible: !!(aboutCol.info.niri || aboutCol.info.version)
+                        t: pal
+                        title: Language.I18n.text("about.desktop")
+                        Text {
+                            text: {
+                                var bits = [];
+                                if (aboutCol.info.niri)
+                                    bits.push(aboutCol.info.niri);
+                                if (aboutCol.info.version)
+                                    bits.push("MacShell " + aboutCol.info.version);
+                                return bits.join(" · ");
+                            }
+                            color: pal.text2
+                            font.family: pal.fam
+                            font.pixelSize: 13
                         }
                     }
                 }
@@ -3579,16 +3771,21 @@ Scope {
                     t: pal
                     SRow {
                         t: pal
-                        title: Language.I18n.text("ui.t_28cf1ec4677d")
-                        subtitle: Language.I18n.text("ui.t_63ab7ab1ccd8")
+                        title: Language.I18n.text("updates.title")
+                        subtitle: Language.I18n.text("about.software_update_hint")
                         SButton {
                             t: pal
-                            text: Language.I18n.text("ui.t_8c1df2d5fabe")
-                            onClicked: {
-                                var inst = Quickshell.env("HOME") + "/.local/share/macshell/install.sh";
-                                var term = root.bar ? root.bar.terminal : "kitty";
-                                Quickshell.execDetached(["sh", "-c", term + " -e sh -c '\"$0\" --deps-only; echo; echo Press Enter to close; read x'", inst]);
-                            }
+                            text: Language.I18n.text("updates.check")
+                            onClicked: prefsWindow.openPane("updates")
+                        }
+                    }
+                    SRow {
+                        t: pal
+                        title: Language.I18n.text("ui.t_3d3aa27e265f")
+                        SButton {
+                            t: pal
+                            text: Language.I18n.text("ui.t_ed077f3d8125")
+                            onClicked: aboutCol.revealConfig()
                         }
                     }
                 }
@@ -3606,104 +3803,6 @@ Scope {
                                 if (aboutCol.armed) { aboutCol.armed = false; root.resetSettings(); }
                                 else { aboutCol.armed = true; disarm.restart(); }
                             }
-                        }
-                    }
-                }
-
-                // ── Credits ──
-                SLabel { t: pal; header: true; text: Language.I18n.text("ui.t_2a6b24ad2872") }
-                SCard {
-                    t: pal
-                    Repeater {
-                        model: [
-                            { img: "assets/credits/0-ss.jpg", name: "Rickky", gh: "0-ss",
-                              role: Language.I18n.text("ui.t_84f7cd42cd98") },
-                            { img: "assets/credits/vsoultann.png", name: "vSuol", gh: "vsoultann",
-                              role: Language.I18n.text("ui.t_d205b69d51d6") }
-                        ]
-                        delegate: Item {
-                            id: cr
-                            required property var modelData
-                            width: parent.width; height: 72
-                            Rectangle { visible: cr.y > 0.5; x: 14; width: parent.width - 14; height: 1; color: pal.sep }
-                            Item {
-                                id: crPic
-                                x: 14; anchors.verticalCenter: parent.verticalCenter
-                                width: 44; height: 44
-                                Item { id: crMask; anchors.fill: parent; visible: false; layer.enabled: true; Rectangle { anchors.fill: parent; radius: width / 2; color: "black" } }
-                                Image {
-                                    anchors.fill: parent
-                                    source: Qt.resolvedUrl(cr.modelData.img)
-                                    sourceSize: Qt.size(96, 96)
-                                    fillMode: Image.PreserveAspectCrop; smooth: true; mipmap: true
-                                    layer.enabled: true
-                                    layer.effect: MultiEffect { maskEnabled: true; maskSource: crMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
-                                }
-                                Rectangle { anchors.fill: parent; radius: width / 2; color: "transparent"; border.width: 1; border.color: pal.cardBorder }
-                            }
-                            Column {
-                                x: 70; anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 70 - 90
-                                spacing: 2
-                                Text { text: cr.modelData.name; color: pal.text; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
-                                Text { width: parent.width; text: cr.modelData.role; wrapMode: Text.WordWrap; color: pal.text2; font.family: pal.fam; font.pixelSize: 11 }
-                            }
-                            Text {
-                                anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter
-                                text: "@" + cr.modelData.gh
-                                color: pal.accent; font.family: pal.fam; font.pixelSize: 12
-                                font.underline: crMa.containsMouse
-                                MouseArea { id: crMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/" + cr.modelData.gh]) }
-                            }
-                        }
-                    }
-                }
-                Text {
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    topPadding: 4
-                    text: Language.I18n.text("ui.t_a9391b48e9df")
-                    color: pal.text3; font.family: pal.fam; font.pixelSize: 11
-                }
-
-                // (keep scrolling…)
-                Item { width: 1; height: 900 }
-
-                // ── AppleCare+ — nobody asked. The button does nothing. ──
-                SCard {
-                    t: pal
-                    Item {
-                        width: parent.width; height: 214
-                        Image {
-                            anchors.horizontalCenter: parent.horizontalCenter; y: 16
-                            width: 36; height: 36
-                            source: Qt.resolvedUrl(pal.dark ? "apple-logo-white.svg" : "apple-logo-black.svg")
-                            sourceSize: Qt.size(72, 72); fillMode: Image.PreserveAspectFit; smooth: true
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter; y: 64
-                            text: Language.I18n.text("ui.t_20060b05664d")
-                            color: pal.text; font.family: pal.fam; font.pixelSize: 17; font.weight: Font.DemiBold
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter; y: 90
-                            width: parent.width - 60; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-                            text: Language.I18n.text("ui.t_88c01a1e5d09")
-                            color: pal.text2; font.family: pal.fam; font.pixelSize: 12
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter; y: 136
-                            text: Language.I18n.text("ui.t_56bf35e62b0c")
-                            color: pal.text; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.Medium
-                        }
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter; y: 166
-                            width: 150; height: 32; radius: 16
-                            color: careMa.pressed ? Qt.darker(pal.accent, 1.15) : pal.accent
-                            scale: careMa.pressed ? 0.96 : 1
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutQuint } }
-                            Text { anchors.centerIn: parent; text: Language.I18n.text("ui.t_61c6dd2a1105"); color: "white"; font.family: pal.fam; font.pixelSize: 13; font.weight: Font.DemiBold }
-                            MouseArea { id: careMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
                         }
                     }
                 }
@@ -3776,7 +3875,7 @@ Scope {
         settingsEnabled = true;
         if (bar) {
             bar.resetSettings();
-            bar.uiSounds = true; bar.gamingMode = false; bar.gamingAuto = true; bar.lockArtBackground = true;
+            bar.uiSounds = true; bar.gamingMode = false; bar.gamingAuto = true; bar.lockArtBackground = true; bar.lockFingerprint = true;
             bar.applyLockClockPreset("glass");
             bar.wallpaperAppearance = "auto"; bar.notifDnd = false; bar.nightDesired = false; bar.keepAwake = false;
             bar.kbRepeatRate = 35; bar.kbRepeatDelay = 250; bar.mouseSens = 0; bar.mouseNatural = false;

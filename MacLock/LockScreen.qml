@@ -1444,7 +1444,7 @@ Item {
             Text {
                 anchors.left: parent.left; anchors.leftMargin: 16 * ls.u
                 anchors.verticalCenter: parent.verticalCenter
-                text: Language.I18n.text("ui.t_3d81652794e5")
+                text: ls.st.placeholder || Language.I18n.text("ui.t_3d81652794e5")
                 color: Qt.rgba(1, 1, 1, 0.62)
                 font.family: ls.fam; font.pixelSize: 14 * ls.u
                 opacity: ls.st.pass.length === 0 ? 1 : 0
@@ -1593,7 +1593,7 @@ Item {
             objectName: "lockPasswordHint"
             horizontalAlignment: Text.AlignHCenter
             anchors.horizontalCenter: parent.horizontalCenter
-            text: ls.st.message !== "" ? Language.I18n.legacy(ls.st.message) : Language.I18n.text("ui.t_bb25ff970f65")
+            text: ls.st.message !== "" ? Language.I18n.legacy(ls.st.message) : (ls.st.idleHint || Language.I18n.text("ui.t_bb25ff970f65"))
             color: ls.st.message !== "" ? Qt.rgba(1, 0.78, 0.76, 0.95) : Qt.rgba(1, 1, 1, 0.55)
             font.family: ls.fam; font.pixelSize: 12 * ls.u
             opacity: ls.st.engaged || ls.st.message !== "" ? 1 : 0

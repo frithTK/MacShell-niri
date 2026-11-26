@@ -2,10 +2,11 @@
 use macshell_gio_bridge::{self as gio, c, Ptr};
 use macshell_network_agent::Event as AgentEvent;
 use macshell_network_core::activation::{Action, Ticket};
+use macshell_network_core::links::{self, VpnCandidate, VpnPlan};
 use macshell_network_snapshot::{
     activate,
     join::{Job, Secret},
-    radio,
+    links_act, radio,
     session::{Event, RadioAction, SecretIdentity, Selection, Session},
     Error,
 };
@@ -29,9 +30,28 @@ struct Service {
     input: Vec<u8>,
     generation: Option<Value>,
     networks: Vec<Value>,
+    links: Vec<Value>,
+    hotspot_active: bool,
+    vpn_dismissed: bool,
     pending: Option<Pending>,
     next_refresh: Instant,
     closed: bool,
+}
+
+fn vpn_candidates(links: &[Value]) -> Vec<VpnCandidate> {
+    links
+        .iter()
+        .filter(|link| link["controllable"].as_bool() == Some(true))
+        .filter_map(|link| {
+            Some(VpnCandidate {
+                uuid: link["uuid"].as_str()?.to_owned(),
+                path: link["path"].as_str()?.to_owned(),
+                name: link["name"].as_str().unwrap_or("").to_owned(),
+                timestamp: link["timestamp"].as_u64().unwrap_or(0),
+                active: link["active"].as_bool().unwrap_or(false),
+            })
+        })
+        .collect()
 }
 
 fn username() -> Result<String, &'static str> {
@@ -123,7 +143,12 @@ impl Service {
             "refresh" => {
                 self.session.refresh()?;
             }
-            "scan" => self.session.radio(id, RadioAction::Scan)?,
+            "scan" => {
+                if self.hotspot_active {
+                    return Err("Wi-Fi is sharing a network.");
+                }
+                self.session.radio(id, RadioAction::Scan)?;
+            }
             "power" => self.session.radio(
                 id,
                 RadioAction::Power(
@@ -192,7 +217,12 @@ impl Service {
                 });
             }
             "cancel" => {
-                if let Some(p) = &mut self.pending {
+                if data["vpn"].as_bool() == Some(true) {
+                    if self.session.vpn_request().is_some() {
+                        self.vpn_dismissed = true;
+                        self.session.finish_vpn(true);
+                    }
+                } else if let Some(p) = &mut self.pending {
                     if data["request"].as_u64() == Some(p.ticket.request) {
                         p.initial = None;
                         p.delivery = None;
@@ -203,6 +233,23 @@ impl Service {
                 }
             }
             "secret" => {
+                if data["vpn"].as_bool() == Some(true) {
+                    let request = data["request"].as_u64().ok_or("Invalid service request.")?;
+                    let delivery = data["delivery"]
+                        .as_u64()
+                        .ok_or("Invalid service request.")?;
+                    let password = match data["password"].take() {
+                        Value::String(value) => Secret::new(value)?,
+                        _ => return Err("Invalid VPN password."),
+                    };
+                    if !self
+                        .session
+                        .reply_vpn(request, delivery, password.as_str())?
+                    {
+                        return Err("The VPN password request expired.");
+                    }
+                    return Ok(());
+                }
                 let password = match data["password"].take() {
                     Value::String(v) => Secret::new(v)?,
                     _ => return Err("Invalid Wi-Fi password."),
@@ -213,6 +260,116 @@ impl Service {
                             self.session.reply(p.ticket, delivery, password.as_str())?;
                         }
                     }
+                }
+            }
+            "link" => {
+                let uuid = data["uuid"]
+                    .as_str()
+                    .ok_or("Invalid service request.")?
+                    .to_owned();
+                let path = data["path"]
+                    .as_str()
+                    .ok_or("Invalid service request.")?
+                    .to_owned();
+                if data["up"].as_bool().ok_or("Invalid service request.")? {
+                    self.session.begin_vpn(id, &uuid, Some(&path))?;
+                    let plan = links::vpn_connect(&vpn_candidates(&self.links), &uuid);
+                    let action = match plan {
+                        Ok(VpnPlan::Up { path, uuid, stop }) => RadioAction::VpnSet {
+                            up: Some((path, uuid)),
+                            down: stop,
+                        },
+                        _ => RadioAction::LinkUp { path, uuid },
+                    };
+                    if let Err(error) = self.session.radio(id, action) {
+                        self.session.finish_vpn(true);
+                        return Err(error);
+                    }
+                } else {
+                    self.session
+                        .radio(id, RadioAction::LinkDown { path, uuid })?;
+                }
+            }
+            "delete" => {
+                let uuid = data["uuid"]
+                    .as_str()
+                    .ok_or("Invalid service request.")?
+                    .to_owned();
+                let path = data["path"]
+                    .as_str()
+                    .ok_or("Invalid service request.")?
+                    .to_owned();
+                self.session.radio(id, RadioAction::Delete { path, uuid })?;
+            }
+            "import" => {
+                let path = data["path"]
+                    .as_str()
+                    .ok_or("Invalid service request.")?
+                    .to_owned();
+                self.session.radio(id, RadioAction::Import { path })?;
+            }
+            "proxy" => {
+                self.session.radio(
+                    id,
+                    RadioAction::Proxy {
+                        uuid: data["uuid"]
+                            .as_str()
+                            .ok_or("Invalid service request.")?
+                            .to_owned(),
+                        method: data["method"].as_str().unwrap_or("").to_owned(),
+                        pac: data["pac"].as_str().unwrap_or("").to_owned(),
+                        http: data["http"].as_str().unwrap_or("").to_owned(),
+                        https: data["https"].as_str().unwrap_or("").to_owned(),
+                        socks: data["socks"].as_str().unwrap_or("").to_owned(),
+                        bypass: data["bypass"].as_str().unwrap_or("").to_owned(),
+                    },
+                )?;
+            }
+            "vpn" => {
+                let enabled = data["enabled"]
+                    .as_bool()
+                    .ok_or("Invalid service request.")?;
+                match links::vpn_plan(&vpn_candidates(&self.links), enabled)? {
+                    VpnPlan::Up { path, uuid, stop } => {
+                        self.session.begin_vpn(id, &uuid, Some(&path))?;
+                        if let Err(error) = self.session.radio(
+                            id,
+                            RadioAction::VpnSet {
+                                up: Some((path, uuid)),
+                                down: stop,
+                            },
+                        ) {
+                            self.session.finish_vpn(true);
+                            return Err(error);
+                        }
+                    }
+                    VpnPlan::Down { stop } => {
+                        self.session.radio(
+                            id,
+                            RadioAction::VpnSet {
+                                up: None,
+                                down: stop,
+                            },
+                        )?;
+                    }
+                }
+            }
+            "hotspot" => {
+                if data["enabled"]
+                    .as_bool()
+                    .ok_or("Invalid service request.")?
+                {
+                    self.session.radio(
+                        id,
+                        RadioAction::HotspotStart {
+                            ssid: data["ssid"].as_str().unwrap_or("").to_owned(),
+                            password: data["password"].as_str().unwrap_or("").to_owned(),
+                            restore: data["restore"].as_str().unwrap_or("").to_owned(),
+                        },
+                    )?;
+                } else {
+                    self.session
+                        .radio(id, RadioAction::HotspotStop { restore: true })?;
                 }
             }
             _ => return Err("Unknown Wi-Fi action."),
@@ -238,15 +395,30 @@ impl Service {
                 ),
                 Event::Registration(true) => (),
                 Event::Snapshot(Ok(state)) => {
+                    self.hotspot_active = state["hotspot"]["active"].as_bool().unwrap_or(false);
                     self.networks = state["networks"].as_array().cloned().unwrap_or_default();
+                    self.links = state["links"].as_array().cloned().unwrap_or_default();
                     self.emit(state);
                 }
                 Event::Snapshot(Err(_)) => {
                     self.emit(json!({"type":"error","error":"Cannot read Wi-Fi status."}))
                 }
-                Event::Radio { result, .. } => {
-                    if result.is_err() {
-                        self.emit(json!({"type":"error","error":"Wi-Fi operation failed."}));
+                Event::Radio { request, result } => {
+                    let dismissed = std::mem::take(&mut self.vpn_dismissed);
+                    self.session.finish_vpn(false);
+                    match result {
+                        Err(_) if dismissed => {
+                            self.emit(json!({"type":"result","id":request,"ok":true,"state":"canceled","error":""}));
+                        }
+                        Err(radio::Error::Rejected(text)) => {
+                            self.emit(json!({"type":"error","id":request,"error":text}));
+                        }
+                        Err(_) => {
+                            self.emit(json!({"type":"error","id":request,"error":"Wi-Fi operation failed."}));
+                        }
+                        Ok(_) => {
+                            self.emit(json!({"type":"result","id":request,"ok":true,"state":"done","error":""}));
+                        }
                     }
                     let _ = self.session.refresh();
                 }
@@ -255,7 +427,15 @@ impl Service {
                     delivery,
                     provided,
                     discard_provided,
+                    vpn,
                 }) => {
+                    if vpn {
+                        if self.vpn_dismissed {
+                            continue;
+                        }
+                        self.emit(json!({"type":"secret","id":request,"delivery":delivery,"vpn":true,"error":"Enter the VPN password."}));
+                        continue;
+                    }
                     let mut prompt = None;
                     if let Some(p) = &mut self.pending {
                         if p.ticket.request == request && !p.canceled {
@@ -426,6 +606,14 @@ unsafe fn run() -> Result<(), String> {
             let result = match action {
                 RadioAction::Scan => radio::scan(bus, owner, Duration::from_secs(8)),
                 RadioAction::Power(enabled) => {
+                    if !enabled {
+                        let _ = links_act::perform(
+                            bus,
+                            owner,
+                            RadioAction::HotspotStop { restore: false },
+                            Duration::from_secs(8),
+                        );
+                    }
                     radio::set_power(bus, owner, enabled, Duration::from_secs(8)).map(|()| 0)
                 }
                 RadioAction::Disconnect { device, ap } => {
@@ -434,6 +622,7 @@ unsafe fn run() -> Result<(), String> {
                 RadioAction::CancelActivation { path } => {
                     activate::cancel(bus, owner, &path, Duration::from_secs(3))
                 }
+                other => links_act::perform(bus, owner, other, Duration::from_secs(50)),
             };
             close(bus);
             result
@@ -450,6 +639,9 @@ unsafe fn run() -> Result<(), String> {
         input: Vec::new(),
         generation: None,
         networks: Vec::new(),
+        links: Vec::new(),
+        hotspot_active: false,
+        vpn_dismissed: false,
         pending: None,
         next_refresh: Instant::now() + Duration::from_secs(5),
         closed: false,
@@ -478,6 +670,21 @@ unsafe fn run() -> Result<(), String> {
 }
 fn main() {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.first().and_then(|arg| arg.to_str()) == Some("--ap-iface") {
+        let rest: Vec<String> = args
+            .iter()
+            .skip(1)
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let code = if unsafe { libc::geteuid() } != 0 {
+            126
+        } else if links_act::apply_ap_iface(&rest).is_ok() {
+            0
+        } else {
+            3
+        };
+        std::process::exit(code);
+    }
     if args == ["--protocol-version"] {
         println!("macshell-network 1");
         return;

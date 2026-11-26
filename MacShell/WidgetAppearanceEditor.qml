@@ -157,7 +157,6 @@ ControlMenu {
                     }
                 }
             }
-            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("timer").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Column {
             width: parent.width; spacing: 8; visible: root.editingType === "image"
@@ -168,7 +167,6 @@ ControlMenu {
                 Accessible.name: Language.I18n.text("image_widget.path")
                 onEditingFinished: root.changeImage("path", text)
             }
-            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("image").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Column {
             width: parent.width; spacing: 8; visible: root.editingType === "batteries"
@@ -203,7 +201,6 @@ ControlMenu {
                 }
                 Text { width: parent.width; visible: root.batteryChoices.length === 0; text: Language.I18n.text("ui.t_941a9388e9ea"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
             }
-            Text { width: parent.width; text: Language.I18n.text("ui.t_ab93f7dd1fc7"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Column {
             width: parent.width; spacing: 8; visible: root.editingType === "activity"
@@ -230,7 +227,6 @@ ControlMenu {
                 Accessible.name: Language.I18n.text("ui.t_bbf9857741a8")
                 onActivated: index => root.changeActivity("view", index === 1 ? "graphs" : "rings")
             }
-            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("activity").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Column {
             width: parent.width; spacing: 6
@@ -300,7 +296,6 @@ ControlMenu {
                 onActivated: index => root.change("tint", model[index].value || null)
             }
         }
-        Text { width: parent.width; text: Language.I18n.text("ui.t_e953289a70d1"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         ControlButton { objectName: "widgetAppearanceReset"; text: Language.I18n.text("ui.t_54ba48b060d6"); enabled: root.editable; onClicked: root.change("all", null) }
         Text { objectName: "widgetAppearanceError"; width: parent.width; visible: root.error !== ""; text: Language.I18n.legacy(root.error); color: root.warning; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         Row {

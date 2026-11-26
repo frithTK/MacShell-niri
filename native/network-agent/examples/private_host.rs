@@ -113,6 +113,7 @@ extern "C" fn events(data: Ptr) -> i32 {
                     delivery,
                     provided,
                     discard_provided,
+                    ..
                 } => emit(
                     json!({"type":"need","request":request,"delivery":delivery,"provided":provided,"discard":discard_provided}),
                 ),

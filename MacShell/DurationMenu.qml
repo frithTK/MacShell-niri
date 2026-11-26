@@ -19,6 +19,5 @@ ControlMenu {
                 onClicked: root.controller.set(root.kind, modelData.mode)
             }
         }
-        Text { font.family: root.font.family; visible: root.kind === "awake"; width: parent.width; wrapMode: Text.Wrap; text: Language.I18n.text("ui.t_59ffdebafce3"); color: root.foreground; opacity: .6; font.pixelSize: 11 }
     }
 }

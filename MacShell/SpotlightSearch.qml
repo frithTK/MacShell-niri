@@ -1,4 +1,4 @@
-// Filename search for Spotlight. Ranking lives in SpotlightRank.js; the overlay stays in MacBar.
+// Filename search for Spotlight. Ranking lives in SpotlightRank.js; the overlay is SpotlightOverlay.qml.
 import QtQuick
 import Quickshell
 import Quickshell.Io

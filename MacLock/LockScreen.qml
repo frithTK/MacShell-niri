@@ -272,6 +272,17 @@ Item {
     property real nowMs2: Date.now()
     Timer { interval: 30000; repeat: true; running: ls.lockNotifs.length > 0; onTriggered: ls.nowMs2 = Date.now() }
     function askPassword() { ls.forceActiveFocus(); ls.st.poke(); pwPulse.restart(); }
+    // A missing theme icon is a ready magenta checkerboard, so Image.status never becomes Error.
+    function notifIcon(raw) {
+        var s = String(raw || "");
+        if (s.indexOf("image://icon/") === 0) {
+            var name = s.substring(13).split("?")[0];
+            try { name = decodeURIComponent(name); } catch (e) {}
+            return Quickshell.hasThemeIcon(name) ? ("image://icon/" + name) : "";
+        }
+        if (s.charAt(0) === "/") return "file://" + s;
+        return s;
+    }
 
     Column {
         id: rightCol
@@ -387,13 +398,28 @@ Item {
 
                 Glass { anchors.fill: parent; src: glassTex; frame: ls; cornerR: 20 * ls.u; thickness: 20; tint: 0.40; shadowAmt: 0.3 }
                 Rectangle { anchors.fill: parent; radius: 20 * ls.u; color: "white"; opacity: ncMa.pressed ? 0.12 : (ncMa.containsMouse ? 0.06 : 0); Behavior on opacity { NumberAnimation { duration: 140 } } }
-                Image {
+                Item {
                     x: 14 * ls.u; anchors.verticalCenter: parent.verticalCenter
                     width: 34 * ls.u; height: width
-                    // apps without an icon (MacShell's own, notify-send…) get the system notifications icon
-                    source: nc.icon && status !== Image.Error ? nc.icon : "image://icon/preferences-system-notifications"
-                    sourceSize: Qt.size(96, 96)
-                    smooth: true; mipmap: true
+                    Rectangle {
+                        anchors.fill: parent; radius: 8 * ls.u
+                        visible: nimg.status !== Image.Ready
+                        color: Qt.rgba(1, 1, 1, 0.16)
+                        Text {
+                            anchors.centerIn: parent
+                            text: (nc.app || "?").charAt(0).toUpperCase()
+                            color: "white"; font.family: ls.fam; font.pixelSize: 16 * ls.u; font.weight: Font.DemiBold
+                        }
+                    }
+                    Image {
+                        id: nimg
+                        anchors.fill: parent
+                        visible: status === Image.Ready
+                        source: ls.notifIcon(nc.icon)
+                        sourceSize: Qt.size(96, 96)
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true; smooth: true; mipmap: true
+                    }
                 }
                 Column {
                     x: 60 * ls.u; anchors.verticalCenter: parent.verticalCenter

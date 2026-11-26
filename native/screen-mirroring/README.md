@@ -28,4 +28,12 @@ State JSON includes `extendAvailable`, `extendOutput`, `extendMethod`
 the helper exits. Tests must set `MACSHELL_DRM_SYSFS` to an empty directory
 so they do not see the host's HDMI ports.
 
+Enabling receive, when UFW or firewalld is dropping inbound traffic, re-execs this
+binary through pkexec (`--airplay-firewall`) and allows TCP/UDP 7100–7102 from
+each real interface's current IPv4 prefix and from `fe80::/10` on that
+interface. The privileged process reads `ip` and the firewall files itself.
+Tests that start the service must set `MACSHELL_UFW_CONF` to a file with
+`ENABLED=no` (and `MACSHELL_FIREWALLD=inactive`) so they do not see the host
+firewall or wait on a password dialog.
+
 User-facing behavior: [Screen Mirroring](../../docs/CONTROL_CENTER.md#повтор-экрана--airplay).

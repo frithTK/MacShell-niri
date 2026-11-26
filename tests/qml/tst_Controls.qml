@@ -72,6 +72,11 @@ TestCase {
                 verify(item !== null);
                 tryVerify(() => item.implicitHeight > 60, 1000, "Dialog " + c + " has no content: " + item.implicitHeight);
                 verify(item.implicitHeight < 700, "Dialog is unbounded");
+                if (c === 0) {
+                    var link = findChild(item, "statsSettings");
+                    verify(link);
+                    compare(link.color.a, 0);
+                }
                 if (c === 5) {
                     var combo = findChild(item, "recordMonitor");
                     combo.popup.open();

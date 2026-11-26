@@ -6,19 +6,89 @@ function normalize(query) {
     return String(query || "").trim().toLowerCase();
 }
 
+// Settings that live inside a page. `label` is a catalog id; the caller translates it.
+var controls = [
+    { label: "network.hotspot", pane: "network", anchor: "hotspot", keys: "hotspot ap share wifi точка доступа хотспот раздача" },
+    { label: "network.vpn", pane: "network", anchor: "vpn", keys: "vpn wireguard openvpn туннель" },
+    { label: "network.proxy", pane: "network", anchor: "proxy", keys: "proxy pac socks http https прокси" },
+    { label: "ui.t_681e12098d28", pane: "wifi", anchor: "", keys: "ethernet lan кабель проводная" },
+    { label: "security.fingerprint", pane: "security", anchor: "", keys: "fingerprint biometric отпечаток палец биометрия" },
+    { label: "ui.t_d9a2bf53437c", pane: "displays", anchor: "", keys: "night shift warm ночной режим ночная смена" },
+    { label: "battery.health", pane: "battery", anchor: "", keys: "battery health charge аккумулятор износ состояние" }
+];
+
+function words(query) {
+    var q = normalize(query);
+    if (q.length < 2) return [];
+    return q.split(/\s+/).filter(function (word) { return word.length >= 2; });
+}
+
+function covers(text, list) {
+    var hay = String(text || "").toLowerCase();
+    for (var i = 0; i < list.length; i++)
+        if (hay.indexOf(list[i]) < 0) return false;
+    return list.length > 0;
+}
+
 function score(pane, query) {
-    if (!pane || !query) return 0;
+    if (!pane) return 0;
+    var q = normalize(query);
+    var list = words(q);
+    if (!list.length) return 0;
     var id = String(pane.id || "").toLowerCase();
     var name = String(pane.name || "").toLowerCase();
     var searchName = String(pane.searchName || "").toLowerCase();
     var keys = String(pane.keys || "").toLowerCase();
-    if (id === query || name === query || searchName === query) return 100;
-    if (name.indexOf(query) === 0 || searchName.indexOf(query) === 0 || id.indexOf(query) === 0)
+    if (id === q || name === q || searchName === q) return 100;
+    if (name.indexOf(q) === 0 || searchName.indexOf(q) === 0 || id.indexOf(q) === 0)
         return 80;
-    if (name.indexOf(query) >= 0 || searchName.indexOf(query) >= 0) return 60;
-    if (keys.indexOf(query) >= 0) return 40;
-    if (id.indexOf(query) >= 0) return 20;
+    if (covers(name + " " + searchName, list)) return 70;
+    if (name.indexOf(q) >= 0 || searchName.indexOf(q) >= 0) return 60;
+    if (covers(keys + " " + id, list)) return 40;
+    if (id.indexOf(q) >= 0) return 20;
     return 0;
+}
+
+function paneById(panes, id) {
+    if (!panes) return null;
+    for (var i = 0; i < panes.length; i++)
+        if (panes[i] && panes[i].id === id) return panes[i];
+    return null;
+}
+
+function matchControls(panes, query, translate, english) {
+    var list = words(query);
+    if (!list.length) return [];
+    var tr = translate || function (key) { return key; };
+    var en = english || tr;
+    var q = normalize(query);
+    var hits = [];
+    for (var i = 0; i < controls.length; i++) {
+        var entry = controls[i];
+        var label = String(tr(entry.label) || "");
+        var englishLabel = String(en(entry.label) || "");
+        var keys = String(entry.keys || "");
+        if (!covers(label + " " + englishLabel + " " + keys, list)) continue;
+        var rank = 40;
+        if (normalize(label) === q || normalize(englishLabel) === q) rank = 100;
+        else if (normalize(label).indexOf(q) === 0 || normalize(englishLabel).indexOf(q) === 0) rank = 80;
+        else if (covers(label + " " + englishLabel, list)) rank = 70;
+        var pane = paneById(panes, entry.pane);
+        hits.push({
+            id: entry.label,
+            pane: entry.pane,
+            anchor: entry.anchor || "",
+            label: label,
+            paneName: pane ? String(pane.name || "") : "",
+            score: rank,
+            index: i
+        });
+    }
+    hits.sort(function (a, b) {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.index - b.index;
+    });
+    return hits;
 }
 
 function match(panes, query) {

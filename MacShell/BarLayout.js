@@ -57,3 +57,19 @@ function popupX(anchor, width, scale, origin, screenWidth, leading) {
     var left = Math.max(6, Math.min(Math.max(6, screenWidth - physical - 6), leading ? anchor : anchor - physical / 2));
     return left - width * (1 - scale) * origin;
 }
+
+// Painted rectangle of a popover scaled around its origin. originX/originY are 0, 0.5 or 1.
+function scaledPopupBounds(x, y, width, height, scale, originX, originY) {
+    var s = Number(scale);
+    if (!(s > 0)) s = 1;
+    var fx = Number(originX);
+    var fy = Number(originY);
+    if (!(fx >= 0)) fx = 0;
+    if (!(fy >= 0)) fy = 0;
+    return {
+        x: x + width * (1 - s) * fx,
+        y: y + height * (1 - s) * fy,
+        width: width * s,
+        height: height * s
+    };
+}

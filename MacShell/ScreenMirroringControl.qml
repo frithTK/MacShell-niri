@@ -33,7 +33,10 @@ Scope {
     readonly property bool sending: streams.some(s => s.state === "streaming") || senderState === "streaming"
     readonly property bool connecting: ["starting", "connecting", "pin_required"].indexOf(senderState) >= 0
     readonly property bool receiving: ["starting", "waiting", "streaming"].indexOf(receiverState) >= 0
-    readonly property bool quiet: sending || connecting
+    // Pause window captures while a picture is actually moving. Waiting for a
+    // phone has no video window. Capturing the fullscreen receive window makes
+    // the compositor drop frames.
+    readonly property bool quiet: sending || connecting || receiverState === "streaming"
     readonly property string label: sending ? (streams[0].device || Language.I18n.text("ui.t_12514ad4f7ac"))
                                    : connecting ? (pending ? Language.I18n.text("ui.t_ad56c87ece8f") : Language.I18n.text("ui.t_72021eb70e91"))
                                    : receiverState === "streaming" ? Language.I18n.text("ui.t_fa8162869da5")

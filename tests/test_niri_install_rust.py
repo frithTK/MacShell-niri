@@ -126,6 +126,14 @@ class RustInstallationTests(unittest.TestCase):
                 self.assertTrue(os.access(file_search_binary, os.X_OK))
                 self.assertEqual(subprocess.check_output([str(file_search_binary), '--protocol-version'], text=True).strip(), 'macshell-file-search 1')
                 self.assertEqual(subprocess.check_output(['sh', str(shell / 'file-search.sh'), '--protocol-version'], text=True).strip(), 'macshell-file-search 1')
+                store_binary = shell / 'store-rust'
+                self.assertTrue(os.access(store_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(store_binary), '--protocol-version'], text=True).strip(), 'macshell-store 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'store.sh'), '--protocol-version'], text=True).strip(), 'macshell-store 1')
+                cursor_binary = shell / 'cursor-pointer-rust'
+                self.assertTrue(os.access(cursor_binary, os.X_OK))
+                self.assertEqual(subprocess.check_output([str(cursor_binary), '--protocol-version'], text=True).strip(), 'macshell-cursor-pointer 1')
+                self.assertEqual(subprocess.check_output(['sh', str(shell / 'cursor-pointer.sh'), '--protocol-version'], text=True).strip(), 'macshell-cursor-pointer 1')
                 (shell / 'airdrop_service.py').write_text('raise SystemExit("unexpected Python fallback")\n')
                 airdrop = Client(['sh', str(shell / 'airdrop-service.sh')])
                 try:

@@ -24,14 +24,24 @@ ControlMenu {
         PowerProfilePicker { width: parent.width; controller: root.power }
         Text {
             width: parent.width; wrapMode: Text.Wrap; color: root.secondary; font.family: root.font.family; font.pixelSize: 11
+            visible: text !== ""
             text: root.power.busy ? Language.I18n.text("ui.t_3329a9bb48b9") : !root.power.available ? Language.I18n.text("ui.t_852258313277")
                 : root.power.gameHold ? Language.I18n.text("ui.t_70cbbd8f41bb")
                 : root.power.inhibited ? Language.I18n.text("ui.t_256849ba5491") + root.power.inhibited
                 : root.power.profiles.indexOf("performance") < 0 ? Language.I18n.text("ui.t_d644f27de51f")
-                : root.power.degraded ? Language.I18n.text("ui.t_0b050cf3b99b") + root.power.degraded : Language.I18n.text("ui.t_421d37a23ee9")
+                : root.power.degraded ? Language.I18n.text("ui.t_0b050cf3b99b") + root.power.degraded : ""
         }
         Text { visible: text !== ""; width: parent.width; text: Language.I18n.legacy(root.power.error); wrapMode: Text.Wrap; color: root.warning; font.family: root.font.family; font.pixelSize: 12 }
         Rectangle { width: parent.width; height: 1; color: root.separator }
-        ControlButton { visible: root.showSettings; width: parent.width; text: Language.I18n.text("ui.t_5da8e7bb9e11"); onClicked: root.settingsRequested() }
+        MenuLink {
+            objectName: "batterySettings"
+            visible: root.showSettings
+            width: parent.width
+            text: Language.I18n.text("ui.t_5da8e7bb9e11")
+            foreground: root.foreground
+            hoverColor: root.t ? root.t.hover : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .08)
+            family: root.font.family
+            onClicked: root.settingsRequested()
+        }
     }
 }

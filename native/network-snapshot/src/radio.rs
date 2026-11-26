@@ -18,6 +18,8 @@ pub enum Error {
     OwnerChanged,
     Stale,
     Uncertain,
+    /// The action did not change NetworkManager. The service stays up.
+    Rejected(&'static str),
 }
 
 /// Disconnect the explicitly selected, currently active access point once.

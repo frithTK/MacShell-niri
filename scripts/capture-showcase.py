@@ -94,8 +94,8 @@ def prepare(root, language):
     replace(shell / 'shell.qml', 'ShellRoot {', 'ShellRoot {\n' + (ASSETS / 'scene.qml').read_text())
     replace(shell / 'MacBar.qml', '    id: root\n', '    id: root\n    property var demoUi: null\n    property var demoSpot: null\n')
     replace(shell / 'MacBar.qml', '                id: ui\n', '                id: ui\n                Component.onCompleted: root.demoUi = ui\n')
-    replace(shell / 'MacBar.qml', '                    id: spot\n', '                    id: spot\n                    Component.onCompleted: root.demoSpot = spot\n')
-    replace(shell / 'MacBar.qml', '                function spSetMode(m) {', '                function spInputText(value) { spInput.text = value; }\n                function spSetMode(m) {')
+    replace(shell / 'SpotlightOverlay.qml', '            id: spot\n', '            id: spot\n            Component.onCompleted: bar.demoSpot = spot\n')
+    replace(shell / 'MacBar.qml', '                function spSetMode(m) {', '                function spInputText(value) { spotWin.spInput.text = value; }\n                function spSetMode(m) {')
     replace(shell / 'MacBar.qml', '    SystemClock { id: clock; precision: root.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }',
             '    QtObject { id: clock; property date date: new Date(2026, 9, 25, 9, 41) }')
     replace(shell / 'MacBar.qml', 'readonly property real volume: (sink && sink.audio) ? sink.audio.volume : 0', 'readonly property real volume: .62')

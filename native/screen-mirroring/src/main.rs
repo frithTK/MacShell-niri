@@ -1,4 +1,5 @@
 use macshell_screen_mirroring::drm_dummy;
+use macshell_screen_mirroring::firewall;
 use macshell_screen_mirroring::niri::{self, Caps, CastMatch};
 use macshell_screen_mirroring::{devices_from_response, valid_receiver_name, ReceiverState};
 use serde_json::{json, Value};
@@ -374,6 +375,15 @@ impl Service {
         };
         let name = valid_receiver_name(name)
             .ok_or("Use an AirPlay name of 1–60 UTF-8 bytes without control characters.")?;
+        if let Err(error) = firewall::ensure() {
+            self.receiver_state = ReceiverState {
+                state: "error".into(),
+                error,
+                pin: String::new(),
+                client: String::new(),
+            };
+            return Ok(());
+        }
         let rc = self.folder.join("uxplayrc");
         OpenOptions::new()
             .create(true)
@@ -391,9 +401,9 @@ impl Service {
         };
         cmd.args(["-n", name, "-nh", "-pin", "-key"])
             .arg(config.join("receiver.pem"))
+            .args(["-p", "7100", "-fps"])
+            .arg(self.fps.to_string())
             .args([
-                "-p",
-                "7100",
                 "-d",
                 "1",
                 "-vs",
@@ -727,6 +737,15 @@ fn main() -> io::Result<()> {
     if env::args().nth(1).as_deref() == Some("--drm-dummy") {
         let args: Vec<String> = env::args().skip(2).collect();
         std::process::exit(drm_dummy::cli(&args));
+    }
+    if env::args().nth(1).as_deref() == Some("--airplay-firewall") {
+        std::process::exit(match firewall::apply_system() {
+            Ok(()) => 0,
+            Err(error) => {
+                eprintln!("{error}");
+                1
+            }
+        });
     }
     unsafe {
         libc::umask(0o077);

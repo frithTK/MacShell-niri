@@ -29,55 +29,55 @@ probe = '''
                     onTriggered: {
                         if (step === 0) {
                             ui.openPop("spot", 0);
-                            spInput.text = "a";
+                            spotWin.spInput.text = "a";
                             windowState("a test window");
                             step++; return;
                         }
                         if (step === 1) {
                             if (initialDelay++ < 6) return;
                             if (!movedAway) {
-                                spotlightEvents.mouseMove(spInput, 10, spInput.height / 2, 0, Qt.NoButton, Qt.NoModifier);
+                                spotlightEvents.mouseMove(spotWin.spInput, 10, spotWin.spInput.height / 2, 0, Qt.NoButton, Qt.NoModifier);
                                 movedAway = true; return;
                             }
-                            check(resPanel.items.length >= 3, "search results available");
-                            var row = spotlightRows.itemAt(1);
+                            check(spotWin.resPanel.items.length >= 3, "search results available");
+                            var row = spotWin.spotlightRows.itemAt(1);
                             check(row && row.modelData && row.modelData.run, "second result available");
                             spotlightEvents.mouseMove(row, row.width / 2, row.height / 2, 0, Qt.NoButton, Qt.NoModifier);
                             step++; return;
                         }
                         if (step === 2) {
                             check(ui.spSel === 1, "mouse hover selects second result");
-                            savedRow = spotlightRows.itemAt(1);
+                            savedRow = spotWin.spotlightRows.itemAt(1);
                             expectedTitle = savedRow.modelData.title;
-                            check(resPanel.pointerSelection, "hover switches to immediate selection");
+                            check(spotWin.resPanel.pointerSelection, "hover switches to immediate selection");
                             spotlightEvents.mousePress(savedRow, savedRow.width / 2, savedRow.height / 2, Qt.LeftButton, Qt.NoModifier, 0);
                             windowState("a changed window", true);
-                            check(spotlightRows.itemAt(1) === savedRow, "result survives adding a window");
+                            check(spotWin.spotlightRows.itemAt(1) === savedRow, "result survives adding a window");
                             windowState("a changed window", false);
                             step++; return;
                         }
                         if (step === 3) {
-                            check(spotlightRows.itemAt(1) === savedRow, "result survives window updates during mouse press");
+                            check(spotWin.spotlightRows.itemAt(1) === savedRow, "result survives window updates during mouse press");
                             spotlightEvents.mouseRelease(savedRow, savedRow.width / 2, savedRow.height / 2, Qt.LeftButton, Qt.NoModifier, 0);
                             check(ui.pop === "" && root.spotlightTestRuns === 1 && root.spotlightTestTitle === expectedTitle, "click activates second result");
                             step++; return;
                         }
                         if (step === 4) {
-                            ui.openPop("spot", 0); spInput.text = "a"; step++; return;
+                            ui.openPop("spot", 0); spotWin.spInput.text = "a"; step++; return;
                         }
                         if (step === 5) {
                             var expectedIndex = (Math.min(ui.spSel, ui.spResults.length - 1) + 1) % ui.spResults.length;
-                            ui.spMove(1); check(ui.spSel === expectedIndex && !resPanel.pointerSelection, "keyboard moves selection: index=" + ui.spSel + " pointer=" + resPanel.pointerSelection + " results=" + ui.spResults.length);
+                            ui.spMove(1); check(ui.spSel === expectedIndex && !spotWin.resPanel.pointerSelection, "keyboard moves selection: index=" + ui.spSel + " pointer=" + spotWin.resPanel.pointerSelection + " results=" + ui.spResults.length);
                             expectedTitle = ui.spResults[expectedIndex].title;
                             ui.spEnter(); check(ui.pop === "" && root.spotlightTestRuns === 2 && root.spotlightTestTitle === expectedTitle, "keyboard activates result");
                             step++; return;
                         }
                         if (step === 6) {
-                            ui.openPop("spot", 0); spInput.text = "a"; initialDelay = 0; step++; return;
+                            ui.openPop("spot", 0); spotWin.spInput.text = "a"; initialDelay = 0; step++; return;
                         }
                         if (step === 7) {
                             if (initialDelay++ < 6) return;
-                            var target = spotlightRows.itemAt(1);
+                            var target = spotWin.spotlightRows.itemAt(1);
                             spotlightEvents.mousePress(target, target.width / 2, target.height / 2, Qt.LeftButton, Qt.NoModifier, 0);
                             var changed = ui.spResults.slice();
                             changed[1] = {title: "different result", sub: "", icon: "", glyph: "", run: function() { root.spotlightTestRuns++; }};
@@ -103,7 +103,6 @@ with tempfile.TemporaryDirectory() as directory:
     text = text.replace('    function appRunner(e) { return function () { launchApp(e); }; }',
                         '    property int spotlightTestRuns: 0\n    property string spotlightTestTitle: \"\"\n    function appRunner(e) { return function () { spotlightTestRuns++; spotlightTestTitle = e.name; }; }', 1)
     text = text.replace('                property string pop: ""', probe + '\n                property string pop: ""', 1)
-    text = text.replace('                                model: resultRows\n', '                                id: spotlightRows\n                                model: resultRows\n', 1)
     path.write_text(text)
     env = dict(os.environ, QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_QUICK_CONTROLS_STYLE='Basic',
                XDG_CACHE_HOME=str(temp / 'cache'), XDG_CONFIG_HOME=str(temp / 'config'),

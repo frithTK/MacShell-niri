@@ -1,4 +1,5 @@
 pub mod drm_dummy;
+pub mod firewall;
 pub mod niri;
 
 use serde_json::{json, Value};

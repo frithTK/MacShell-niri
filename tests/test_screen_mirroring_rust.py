@@ -78,6 +78,10 @@ sys.exit(0)
             pkexec.write_text('#!/bin/sh\necho denied >&2; exit 1\n')
             pkexec.chmod(0o755)
         extra.setdefault('MACSHELL_PKEXEC', str(pkexec))
+        if 'MACSHELL_UFW_CONF' not in extra:
+            (folder / 'ufw.conf').write_text('ENABLED=no\n')
+            extra['MACSHELL_UFW_CONF'] = str(folder / 'ufw.conf')
+        extra.setdefault('MACSHELL_FIREWALLD', 'inactive')
         environment = dict(os.environ, PATH=str(folder), XDG_CONFIG_HOME=str(folder / 'config'),
                            XDG_DATA_HOME=str(folder / 'data'), AIRPLAY_TEST_TRACE=str(folder / 'trace'), **extra)
         client = Client.__new__(Client)
@@ -168,3 +172,101 @@ sys.exit(0)
         client.wait(lambda m: m.get('senderState') == 'pin_required')
         self.assertNotIn('HDMI-A-1', json.loads(client.niri_state.read_text())['outputs'])
         self.assertEqual((sysfs / 'card1-HDMI-A-1' / 'status').read_text().strip(), 'disconnected')
+
+    def test_receive_opens_the_current_local_network_before_advertising(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        folder = Path(temporary.name)
+        (folder / 'ufw.conf').write_text('ENABLED=yes\n')
+        (folder / 'user.rules').write_text('')
+        (folder / 'user6.rules').write_text(
+            '### tuple ### allow tcp 7100:7102 ::/0 any fe80::3d:79b1:5b82:3a63 in_wlan0 comment=4d61635368656c6c20416972506c6179206950686f6e65\n'
+            '-A ufw6-user-input -i wlan0 -p tcp -m multiport --dports 7100:7102 -s fe80::3d:79b1:5b82:3a63 -j ACCEPT\n')
+        (folder / 'ip.json').write_text(json.dumps([{
+            'ifname': 'wlan0', 'operstate': 'UP', 'flags': ['UP'],
+            'addr_info': [
+                {'family': 'inet', 'local': '192.168.1.130', 'prefixlen': 24, 'scope': 'global'},
+                {'family': 'inet6', 'local': 'fe80::8a3:1348:3d10:602b', 'prefixlen': 64, 'scope': 'link'},
+            ],
+        }]))
+        pkexec = folder / 'pkexec'
+        pkexec.write_text('#!' + sys.executable + '''
+import pathlib, sys
+folder = pathlib.Path(sys.argv[0]).parent
+(folder / "pkexec.log").write_text("\\n".join(sys.argv))
+comment = "4d61635368656c6c20416972506c6179"
+(folder / "user.rules").write_text(
+    "### tuple ### allow tcp 7100:7102 0.0.0.0/0 any 192.168.1.0/24 in_wlan0 comment=%s\\n"
+    "-A ufw-user-input -i wlan0 -p tcp -m multiport --dports 7100:7102 -s 192.168.1.0/24 -j ACCEPT\\n"
+    "### tuple ### allow udp 7100:7102 0.0.0.0/0 any 192.168.1.0/24 in_wlan0 comment=%s\\n"
+    "-A ufw-user-input -i wlan0 -p udp -m multiport --dports 7100:7102 -s 192.168.1.0/24 -j ACCEPT\\n" % (comment, comment))
+(folder / "user6.rules").write_text(
+    "### tuple ### allow tcp 7100:7102 ::/0 any fe80::/10 in_wlan0 comment=%s\\n"
+    "-A ufw6-user-input -i wlan0 -p tcp -m multiport --dports 7100:7102 -s fe80::/10 -j ACCEPT\\n"
+    "### tuple ### allow udp 7100:7102 ::/0 any fe80::/10 in_wlan0 comment=%s\\n"
+    "-A ufw6-user-input -i wlan0 -p udp -m multiport --dports 7100:7102 -s fe80::/10 -j ACCEPT\\n" % (comment, comment))
+raise SystemExit(0)
+''')
+        pkexec.chmod(0o755)
+        client = self.client(
+            MACSHELL_UFW_CONF=str(folder / 'ufw.conf'),
+            MACSHELL_UFW_USER=str(folder / 'user.rules'),
+            MACSHELL_UFW_USER6=str(folder / 'user6.rules'),
+            MACSHELL_IP_JSON=str(folder / 'ip.json'),
+            MACSHELL_PKEXEC=str(pkexec),
+        )
+        client.send('receive', enabled=True, name='Test MacShell')
+        client.wait(lambda m: m.get('receiverState') == 'waiting')
+        self.assertIn('--airplay-firewall', (folder / 'pkexec.log').read_text())
+        self.assertIn('uxplay', client.trace.read_text())
+
+    def test_receive_reports_the_firewall_when_authorization_is_declined(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        folder = Path(temporary.name)
+        (folder / 'ufw.conf').write_text('ENABLED=yes\n')
+        (folder / 'user.rules').write_text('')
+        (folder / 'user6.rules').write_text('')
+        (folder / 'ip.json').write_text(json.dumps([{
+            'ifname': 'wlan0', 'operstate': 'UP', 'flags': ['UP'],
+            'addr_info': [
+                {'family': 'inet', 'local': '192.168.1.130', 'prefixlen': 24, 'scope': 'global'},
+            ],
+        }]))
+        client = self.client(
+            MACSHELL_UFW_CONF=str(folder / 'ufw.conf'),
+            MACSHELL_UFW_USER=str(folder / 'user.rules'),
+            MACSHELL_UFW_USER6=str(folder / 'user6.rules'),
+            MACSHELL_IP_JSON=str(folder / 'ip.json'),
+        )
+        client.send('receive', enabled=True, name='Test MacShell')
+        state = client.wait(lambda m: m.get('receiverState') == 'error')
+        self.assertIn('local network', state['receiverError'])
+        self.assertFalse(client.trace.exists())
+
+    def test_receive_does_not_prompt_when_the_local_network_is_already_allowed(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        folder = Path(temporary.name)
+        comment = '4d61635368656c6c20416972506c6179'
+        (folder / 'ufw.conf').write_text('ENABLED=yes\n')
+        (folder / 'user.rules').write_text(
+            f'### tuple ### allow tcp 7100:7102 0.0.0.0/0 any 192.168.1.0/24 in_wlan0 comment={comment}\n'
+            '-A ufw-user-input -i wlan0 -p tcp -m multiport --dports 7100:7102 -s 192.168.1.0/24 -j ACCEPT\n'
+            f'### tuple ### allow udp 7100:7102 0.0.0.0/0 any 192.168.1.0/24 in_wlan0 comment={comment}\n'
+            '-A ufw-user-input -i wlan0 -p udp -m multiport --dports 7100:7102 -s 192.168.1.0/24 -j ACCEPT\n')
+        (folder / 'user6.rules').write_text('')
+        (folder / 'ip.json').write_text(json.dumps([{
+            'ifname': 'wlan0', 'operstate': 'UP', 'flags': ['UP'],
+            'addr_info': [
+                {'family': 'inet', 'local': '192.168.1.130', 'prefixlen': 24, 'scope': 'global'},
+            ],
+        }]))
+        client = self.client(
+            MACSHELL_UFW_CONF=str(folder / 'ufw.conf'),
+            MACSHELL_UFW_USER=str(folder / 'user.rules'),
+            MACSHELL_UFW_USER6=str(folder / 'user6.rules'),
+            MACSHELL_IP_JSON=str(folder / 'ip.json'),
+        )
+        client.send('receive', enabled=True, name='Test MacShell')
+        client.wait(lambda m: m.get('receiverState') == 'waiting')

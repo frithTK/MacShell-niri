@@ -212,4 +212,30 @@ TestCase {
         compare(findChild(item, "barLayoutScope").visible, false);
         compare(item.dirty, true); compare(item.entries[0].type, "appleMenu"); compare(backend.saves, 0);
     }
+    function test_scaled_popup_bounds_follow_the_origin() {
+        var right = Layout.scaledPopupBounds(100, 40, 200, 80, 1.25, 1, 0);
+        compare(right.x, 50);
+        compare(right.y, 40);
+        compare(right.width, 250);
+        compare(right.height, 100);
+        var left = Layout.scaledPopupBounds(100, 40, 200, 80, 0.9, 0, 0);
+        compare(left.x, 100);
+        compare(left.width, 180);
+        compare(left.height, 72);
+        var center = Layout.scaledPopupBounds(0, 0, 100, 40, 2, 0.5, 0.5);
+        compare(center.x, -50);
+        compare(center.y, -20);
+        compare(center.width, 200);
+        compare(center.height, 80);
+        var same = Layout.scaledPopupBounds(8, 9, 30, 10, 1, 1, 0);
+        compare(same.x, 8);
+        compare(same.y, 9);
+        compare(same.width, 30);
+        compare(same.height, 10);
+        var fallback = Layout.scaledPopupBounds(1, 2, 10, 10, 0, -1, -1);
+        compare(fallback.x, 1);
+        compare(fallback.y, 2);
+        compare(fallback.width, 10);
+        compare(fallback.height, 10);
+    }
 }

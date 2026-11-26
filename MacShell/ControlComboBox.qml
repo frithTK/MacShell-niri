@@ -6,6 +6,7 @@ import QtQuick.Effects
 ComboBox {
     id: root
     property bool translatedLabels: false
+    property bool plain: false
     property var labelForIndex: null
     implicitHeight: 34
     font.pixelSize: 12
@@ -19,8 +20,10 @@ ComboBox {
         text: "⌃\n⌄"; font.pixelSize: 9; lineHeight: .8; color: root.palette.buttonText
     }
     background: Rectangle {
-        radius: 8; color: root.palette.base; border.width: 1
-        border.color: root.activeFocus ? root.palette.highlight : Qt.rgba(.5, .5, .5, .16)
+        radius: 8
+        color: root.plain ? root.palette.window : root.palette.base
+        border.width: 1
+        border.color: root.activeFocus ? root.palette.highlight : Qt.rgba(.5, .5, .5, .28)
     }
     delegate: ItemDelegate {
         id: row
@@ -28,14 +31,21 @@ ComboBox {
         width: root.popup.availableWidth; height: 32
         highlighted: root.highlightedIndex === index
         contentItem: Item {
-            Text { x: 4; anchors.verticalCenter: parent.verticalCenter; text: "✓"; visible: row.index === root.currentIndex; font.pixelSize: 12; color: row.highlighted ? "white" : root.palette.text }
-            Text { x: 24; width: parent.width - 28; anchors.verticalCenter: parent.verticalCenter; text: root.labelForIndex ? root.labelForIndex(row.index) : (root.translatedLabels ? Language.I18n.legacy(root.textAt(row.index)) : root.textAt(row.index)); font: root.font; elide: Text.ElideRight; color: row.highlighted ? "white" : root.palette.text }
+            Text { x: 4; anchors.verticalCenter: parent.verticalCenter; text: "✓"; visible: row.index === root.currentIndex; font.pixelSize: 12; color: !root.plain && row.highlighted ? "white" : root.palette.text }
+            Text { x: 24; width: parent.width - 28; anchors.verticalCenter: parent.verticalCenter; text: root.labelForIndex ? root.labelForIndex(row.index) : (root.translatedLabels ? Language.I18n.legacy(root.textAt(row.index)) : root.textAt(row.index)); font: root.font; elide: Text.ElideRight; color: !root.plain && row.highlighted ? "white" : root.palette.text }
         }
-        background: Rectangle { radius: 6; color: row.highlighted ? root.palette.highlight : "transparent" }
+        background: Rectangle {
+            radius: 6
+            color: !row.highlighted ? "transparent"
+                   : root.plain ? Qt.rgba(root.palette.text.r, root.palette.text.g, root.palette.text.b, .1)
+                   : root.palette.highlight
+        }
     }
     popup: Popup {
         y: root.height + 5
         width: root.width
+        modal: true
+        Overlay.modal: MouseArea { onPressed: root.popup.close() }
         height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, 260)
         padding: 6
         margins: 8
@@ -44,7 +54,11 @@ ComboBox {
         exit: Transition { NumberAnimation { property: "opacity"; to: 0; duration: 100 } }
         background: Item {
             RectangularShadow { anchors.fill: parent; radius: 11; blur: 20; offset.y: 5; color: Qt.rgba(0, 0, 0, .25) }
-            Rectangle { anchors.fill: parent; radius: 11; color: root.palette.window; border.color: Qt.rgba(.5, .5, .5, .25) }
+            Rectangle {
+                anchors.fill: parent; radius: 11
+                color: root.palette.window
+                border.color: Qt.rgba(.5, .5, .5, .25)
+            }
         }
         contentItem: ListView {
             implicitHeight: contentHeight

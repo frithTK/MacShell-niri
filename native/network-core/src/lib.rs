@@ -1,6 +1,7 @@
 //! Pure NetworkManager Wi-Fi decisions; no D-Bus, secrets or system access.
 
 pub mod activation;
+pub mod links;
 pub mod new_profile;
 pub mod secret_agent;
 

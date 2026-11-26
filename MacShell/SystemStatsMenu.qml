@@ -1,6 +1,5 @@
 import QtQuick
 import "Locale" as Language
-import QtQuick.Controls
 
 ControlMenu {
     id: root
@@ -39,11 +38,14 @@ ControlMenu {
                 }
             }
         }
-        Text { font.family: root.font.family;
-            width: parent.width; wrapMode: Text.Wrap; color: root.foreground; opacity: .6; font.pixelSize: 10
-            text: Language.I18n.text("ui.t_ad4e892e2ac0") + root.controller.gib(controller.sample.memory && controller.sample.memory.swapUsed) + Language.I18n.text("ui.t_f557f485913e") + root.controller.gib(controller.sample.capacity && controller.sample.capacity.free) + Language.I18n.text("ui.t_89b448364d1b") + (controller.sample.diskLabel || "") + Language.I18n.text("ui.t_6e38a9a5d6f4")
+        MenuLink {
+            objectName: "statsSettings"
+            width: parent.width
+            text: Language.I18n.text("ui.t_5a71188bf57d")
+            foreground: root.foreground
+            hoverColor: root.t ? root.t.hover : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .08)
+            family: root.font.family
+            onClicked: root.settingsRequested()
         }
-        Text { font.family: root.font.family; width: parent.width; wrapMode: Text.Wrap; color: root.foreground; opacity: .6; font.pixelSize: 10; text: Object.keys(controller.sample.cores || {}).map(k => k + " " + (controller.sample.cores[k] === null ? "—" : controller.sample.cores[k] + "%")).join("   ") }
-        ControlButton { text: Language.I18n.text("ui.t_5a71188bf57d"); onClicked: root.settingsRequested() }
     }
 }

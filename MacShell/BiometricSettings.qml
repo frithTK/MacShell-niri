@@ -139,8 +139,6 @@ ControlMenu {
     Timer { id: operationTimeout; interval: 145000; onTriggered: { operation.running = false; root.operationCode = "timeout"; root.gotResult = true; } }
     contentItem: Column {
         spacing: 14
-        Text { width: parent.width; text: Language.I18n.text("security.intro"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
-        Text { width: parent.width; text: Language.I18n.text("security.templates_hardware"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { text: Language.I18n.text("security.fingerprint"); color: root.foreground; font.family: root.font.family; font.pixelSize: root.font.pixelSize; font.bold: true }
         Text { width: parent.width; visible: root.status !== "ok"; text: root.message(); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { visible: root.devices.length > 1; text: Language.I18n.text("security.choose_reader"); color: root.foreground; font: root.font }
@@ -198,11 +196,7 @@ ControlMenu {
             checked: root.unlockEnabled
             onClicked: root.unlockToggled(checked)
         }
-        Text { width: parent.width; text: Language.I18n.text("security.unlock_hint"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { objectName: "fingerprintUnlockAddFinger"; width: parent.width; visible: root.unlockEnabled && root.status === "ok" && !root.anyEnrolled; text: Language.I18n.text("security.unlock_add_finger"); color: root.warning; wrapMode: Text.Wrap; font: root.font }
         Text { width: parent.width; text: Language.I18n.text("security.unlock_login"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
-        Rectangle { width: parent.width; height: 1; color: root.separator }
-        Text { text: Language.I18n.text("security.face"); color: root.foreground; font.family: root.font.family; font.pixelSize: root.font.pixelSize; font.bold: true }
-        Text { width: parent.width; text: Language.I18n.text("security.face_pending"); color: root.secondary; wrapMode: Text.Wrap; font: root.font }
     }
 }

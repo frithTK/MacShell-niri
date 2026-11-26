@@ -249,6 +249,7 @@ fn main() {
                         )
                         .map(|()| 0)
                     }
+                    _ => Err(macshell_network_snapshot::radio::Error::Invalid),
                 };
                 close(bus);
                 result

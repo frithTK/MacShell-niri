@@ -63,6 +63,7 @@ set -- systemd-run --user --unit=macshell-niri-lock --collect --service-type=exe
 [ -z "${MACLOCK_NP:-}" ] || set -- "$@" "--setenv=MACLOCK_NP=$MACLOCK_NP"
 [ -z "${MACLOCK_ART:-}" ] || set -- "$@" "--setenv=MACLOCK_ART=$MACLOCK_ART"
 [ -z "${QT_QUICK_CONTROLS_STYLE:-}" ] || set -- "$@" "--setenv=QT_QUICK_CONTROLS_STYLE=$QT_QUICK_CONTROLS_STYLE"
+[ -z "${QS_ICON_THEME:-}" ] || set -- "$@" "--setenv=QS_ICON_THEME=$QS_ICON_THEME"
 if ! "$@" "$qs_binary" -c MacLock-niri >/dev/null 2>&1; then
     printf '%s\n' 'Could not start the independent MacLock service.' >&2
     exit 1

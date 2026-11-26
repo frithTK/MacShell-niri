@@ -106,7 +106,6 @@ ControlMenu {
         }
         Column {
             width: parent.width; spacing: 12; visible: root.adding
-            Text { width: parent.width; text: Language.I18n.text("ui.t_973de64f8677"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
             Column {
                 width: parent.width; spacing: 6; visible: root.displayChoices.length > 1
                 Text { text: Language.I18n.text("ui.t_06b607b65ce9"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12 }
@@ -171,12 +170,11 @@ ControlMenu {
                 Item { width: Math.max(0, parent.width - styleChoice.width - addButton.width - 16); height: 1 }
                 ControlButton { id: addButton; objectName: "widgetAdd"; text: Language.I18n.text("ui.t_ac18a779157d"); primary: true; enabled: root.canAdd; onClicked: root.add() }
             }
-            Text { width: parent.width; text: root.status || (root.definition ? Language.I18n.legacy(root.definition.description) + " · " + root.placedCount + Language.I18n.text("ui.t_9bb3fa87357c") : Language.I18n.text("ui.t_7ca8cf3a37ce")); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
+            Text { width: parent.width; visible: text !== ""; text: root.status || (root.definition ? root.placedCount + Language.I18n.text("ui.t_9bb3fa87357c") : Language.I18n.text("ui.t_7ca8cf3a37ce")); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         ControlButton { objectName: "widgetsAdvanced"; text: (root.advanced ? "▾" : "▸") + Language.I18n.text("ui.t_f4077f9a9cff"); onClicked: root.advanced = !root.advanced }
         Column {
             width: parent.width; spacing: 12; visible: root.advanced
-            Text { width: parent.width; text: Language.I18n.legacy(Catalog.find("weather").shared); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
             Column {
                 width: parent.width; spacing: 8
                 Text { text: Language.I18n.text("ui.t_b7dcbd263b22"); color: root.foreground; font.family: root.font.family; font.pixelSize: 12; font.weight: Font.DemiBold }

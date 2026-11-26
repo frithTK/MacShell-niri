@@ -63,20 +63,26 @@ ControlMenu {
                 }
                 ControlButton { objectName: "mirroringSubmit"; width: parent.width; primary: true; text: Language.I18n.text("ui.t_1a2303ede074"); enabled: credential.text.length > 0; onClicked: { root.controller.submitCredential(credential.text); credential.clear(); } }
             }
-            ControlButton {
+            MenuLink {
                 objectName: "mirroringDisconnect"; width: parent.width
                 visible: root.controller.streams.length > 0 || root.controller.connecting
                 text: root.controller.sending ? Language.I18n.text("ui.t_fb48910cfa4e") : Language.I18n.text("ui.t_bb8fd6f44c3a")
+                foreground: root.foreground
+                hoverColor: root.t ? root.t.hover : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .08)
+                family: root.font.family
                 onClicked: root.controller.disconnect()
             }
             Column {
                 width: parent.width; spacing: 6; visible: !root.controller.sending && !root.controller.connecting
                 Repeater {
                     model: root.controller.devices
-                    delegate: ControlButton {
+                    delegate: MenuLink {
                         required property var modelData
                         objectName: "mirroringDevice"; width: parent.width
                         text: modelData.name; enabled: root.controller.senderAvailable
+                        foreground: root.foreground
+                        hoverColor: root.t ? root.t.hover : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .08)
+                        family: root.font.family
                         onClicked: root.controller.connectDevice(modelData.key)
                     }
                 }
@@ -85,7 +91,15 @@ ControlMenu {
                     visible: root.controller.senderAvailable && root.controller.devices.length === 0
                     text: root.controller.scanning ? Language.I18n.text("ui.t_9f139dc2f04f") : Language.I18n.text("ui.t_202a7f24409a")
                 }
-                ControlButton { objectName: "mirroringRefresh"; width: parent.width; text: root.controller.scanning ? Language.I18n.text("ui.t_c31723ab3302") : Language.I18n.text("ui.t_fcd1aacad876"); enabled: root.controller.senderAvailable && !root.controller.scanning; onClicked: root.controller.refresh() }
+                MenuLink {
+                    objectName: "mirroringRefresh"; width: parent.width
+                    text: root.controller.scanning ? Language.I18n.text("ui.t_c31723ab3302") : Language.I18n.text("ui.t_fcd1aacad876")
+                    enabled: root.controller.senderAvailable && !root.controller.scanning
+                    foreground: root.foreground
+                    hoverColor: root.t ? root.t.hover : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, .08)
+                    family: root.font.family
+                    onClicked: root.controller.refresh()
+                }
             }
             Text { width: parent.width; visible: text !== ""; text: root.controller.senderError; wrapMode: Text.Wrap; color: root.warning; font.pixelSize: 12 }
         }
@@ -93,11 +107,12 @@ ControlMenu {
             width: parent.width; spacing: 12; visible: root.receiveTab
             Text {
                 width: parent.width; wrapMode: Text.Wrap; color: root.secondary; font: root.font
+                visible: text !== ""
                 text: !root.controller.receiverAvailable ? Language.I18n.text("ui.t_cdf4571e6d13")
                       : root.controller.receiverState === "streaming" ? Language.I18n.text("ui.t_d477abe25c0a") + (root.controller.receiverClient || Language.I18n.text("ui.t_5d9bbb593f62")) + Language.I18n.text("ui.t_fd1c62751508")
                       : root.controller.receiverState === "starting" ? Language.I18n.text("ui.t_e0d0d9e1b42b")
                       : root.controller.receiving ? Language.I18n.text("ui.t_f04bcc4da7b1") + root.controller.advertisedName + "”."
-                      : Language.I18n.text("ui.t_71b7de415df3")
+                      : ""
             }
             ControlTextField {
                 objectName: "mirroringReceiverName"; width: parent.width; maximumLength: 40
@@ -126,7 +141,6 @@ ControlMenu {
                 onClicked: root.controller.setReceiver(!root.controller.receiving)
             }
             Text { width: parent.width; visible: text !== ""; text: root.controller.receiverError; wrapMode: Text.Wrap; color: root.warning; font.pixelSize: 12 }
-            Text { width: parent.width; wrapMode: Text.Wrap; color: root.secondary; font.pixelSize: 11; text: Language.I18n.text("ui.t_e8a26c30952b") }
         }
         Text { width: parent.width; visible: text !== ""; text: Language.I18n.legacy(root.controller.error); wrapMode: Text.Wrap; color: root.warning; font.pixelSize: 12 }
     }

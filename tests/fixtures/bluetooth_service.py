@@ -14,7 +14,9 @@ for line in sys.stdin:
         print(json.dumps({'type': 'result', 'id': request['id'], 'generation': request['generation'], 'error': 'Test connection failure'}), flush=True)
     elif action == 'power':
         state['enabled'] = False
-        print(json.dumps({'type': 'result', 'id': request['id'], 'generation': request['generation'], 'ok': attempts == 1, 'error': '' if attempts == 1 else 'Duplicate connection'}), flush=True)
+        print(json.dumps({'type': 'result', 'id': request['id'], 'generation': request['generation'], 'ok': attempts == 1, 'error': 'Bluetooth restarted or disappeared.' if attempts == 1 else 'Duplicate connection'}), flush=True)
+        if attempts == 1:
+            print(json.dumps({'type': 'unavailable', 'generation': request['generation'], 'error': 'Bluetooth connection restarted; retrying…'}), flush=True)
     elif action == 'refresh' and not state['enabled'] and not fault_emitted:
         fault_emitted = True
         print(json.dumps({'type': 'error', 'generation': request['generation'], 'error': 'Test snapshot failure'}), flush=True)

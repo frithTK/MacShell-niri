@@ -46,7 +46,6 @@ ControlMenu {
     }
     contentItem: Column {
         spacing: 14
-        Text { width: parent.width; text: Language.I18n.text("language.scope"); textFormat: Text.PlainText; color: root.secondary; wrapMode: Text.Wrap; font: root.font }
         Text { text: Language.I18n.text("language.system_language"); color: root.foreground; font: root.font }
         ControlComboBox {
             objectName: "systemLanguage"; width: parent.width; textRole: "label"

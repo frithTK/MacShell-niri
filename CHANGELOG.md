@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Sharing the Wi-Fi network the computer is already using reaches NetworkManager. The radio check was given a longer timeout than it accepts, so the failure was reported as a rejected change before the access point existed.
+- Spinning the pointer quickly in a circle grows it for a moment, so it can be found on a large screen. The enlarged pointer is the current cursor theme and does not take clicks.
+- App Store searches repository, Flatpak and AUR packages through Shelly and can install, update or remove the ones that do not need a build. Installing a repository package updates the system in the same transaction. AUR packages are listed and are not built from this window. The Dock menu for an already installed app is unchanged.
+- Tray menus and the lock screen use the desktop icon theme instead of Qt's fallback `hicolor`. A name the theme does not have is left blank instead of the magenta checkerboard, and a symbolic menu icon is drawn in the menu text color. A lock-screen notice with no icon shows the app's initial.
+- The VPN switch turns the last used saved profile on and off. It sits in Control Center beside Wi-Fi and at the top of Settings → Network, where the saved profiles are listed. A profile that has never connected is not chosen by the switch. Another program's tunnel stays untouched.
+- Settings search matches each word and finds a setting inside a page, not only the page title. “Точка доступа”, “прокси” and “hotspot” open Network; a matched section scrolls into view.
+- The hotspot keeps the Wi-Fi network the computer is already using and shares it from a second interface on that same channel. DFS channels are refused, and a 5 GHz access point is not visible to 2.4 GHz-only devices. Adding and removing the interface asks for the administrator password. With no Wi-Fi connection, the access point still takes the radio as before.
+- Opening Notification Center keeps windows where they are, and the menu bar stays on the app that was focused.
+- Turning Bluetooth off no longer leaves “connection restarted; retrying” in the panel. That line is the helper reconnecting after the adapter powers down, and the switch stays on the real off state.
+- Notification Center stacks notices from the same app. One notice stays a card; several show the newest and a count, and a click opens that app's notices. Banners stay separate.
+- Control Center, the other menu-bar panels and a Dock menu close when you click outside them. A dropdown closes the same way.
+- Activity no longer prints the unit legend, swap line or per-core list under the graphs. Dropdowns in Control Center keep a solid panel, so the choice stays readable on the glass.
+- Standing explanations are gone from Control Center and Settings. A line stays when it is the live value, a failure, or a limit the control does not show: a blocked power profile, AirPlay waiting and its PIN, recording progress, the 60-second graph scale, Night Shift temperature, time left in Focus, and the note that login after a restart still needs the password.
+- AirPlay receive asks the phone for 60 fps, the same ceiling as sending. UxPlay's own default is 30. While the incoming picture is on screen, window captures for glass pause, as they already do while sending. Waiting for a phone does not pause them.
+- AirPlay receive opens TCP and UDP 7100–7102 for the current local network when UFW or firewalld is enabled. The prompt is the same administrator password as the HDMI dummy. A rule is the interface's own IPv4 prefix plus IPv6 link-local `fe80::/10`, not one phone address, and it is not opened to the internet. The same network does not ask again; a later network replaces rules tagged `MacShell AirPlay`.
+
 ## 1.2.6
 
 - MacLock unlocks with any enrolled fingerprint through fprintd, in parallel with the password field. The field reads “Fingerprint or password”; an unrecognized finger shakes it without clearing typed characters. After 5 unrecognized scans only the password unlocks that lock. A busy or disconnected reader (for example after sleep) is retried with backoff. System PAM files are not changed; login after a restart still uses the password. Settings → Security & Unlock has a switch for it and no longer calls fingerprint unlock “in development”.

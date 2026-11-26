@@ -150,6 +150,7 @@ class ScreenMirroringTests(unittest.TestCase):
         start = next(line for line in self.trace(client) if line.get('program') == 'uxplay')
         self.assertIn('-pin', start['arguments'])
         self.assertEqual(start['arguments'][start['arguments'].index('-p') + 1], '7100')
+        self.assertEqual(start['arguments'][start['arguments'].index('-fps') + 1], '60')
         self.assertIn('Test MacShell', start['arguments'])
         with self.assertRaises(ProcessLookupError):
             os.kill(start['pid'], 0)

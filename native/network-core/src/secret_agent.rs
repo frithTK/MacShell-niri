@@ -38,6 +38,9 @@ struct Operation {
     ticket: Ticket,
     uuid: String,
     profile: Option<String>,
+    /// `802-11-wireless-security` or `vpn`. A request for the other setting
+    /// is refused so a Wi-Fi join cannot answer a VPN prompt, or the reverse.
+    setting: &'static str,
     provided: bool,
     prompt: Option<(u64, String)>,
 }
@@ -101,6 +104,28 @@ impl SecretAgent {
         profile: Option<&str>,
         provided: bool,
     ) -> Result<Ticket, &'static str> {
+        self.begin_setting(request, uuid, profile, provided, "802-11-wireless-security")
+    }
+
+    /// Arm a prompt only for a VPN connection the user just asked to start.
+    /// Autoconnect is not armed, so those requests still get `NoSecrets`.
+    pub fn begin_vpn(
+        &mut self,
+        request: u64,
+        uuid: &str,
+        profile: Option<&str>,
+    ) -> Result<Ticket, &'static str> {
+        self.begin_setting(request, uuid, profile, false, "vpn")
+    }
+
+    fn begin_setting(
+        &mut self,
+        request: u64,
+        uuid: &str,
+        profile: Option<&str>,
+        provided: bool,
+        setting: &'static str,
+    ) -> Result<Ticket, &'static str> {
         if self.owner.is_none() || !self.registered {
             return Err("Wi-Fi password agent is unavailable");
         }
@@ -127,6 +152,7 @@ impl SecretAgent {
             ticket,
             uuid: uuid.into(),
             profile: profile.map(str::to_owned),
+            setting,
             provided,
             prompt: None,
         });
@@ -154,7 +180,7 @@ impl SecretAgent {
                 .profile
                 .as_deref()
                 .is_some_and(|expected| expected != profile)
-            || setting != "802-11-wireless-security"
+            || setting != op.setting
             || flags & 0x8000_0000 != 0
             || op.prompt.is_some()
         {
@@ -201,14 +227,11 @@ impl SecretAgent {
 
     /// NetworkManager can cancel only the pending request it identifies.
     pub fn cancel_get(&mut self, sender: &str, profile: &str, setting: &str) -> Option<u64> {
-        if self.owner.as_deref() != Some(sender)
-            || !self.registered
-            || setting != "802-11-wireless-security"
-        {
+        if self.owner.as_deref() != Some(sender) || !self.registered {
             return None;
         }
         let op = self.operation.as_mut()?;
-        if !op.prompt.as_ref().is_some_and(|(_, path)| path == profile) {
+        if setting != op.setting || !op.prompt.as_ref().is_some_and(|(_, path)| path == profile) {
             return None;
         }
         op.prompt = None;
@@ -439,5 +462,34 @@ mod tests {
             }
         ));
         assert!(a.finish(next).unwrap().cancel_prompt);
+    }
+
+    #[test]
+    fn vpn_prompt_does_not_answer_wifi_and_wifi_does_not_answer_vpn() {
+        let mut wifi = ready();
+        let wifi_ticket = wifi.begin(3, "wifi-uuid", Some(PROFILE), false).unwrap();
+        assert_eq!(
+            wifi.get_secrets(":1.7", "wifi-uuid", PROFILE, "vpn", 1),
+            Request::NoSecrets
+        );
+        assert!(wifi.finish(wifi_ticket).is_some());
+
+        let mut vpn = ready();
+        let vpn_ticket = vpn.begin_vpn(9, "vpn-uuid", Some(PROFILE)).unwrap();
+        assert_eq!(
+            vpn.get_secrets(":1.7", "vpn-uuid", PROFILE, "802-11-wireless-security", 1),
+            Request::NoSecrets
+        );
+        assert!(matches!(
+            vpn.get_secrets(":1.7", "vpn-uuid", PROFILE, "vpn", 1),
+            Request::Prompt { request: 9, .. }
+        ));
+        assert_eq!(
+            vpn.cancel_get(":1.7", PROFILE, "802-11-wireless-security"),
+            None
+        );
+        assert_eq!(vpn.cancel_get(":1.7", PROFILE, "vpn"), Some(9));
+        assert!(vpn.finish(vpn_ticket).is_some());
+        assert!(vpn.begin(1, "other", None, false).is_ok());
     }
 }

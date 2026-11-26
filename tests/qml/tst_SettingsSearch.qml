@@ -34,6 +34,41 @@ TestCase {
         compare(ids(SettingsSearch.match(panes, "блютуз")), ["bluetooth"])
     }
 
+    function test_each_word_matches_a_split_phrase() {
+        var split = [{ id: "network", name: "Сеть", searchName: "Network", keys: "hotspot точка wifi доступа" }]
+        compare(ids(SettingsSearch.match(split, "точка доступа")), ["network"])
+        compare(SettingsSearch.match(split, "точка нет").length, 0)
+        compare(SettingsSearch.match(split, "т").length, 0)
+    }
+
+    function test_control_search_uses_the_setting_name() {
+        var pages = [
+            { id: "network", name: "Сеть", searchName: "Network", keys: "ethernet vpn" },
+            { id: "wifi", name: "Wi-Fi", searchName: "Wi-Fi", keys: "wireless" }
+        ]
+        function tr(key) {
+            if (key === "network.hotspot") return "Точка доступа"
+            if (key === "network.proxy") return "Прокси"
+            if (key === "network.vpn") return "VPN"
+            return key
+        }
+        function en(key) {
+            if (key === "network.hotspot") return "Hotspot"
+            if (key === "network.proxy") return "Proxy"
+            if (key === "network.vpn") return "VPN"
+            return key
+        }
+        var hits = SettingsSearch.matchControls(pages, "точка доступа", tr, en)
+        compare(hits.length > 0, true)
+        compare(hits[0].pane, "network")
+        compare(hits[0].anchor, "hotspot")
+        compare(hits[0].label, "Точка доступа")
+        compare(hits[0].paneName, "Сеть")
+        compare(SettingsSearch.matchControls(pages, "прокси", tr, en)[0].anchor, "proxy")
+        compare(SettingsSearch.matchControls(pages, "hotspot", tr, en)[0].anchor, "hotspot")
+        compare(SettingsSearch.matchControls(pages, "т", tr, en).length, 0)
+    }
+
     function test_exact_id_ranks_above_keyword_hits() {
         var crowded = panes.concat([{ id: "network", name: "Network", searchName: "Network", keys: "wifi ethernet" }])
         compare(ids(SettingsSearch.match(crowded, "wifi")), ["wifi", "network"])

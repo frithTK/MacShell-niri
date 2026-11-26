@@ -39,6 +39,8 @@ pub enum Event {
         delivery: u64,
         provided: bool,
         discard_provided: bool,
+        /// True when the armed operation is a VPN the user just started.
+        vpn: bool,
     },
     Canceled {
         request: u64,
@@ -55,6 +57,7 @@ struct Pending {
     ticket: Ticket,
     delivery: u64,
     profile: String,
+    setting: String,
     prompt: Option<u64>,
 }
 struct Inner {
@@ -170,6 +173,16 @@ impl Agent {
         self.inner.ticket = Some(ticket);
         Ok(ticket)
     }
+    pub fn begin_vpn(
+        &mut self,
+        request: u64,
+        uuid: &str,
+        profile: Option<&str>,
+    ) -> Result<Ticket, &'static str> {
+        let ticket = self.inner.core.begin_vpn(request, uuid, profile)?;
+        self.inner.ticket = Some(ticket);
+        Ok(ticket)
+    }
     /// Answer only the exact ticket/delivery. The caller remains responsible
     /// for promptly erasing its password and any copies it created.
     pub fn reply(
@@ -197,7 +210,7 @@ impl Agent {
         let secret = CString::new(password.as_bytes()).map_err(|_| "Invalid secret")?;
         let pending = self.inner.pending.take().ok_or("Missing secret request")?;
         unsafe {
-            return_secret(pending.invocation, &secret);
+            return_secret(pending.invocation, &secret, &pending.setting);
         }
         // Remove our transient C copy; the caller and Gio own separate copies.
         let mut bytes = secret.into_bytes_with_nul();
@@ -242,12 +255,25 @@ impl Drop for Agent {
     }
 }
 
-unsafe fn return_secret(invocation: Ptr, secret: &CString) {
+unsafe fn return_secret(invocation: Ptr, secret: &CString, setting: &str) {
     let value = gio::g_variant_new_string(secret.as_ptr());
-    let entry =
-        gio::g_variant_new_dict_entry(gio::string("psk"), gio::g_variant_new_variant(value));
-    let inner = gio::g_variant_new_array(ptr::null_mut(), [entry].as_ptr(), 1);
-    let outer_entry = gio::g_variant_new_dict_entry(gio::string(SETTING), inner);
+    let (section, entry) = if setting == "vpn" {
+        let password =
+            gio::g_variant_new_dict_entry(gio::string("password"), gio::g_variant_new_variant(value));
+        let secrets = gio::g_variant_new_array(ptr::null_mut(), [password].as_ptr(), 1);
+        let nested = gio::g_variant_new_dict_entry(
+            gio::string("secrets"),
+            gio::g_variant_new_variant(secrets),
+        );
+        let inner = gio::g_variant_new_array(ptr::null_mut(), [nested].as_ptr(), 1);
+        ("vpn", inner)
+    } else {
+        let entry =
+            gio::g_variant_new_dict_entry(gio::string("psk"), gio::g_variant_new_variant(value));
+        let inner = gio::g_variant_new_array(ptr::null_mut(), [entry].as_ptr(), 1);
+        (SETTING, inner)
+    };
+    let outer_entry = gio::g_variant_new_dict_entry(gio::string(section), entry);
     let outer = gio::g_variant_new_array(ptr::null_mut(), [outer_entry].as_ptr(), 1);
     gio::g_dbus_method_invocation_return_value(invocation, gio::tuple(&[outer]));
 }
@@ -342,6 +368,7 @@ extern "C" fn method_call(
                     ticket,
                     delivery,
                     profile: profile.clone(),
+                    setting: setting.clone(),
                     prompt,
                 });
                 if !inner.emit(Event::NeedSecret {
@@ -349,6 +376,7 @@ extern "C" fn method_call(
                     delivery,
                     provided,
                     discard_provided: discard,
+                    vpn: setting == "vpn",
                 }) {
                     if prompt.is_some() {
                         inner.core.cancel_get(&sender, &profile, &setting);
@@ -363,7 +391,7 @@ extern "C" fn method_call(
                     let matches = inner
                         .pending
                         .as_ref()
-                        .is_some_and(|p| p.profile == path && setting == SETTING);
+                        .is_some_and(|p| p.profile == path && p.setting == setting);
                     if matches {
                         inner.core.cancel_get(&sender, &path, &setting);
                         if let Some(pending) = inner.reject_pending(AGENT_CANCELED) {

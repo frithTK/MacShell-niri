@@ -19,6 +19,7 @@ Scope {
     property bool stateReady: false
     property string statusError: ""
     property string error: ""
+    property bool serviceRestart: false
     property string busyPath: ""
     property string busyAction: ""
     property bool busy: false
@@ -34,6 +35,10 @@ Scope {
         busy = true; busyAction = kind; busyPath = data.path || "";
     }
     function togglePower() { run("power", {enabled: !enabled}); }
+    function reconnectNotice(text) {
+        return text === "Bluetooth connection restarted; retrying…"
+            || text === "Bluetooth restarted or disappeared.";
+    }
     function discover() { error = ""; service.send(discovering ? "stopDiscovery" : "discover"); }
     function watchBatteries(on) {
         var next = Math.max(0, batteryWatchers + (on ? 1 : -1));
@@ -66,20 +71,38 @@ Scope {
     JsonService {
         id: service; script: "bluetooth_service.py"; launcher: "bluetooth-service.sh"; enabled: root.active
         onConnected: { root.refresh(); if (root.batteryWatchers > 0) service.send("watchBatteries"); }
-        onReadyChanged: if (!ready) { root.stateReady = false; root.busy = false; root.request = -1; root.prompt = null; root.statusError = error; }
+        onReadyChanged: if (!ready) { root.stateReady = false; root.busy = false; root.request = -1; root.prompt = null; if (!root.serviceRestart) root.statusError = error; }
         onReceived: m => {
             if (m.type === "state") {
+                root.serviceRestart = false; restartWatch.stop();
                 root.stateReady = true;
-                root.loading = false; root.statusError = ""; root.available = !!m.available; root.enabled = !!m.enabled;
+                root.loading = false; root.statusError = "";
+                if (root.reconnectNotice(root.error)) root.error = "";
+                root.available = !!m.available; root.enabled = !!m.enabled;
                 root.adapters = m.adapters || []; root.connected = m.connected || 0; root.discovering = !!m.discovering; root.pairingAvailable = !!m.pairingAvailable;
                 if (JSON.stringify(root.devices) !== JSON.stringify(m.devices)) root.devices = m.devices || [];
                 var nextOthers = root.discovering ? (m.others || []) : [];
                 if (JSON.stringify(root.others) !== JSON.stringify(nextOthers)) root.others = nextOthers;
             } else if (m.type === "result" && m.id === root.request) {
-                root.busy = false; root.busyPath = ""; root.busyAction = ""; root.request = -1; root.error = m.error || "";
+                var notice = root.reconnectNotice(m.error);
+                root.busy = false; root.busyPath = ""; root.busyAction = ""; root.request = -1; root.error = notice ? "" : (m.error || "");
             } else if (m.type === "prompt") { root.prompt = m.prompt; if (root.prompt) root.promptRequested(); }
             else if (m.type === "error") { if (m.id === undefined) root.stateReady = false; root.error = m.error || Language.I18n.text("ui.t_e23e473ce43c"); if (m.id === root.request) { root.busy = false; root.busyPath = ""; root.request = -1; } }
-            else if (m.type === "unavailable") { root.stateReady = false; root.loading = false; root.available = false; root.enabled = false; root.devices = []; root.others = []; root.error = m.error; }
+            else if (m.type === "unavailable") {
+                root.loading = false; root.busy = false; root.request = -1; root.stateReady = false;
+                if (root.serviceRestart || root.reconnectNotice(m.error)) { root.serviceRestart = true; root.error = ""; restartWatch.restart(); }
+                else { root.serviceRestart = false; restartWatch.stop(); root.available = false; root.enabled = false; root.devices = []; root.others = []; root.error = m.error || ""; }
+            }
+        }
+    }
+    Timer {
+        id: restartWatch
+        interval: 4000
+        onTriggered: {
+            if (!root.serviceRestart) return;
+            root.serviceRestart = false;
+            root.available = false; root.enabled = false; root.devices = []; root.others = [];
+            root.error = "The Bluetooth service is unavailable.";
         }
     }
 }

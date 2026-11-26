@@ -168,7 +168,6 @@ ControlMenu {
             ControlButton { id: cancelButton; objectName: "barCancel"; text: Language.I18n.text("common.cancel"); enabled: !root.controller.pending && root.dirty; onClicked: root.rebase() }
             ControlButton { id: applyButton; objectName: "barApply"; text: root.controller.pending ? Language.I18n.text("ui.t_3329a9bb48b9") : Language.I18n.text("common.apply"); primary: true; enabled: root.editable && !root.conflict && (root.dirty || root.controller.needsRepair || root.controller.migrationPending); onClicked: root.controller.save(root.draft, root.baseToken) }
         }
-        Text { width: parent.width; text: Language.I18n.text("ui.t_869cea78dbda"); color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         Text {
             width: parent.width; visible: root.scope !== "common"
             text: root.selected.label + (root.inherited ? Language.I18n.text("ui.t_815b400d4059") : Language.I18n.text("ui.t_748fd19abe84"))

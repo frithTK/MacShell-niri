@@ -36,12 +36,72 @@ pub enum Event {
     CloseConnection,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum RadioAction {
     Scan,
     Power(bool),
-    Disconnect { device: String, ap: String },
-    CancelActivation { path: String },
+    Disconnect {
+        device: String,
+        ap: String,
+    },
+    CancelActivation {
+        path: String,
+    },
+    LinkUp {
+        path: String,
+        uuid: String,
+    },
+    LinkDown {
+        path: String,
+        uuid: String,
+    },
+    Proxy {
+        uuid: String,
+        method: String,
+        pac: String,
+        http: String,
+        https: String,
+        socks: String,
+        bypass: String,
+    },
+    HotspotStart {
+        ssid: String,
+        password: String,
+        restore: String,
+    },
+    HotspotStop {
+        restore: bool,
+    },
+    Import {
+        path: String,
+    },
+    Delete {
+        path: String,
+        uuid: String,
+    },
+    /// `up` is `(path, uuid)`. `down` entries are the same pair, disconnected first.
+    VpnSet {
+        up: Option<(String, String)>,
+        down: Vec<(String, String)>,
+    },
+}
+impl std::fmt::Debug for RadioAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RadioAction::Scan => "Scan",
+            RadioAction::Power(_) => "Power",
+            RadioAction::Disconnect { .. } => "Disconnect",
+            RadioAction::CancelActivation { .. } => "CancelActivation",
+            RadioAction::LinkUp { .. } => "LinkUp",
+            RadioAction::LinkDown { .. } => "LinkDown",
+            RadioAction::Proxy { .. } => "Proxy",
+            RadioAction::HotspotStart { .. } => "HotspotStart",
+            RadioAction::HotspotStop { .. } => "HotspotStop",
+            RadioAction::Import { .. } => "Import",
+            RadioAction::Delete { .. } => "Delete",
+            RadioAction::VpnSet { .. } => "VpnSet",
+        })
+    }
 }
 
 pub struct SecretIdentity<'a> {
@@ -75,6 +135,7 @@ pub struct Session<J: Send + 'static> {
     inspector: ActionWorker<String, Result<ActiveState, StartError>>,
     radio: ActionWorker<RadioAction, Result<usize, RadioError>>,
     radio_pending: bool,
+    vpn_hold: Option<(u64, SecretTicket)>,
     canceling: Option<(Ticket, String)>,
     inspecting: Option<(WorkerTicket, Inspection)>,
     next_inspection: Option<Inspection>,
@@ -110,6 +171,7 @@ impl<J: Send + 'static> Session<J> {
             inspector: ActionWorker::new(inspector),
             radio: ActionWorker::new(radio),
             radio_pending: false,
+            vpn_hold: None,
             canceling: None,
             inspecting: None,
             next_inspection: None,
@@ -177,6 +239,55 @@ impl<J: Send + 'static> Session<J> {
                 Err(error)
             }
         }
+    }
+
+    /// Arm the secret agent for a VPN the user just chose. The following radio
+    /// action may block inside NetworkManager until the prompt is answered.
+    pub fn begin_vpn(
+        &mut self,
+        request: u64,
+        uuid: &str,
+        profile: Option<&str>,
+    ) -> Result<(), &'static str> {
+        if self.closing || !self.owner || !self.registered {
+            return Err("NetworkManager or its password agent is unavailable");
+        }
+        if self.vpn_hold.is_some()
+            || self.secret.is_some()
+            || self.radio_pending
+            || self.deadline.is_some()
+        {
+            return Err("Wi-Fi operation already in progress");
+        }
+        let ticket = self
+            .host
+            .with_agent(|agent| agent.begin_vpn(request, uuid, profile))?;
+        self.vpn_hold = Some((request, ticket));
+        Ok(())
+    }
+
+    pub fn finish_vpn(&mut self, canceled: bool) {
+        if let Some((_, ticket)) = self.vpn_hold.take() {
+            self.host.with_agent(|agent| agent.finish(ticket, canceled));
+        }
+    }
+
+    pub fn reply_vpn(
+        &self,
+        request: u64,
+        delivery: u64,
+        password: &str,
+    ) -> Result<bool, &'static str> {
+        match self.vpn_hold.filter(|(id, _)| *id == request) {
+            Some((_, ticket)) if !self.closing => self
+                .host
+                .with_agent(|agent| agent.reply(ticket, delivery, password)),
+            _ => Ok(false),
+        }
+    }
+
+    pub fn vpn_request(&self) -> Option<u64> {
+        self.vpn_hold.map(|(request, _)| request)
     }
 
     pub fn radio(&mut self, request: u64, action: RadioAction) -> Result<(), &'static str> {
@@ -293,6 +404,7 @@ impl<J: Send + 'static> Session<J> {
                 HostEvent::Owner { unique, .. } => {
                     self.owner = unique.is_some();
                     self.registered = false;
+                    self.vpn_hold = None;
                     let snapshot = self.snapshot.owner_changed(unique.as_deref());
                     self.snapshot_busy = false;
                     self.snapshot_dirty = false;

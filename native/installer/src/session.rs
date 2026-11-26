@@ -67,6 +67,22 @@ pub fn launchers(
             .unwrap_or(Path::new("."));
         script.push_str(&format!("export PATH={}:\"$PATH\"\n", quote(parent)?));
         script.push_str("export QT_QUICK_CONTROLS_STYLE=\"${QT_QUICK_CONTROLS_STYLE:-Basic}\"\n");
+        // Qt on Wayland stays on hicolor unless told otherwise, and then draws a
+        // magenta checkerboard for icons that exist only in the desktop theme.
+        script.push_str(
+            r#"if [[ -z ${QS_ICON_THEME:-} ]]; then
+  _qs_icon_theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null || true)
+  _qs_icon_theme=${_qs_icon_theme#\'}
+  _qs_icon_theme=${_qs_icon_theme%\'}
+  if [[ -n ${_qs_icon_theme} && -d /usr/share/icons/${_qs_icon_theme} ]]; then
+    export QS_ICON_THEME=${_qs_icon_theme}
+  elif [[ -n ${_qs_icon_theme} && -d ${HOME}/.local/share/icons/${_qs_icon_theme} ]]; then
+    export QS_ICON_THEME=${_qs_icon_theme}
+  fi
+  unset _qs_icon_theme
+fi
+"#,
+        );
         if is_lock {
             script.push_str(&format!(
                 "exec sh {} \"$@\"\n",

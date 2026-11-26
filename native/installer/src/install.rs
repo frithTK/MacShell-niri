@@ -299,6 +299,8 @@ const ARTIFACTS: &[(&str, &str)] = &[
     ("macshell-storage", "storage-rust"),
     ("macshell-drop-tools", "drop-tools-rust"),
     ("macshell-file-search", "file-search-rust"),
+    ("macshell-store", "store-rust"),
+    ("macshell-cursor-pointer", "cursor-pointer-rust"),
 ];
 
 fn artifact<'a>(artifacts: &'a Value, name: &str) -> io::Result<&'a Path> {

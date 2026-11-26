@@ -31,8 +31,8 @@ ControlMenu {
     contentItem: Column {
         spacing: 12
         Text {
-            width: parent.width
-            text: root.rows.length ? Language.I18n.text("ui.t_999aca254a1d") : Language.I18n.text("ui.t_3422f0e226ed")
+            width: parent.width; visible: root.rows.length === 0
+            text: Language.I18n.text("ui.t_3422f0e226ed")
             color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap
         }
         ControlButton { visible: root.rows.length === 0; text: Language.I18n.text("ui.t_43c87df5ae94"); primary: true; onClicked: root.addRequested() }
@@ -132,7 +132,6 @@ ControlMenu {
                 ControlButton { objectName: "widgetInstanceDuplicate"; text: Language.I18n.text("ui.t_02cdaabfca80"); visible: !!root.definition; enabled: root.editable && !!root.selected && root.selected.canPlace; onClicked: root.apply(root.controller.duplicateWidget(root.selected.id), "No room for another card on this display. Try a smaller size or move the card first.") }
                 ControlButton { objectName: "widgetInstanceRemove"; text: Language.I18n.text("ui.t_c3812fc4acb8"); enabled: root.editable; onClicked: root.apply(root.controller.removeWidget(root.selected.id), "Could not remove this card.") }
             }
-            Text { width: parent.width; visible: !!root.definition; text: root.definition ? Language.I18n.legacy(root.definition.shared) : ""; color: root.secondary; font.family: root.font.family; font.pixelSize: 12; wrapMode: Text.Wrap }
         }
         Row {
             spacing: 8; visible: !!root.controller && root.controller.undoStack && root.controller.undoStack.length > 0

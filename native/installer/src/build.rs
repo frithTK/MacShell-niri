@@ -133,6 +133,8 @@ static COMPONENTS: &[Component] = &[
     component!("storage", "storage"),
     component!("drop-tools", "drop-tools"),
     component!("file-search", "file-search"),
+    component!("store", "store"),
+    component!("cursor-pointer", "cursor-pointer"),
 ];
 
 fn check(binary: &Path, argument: &str, expected: &str) -> io::Result<()> {

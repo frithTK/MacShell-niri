@@ -5,7 +5,7 @@
 //! NetworkManager owner generation changes during the read, even if the same
 //! unique owner later reacquires the name.
 use macshell_gio_bridge::{self as gio, c, Ptr, Variant};
-use macshell_network_core::{choose_profile, security, Profile};
+use macshell_network_core::{choose_profile, links, security, Profile};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::ptr;
@@ -16,6 +16,7 @@ pub mod activate;
 pub mod coordinator;
 pub mod identity;
 pub mod join;
+pub mod links_act;
 pub mod profile;
 pub mod radio;
 pub mod session;
@@ -49,6 +50,8 @@ struct Saved {
     interface: Option<String>,
     timestamp: u64,
     uuid: String,
+    id: String,
+    kind: String,
 }
 
 struct Reader {
@@ -163,6 +166,8 @@ impl Reader {
         let key = field_string(secure.as_ref(), "key-mgmt")?.unwrap_or_else(|| "open".into());
         let interface = field_string(connection.as_ref(), "interface-name")?;
         let uuid = field_string(connection.as_ref(), "uuid")?.unwrap_or_default();
+        let id = field_string(connection.as_ref(), "id")?.unwrap_or_default();
+        let kind = field_string(connection.as_ref(), "type")?.unwrap_or_default();
         let timestamp = match connection.as_ref().and_then(|v| v.lookup("timestamp")) {
             Some(v) => v.u64().ok_or(Error::Invalid)?,
             None => 0,
@@ -174,6 +179,8 @@ impl Reader {
             interface,
             timestamp,
             uuid,
+            id,
+            kind,
         })
     }
 }
@@ -252,6 +259,65 @@ unsafe fn field_paths(
     }
 }
 
+struct Seen {
+    kind: u32,
+    state: u32,
+    profile: String,
+    interface: String,
+    ip: String,
+    gateway: String,
+}
+
+unsafe fn active_profile(reader: &Reader, props: &Variant) -> Result<String, Error> {
+    let active = field_path(props, "ActiveConnection")?;
+    if active == "/" {
+        return Ok(String::new());
+    }
+    if !active.starts_with(&format!("{ROOT}/ActiveConnection/")) || active.len() > 1024 {
+        return Err(Error::Invalid);
+    }
+    let active_props = reader.get_all(&active, ACTIVE)?;
+    let profile = field_path(&active_props, "Connection")?;
+    if profile == "/" {
+        return Ok(String::new());
+    }
+    if !profile.starts_with(&format!("{ROOT}/Settings/")) || profile.len() > 1024 {
+        return Err(Error::Invalid);
+    }
+    Ok(profile)
+}
+
+unsafe fn ip4_of(reader: &Reader, path: &str) -> (String, String) {
+    if !path.starts_with(&format!("{ROOT}/IP4Config/")) || path.len() > 1024 {
+        return (String::new(), String::new());
+    }
+    let Ok(props) = reader.get_all(path, "org.freedesktop.NetworkManager.IP4Config") else {
+        return (String::new(), String::new());
+    };
+    let gateway = field_string(Some(&props), "Gateway")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let address = props
+        .lookup("AddressData")
+        .and_then(|list| list.child(0))
+        .and_then(|entry| entry.lookup("address"))
+        .and_then(|value| value.string())
+        .unwrap_or_default();
+    (address, gateway)
+}
+
+unsafe fn text_list(value: Option<&Variant>) -> String {
+    match value {
+        Some(item) if item.kind() == "s" => item.string().unwrap_or_default(),
+        Some(item) if item.kind() == "as" => (0..item.len())
+            .filter_map(|index| item.child(index).and_then(|child| child.string()))
+            .collect::<Vec<_>>()
+            .join(","),
+        _ => String::new(),
+    }
+}
+
 /// Read a complete snapshot. Errors never contain service-supplied strings.
 ///
 /// # Safety
@@ -298,38 +364,35 @@ pub unsafe fn read(bus: Ptr, owner: &str, timeout: Duration) -> Result<Value, Er
         .collect();
     let mut networks = BTreeMap::new();
     let mut ethernet = false;
+    let mut ap_capable = false;
+    let mut seen = Vec::new();
     let mut ap_count = 0usize;
     for device in devices {
         let props = reader.get_all(&device, DEVICE)?;
         let kind = field_u32(&props, "DeviceType")?;
-        if kind == 1 && field_u32(&props, "State")? == 100 {
+        let state = field_u32(&props, "State")?;
+        let interface = field_string(Some(&props), "Interface")?.unwrap_or_default();
+        let profile = active_profile(&reader, &props)?;
+        let (ip, gateway) = ip4_of(&reader, &field_path(&props, "Ip4Config")?);
+        if kind == 1 && state == 100 {
             ethernet = true;
         }
+        seen.push(Seen {
+            kind,
+            state,
+            profile: profile.clone(),
+            interface: interface.clone(),
+            ip,
+            gateway,
+        });
         if kind != 2 {
             continue;
         }
-        let interface = field_string(Some(&props), "Interface")?.unwrap_or_default();
         let wifi = reader.get_all(&device, WIFI)?;
-        let active = field_path(&props, "ActiveConnection")?;
-        let active_profile = if active == "/" {
-            String::new()
-        } else {
-            if !active.starts_with(&format!("{ROOT}/ActiveConnection/")) || active.len() > 1024 {
-                return Err(Error::Invalid);
-            }
-            let active_props = reader.get_all(&active, ACTIVE)?;
-            let profile = field_path(&active_props, "Connection")?;
-            if profile != "/"
-                && (!profile.starts_with(&format!("{ROOT}/Settings/")) || profile.len() > 1024)
-            {
-                return Err(Error::Invalid);
-            }
-            if profile == "/" {
-                String::new()
-            } else {
-                profile
-            }
-        };
+        if field_u32(&wifi, "WirelessCapabilities")? & 0x40 != 0 {
+            ap_capable = true;
+        }
+        let active_profile = profile;
         let active_ap = field_path(&wifi, "ActiveAccessPoint")?;
         let access_points = field_paths(&wifi, "AccessPoints", MAX_APS, "/AccessPoint/")?;
         ap_count = ap_count
@@ -385,9 +448,126 @@ pub unsafe fn read(bus: Ptr, owner: &str, timeout: Duration) -> Result<Value, Er
             .then_with(|| b["signal"].as_u64().cmp(&a["signal"].as_u64()))
             .then_with(|| a["id"].as_str().cmp(&b["id"].as_str()))
     });
+    let mut link_rows = Vec::new();
+    let mut vpn_rows = Vec::new();
+    for profile in &saved {
+        if !matches!(
+            links::classify(&profile.kind),
+            links::Class::Controllable | links::Class::External
+        ) {
+            continue;
+        }
+        let live = seen.iter().find(|item| item.profile == profile.path);
+        let active = live.is_some_and(|item| item.state == 100);
+        if links::can_toggle(&profile.kind) {
+            vpn_rows.push(links::VpnCandidate {
+                uuid: profile.uuid.clone(),
+                path: profile.path.clone(),
+                name: profile.id.clone(),
+                timestamp: profile.timestamp,
+                active,
+            });
+        }
+        link_rows.push(json!({
+            "name": profile.id,
+            "uuid": profile.uuid,
+            "path": profile.path,
+            "type": profile.kind,
+            "device": live.map(|item| item.interface.as_str()).unwrap_or(""),
+            "ip": live.map(|item| item.ip.as_str()).unwrap_or(""),
+            "active": active,
+            "timestamp": profile.timestamp,
+            "controllable": links::can_toggle(&profile.kind),
+            "removable": links::can_delete(&profile.kind),
+        }));
+    }
+    link_rows.sort_by(|a, b| {
+        links::cmp_vpn_list(
+            a["active"].as_bool().unwrap_or(false),
+            a["timestamp"].as_u64().unwrap_or(0),
+            a["name"].as_str().unwrap_or(""),
+            b["active"].as_bool().unwrap_or(false),
+            b["timestamp"].as_u64().unwrap_or(0),
+            b["name"].as_str().unwrap_or(""),
+        )
+    });
+    let vpn = match links::vpn_plan(&vpn_rows, true) {
+        Ok(links::VpnPlan::Up { path, uuid, .. }) => {
+            let name = vpn_rows
+                .iter()
+                .find(|row| row.uuid == uuid)
+                .map(|row| row.name.as_str())
+                .unwrap_or("");
+            json!({
+                "on": vpn_rows.iter().any(|row| row.active),
+                "available": true,
+                "uuid": uuid,
+                "path": path,
+                "name": name,
+            })
+        }
+        _ => json!({"on": false, "available": false, "uuid": "", "path": "", "name": ""}),
+    };
+    let hotspot_profile = saved
+        .iter()
+        .find(|profile| profile.id == links::HOTSPOT_ID && profile.kind == "802-11-wireless");
+    let hotspot_live = hotspot_profile.and_then(|profile| {
+        seen.iter()
+            .find(|item| item.kind == 2 && item.profile == profile.path && item.state == 100)
+    });
+    let hotspot = json!({
+        "available": ap_capable,
+        "active": hotspot_live.is_some(),
+        "ssid": hotspot_profile.map(|profile| String::from_utf8_lossy(&profile.ssid).into_owned()).unwrap_or_default(),
+        "address": hotspot_live.map(|item| item.ip.clone()).unwrap_or_default(),
+        "upstream": seen.iter().any(|item| {
+            links::shares_upstream(
+                item.state,
+                &item.gateway,
+                &item.profile,
+                hotspot_profile.map(|profile| profile.path.as_str()).unwrap_or(""),
+                &item.interface,
+            )
+        }),
+    });
+    let proxy = proxy_state(&reader, &root, &saved).unwrap_or(Value::Null);
     Ok(
         json!({"type":"state", "available":true, "enabled":field_bool(&root, "WirelessEnabled")?,
         "hardwareEnabled":field_bool(&root, "WirelessHardwareEnabled")?, "ethernet":ethernet,
-        "connectivity":field_u32(&root, "Connectivity")?, "networks":networks}),
+        "connectivity":field_u32(&root, "Connectivity")?, "networks":networks,
+        "links":link_rows, "proxy":proxy, "hotspot":hotspot, "vpn":vpn}),
     )
+}
+
+unsafe fn proxy_state(reader: &Reader, root: &Variant, saved: &[Saved]) -> Result<Value, Error> {
+    let primary = field_path(root, "PrimaryConnection")?;
+    if primary == "/" || !primary.starts_with(&format!("{ROOT}/ActiveConnection/")) {
+        return Ok(Value::Null);
+    }
+    let active = reader.get_all(&primary, ACTIVE)?;
+    let profile = field_path(&active, "Connection")?;
+    let Some(found) = saved.iter().find(|item| item.path == profile) else {
+        return Ok(Value::Null);
+    };
+    let reply = reader.call(
+        &reader.owner,
+        &profile,
+        CONNECTION,
+        "GetSettings",
+        ptr::null_mut(),
+    )?;
+    let settings = reply.child(0).ok_or(Error::Invalid)?;
+    let proxy = settings.lookup("proxy");
+    let method = field_string(proxy.as_ref(), "method")?.unwrap_or_else(|| "none".into());
+    Ok(json!({
+        "name": found.id,
+        "uuid": found.uuid,
+        "path": found.path,
+        "method": method,
+        "pac": field_string(proxy.as_ref(), "pac-url")?.unwrap_or_default(),
+        "http": field_string(proxy.as_ref(), "http")?.unwrap_or_default(),
+        "https": field_string(proxy.as_ref(), "https")?.unwrap_or_default(),
+        "socks": field_string(proxy.as_ref(), "socks")?.unwrap_or_default(),
+        "bypass": text_list(proxy.as_ref().and_then(|item| item.lookup("no-proxy")).as_ref()),
+    }))
 }

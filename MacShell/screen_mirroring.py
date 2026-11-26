@@ -184,7 +184,7 @@ class ScreenMirroring(LineService):
         config = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'macshell-niri/airplay'
         config.mkdir(parents=True, exist_ok=True, mode=0o700)
         command = [executable, '-n', name, '-nh', '-pin', '-key', str(config / 'receiver.pem'),
-                   '-p', str(RECEIVER_PORT), '-d', '1', '-vs', 'waylandsink', '-as', 'pipewiresink']
+                   '-p', str(RECEIVER_PORT), '-fps', str(self.fps), '-d', '1', '-vs', 'waylandsink', '-as', 'pipewiresink']
         if shutil.which('stdbuf'):
             command = [shutil.which('stdbuf'), '-oL', '-eL'] + command
         self.receiver = self.spawn(command, 'receiver', env)

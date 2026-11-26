@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.7
 
 - Sharing the Wi-Fi network the computer is already using reaches NetworkManager. The radio check was given a longer timeout than it accepts, so the failure was reported as a rejected change before the access point existed.
 - Spinning the pointer quickly in a circle grows it for a moment, so it can be found on a large screen. The enlarged pointer is the current cursor theme and does not take clicks.
